@@ -60,7 +60,7 @@ const CK = {
   AMP_DB_RANGE: 34,         // event level spread below the maximum
   AMP_SKEW: 0.55,           // u^skew -> weighted toward quiet
   AMP_R_EXP: 0.45,          // larger bubbles louder: (r / 1 mm)^exp
-  AMP_R_MAX: 2.2,
+  AMP_R_MAX: 1.8,
   BUBBLE_GAIN: 0.45,
   DENSITY_REF: 60,          // headroom: gain / sqrt(1 + rate / ref)
 

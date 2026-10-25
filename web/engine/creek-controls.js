@@ -11,7 +11,8 @@
 //   Notes:       P03..P09 play the scale (tap = tuned drop, hold = the creek's
 //                bubbles gather onto the held notes), P00 / P02 octave,
 //                P11 + P00 / P02 / P03..P09 = scale, P10 + note pad = root
-//   Diagnostics: P03..P07 toggle flow / bubbles / eddies / falls / surface, P08 = all on
+//   Diagnostics: P03..P07 toggle flow / bubbles / eddies / falls / surface, P08 = all on,
+//                P09 = stress test (worst-case settings, rapid jumps, note bursts)
 
 const CREEK_PRESETS = [
   { key: 'trickle', name: 'Quiet trickle', flow: 0.20, roughness: 0.25, scale: 0.20, aeration: 0.30 },
@@ -27,10 +28,11 @@ const CC = {
   PAD_NOTE0: 3,             // P03..P09
   PAD_LAYER0: 3,            // P03..P07 in diagnostics
   PAD_ALL: 8,               // P08 in diagnostics
+  PAD_STRESS: 9,            // P09 in diagnostics
   PRESET_GLIDE_SEC: 0.25,
   BASE_MIDI: 72,            // P03 with root C, octave 0 = C5 (523 Hz, a 5.7 mm bubble)
   MAX_HELD: 4,
-  EV_NONE: 0, EV_PRESET: 1, EV_LAYER: 2, EV_ALL: 3, EV_MODE: 4, EV_SCALE: 5, EV_OCT: 6, EV_ROOT: 7, EV_NOTE: 8,
+  EV_NONE: 0, EV_PRESET: 1, EV_LAYER: 2, EV_ALL: 3, EV_MODE: 4, EV_SCALE: 5, EV_OCT: 6, EV_ROOT: 7, EV_NOTE: 8, EV_STRESS: 9,
   // same scales as TouchPulsar (semitones above the root for P03..P09)
   SCALES: [
     ['Chromatic', [0, 1, 2, 3, 4, 5, 6]],
@@ -74,6 +76,8 @@ class CreekControls {
     this.drops = [];             // {hz, vel} for the host to send as engine drop events
     this.events = [];            // {type, arg} for the UI (LED blinks, display)
     this.lastT = 0;
+    this.stress = false;         // diagnostics P09: worst-case stress test
+    this.stressV = new Float32Array(4); this.stressNext = 0; this.stressDrop = 0; this.rs = 0x12345678;
   }
   // a physical control moved (after pickup): cancels a running glide for that macro
   setKnob(k, v) {
@@ -90,6 +94,7 @@ class CreekControls {
   setMode(m) {
     if (m === this.mode) return;
     this.mode = m; this.diag = m === CC.MODE_DIAG;
+    if (m !== CC.MODE_DIAG && this.stress) { this.stress = false; this.events.push({ type: CC.EV_STRESS, arg: 0 }); }
     if (m !== CC.MODE_NOTES) this.held.length = 0;
     this.events.push({ type: CC.EV_MODE, arg: m });
   }
@@ -112,6 +117,7 @@ class CreekControls {
       const l = pad - CC.PAD_LAYER0;
       if (l >= 0 && l < CK_LAYERS) { this.diagMask ^= 1 << l; this.events.push({ type: CC.EV_LAYER, arg: (this.diagMask >> l) & 1 }); }
       else if (pad === CC.PAD_ALL) { this.diagMask = 0x1F; this.events.push({ type: CC.EV_ALL, arg: 0 }); }
+      else if (pad === CC.PAD_STRESS) { this.stress = !this.stress; this.stressNext = 0; this.events.push({ type: CC.EV_STRESS, arg: this.stress ? 1 : 0 }); }
     } else {
       const note = pad >= CC.PAD_NOTE0 && pad <= CC.PAD_NOTE0 + 6;
       if (this.touched[CC.P_SCALE] && pad !== CC.P_SCALE) {          // P11 + pad: scale
@@ -146,6 +152,21 @@ class CreekControls {
       for (let k = 0; k < 4; k++) this.value[k] = this.glideFrom[k] + (this.glideTo[k] - this.glideFrom[k]) * s;
       if (x >= 1) this.glideT = -1;
     }
+    if (this.stress) this.stressTick(t);
+  }
+  rnd() { let x = this.rs; x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; this.rs = x; return x / 4294967296; }
+  // Worst case for the engine: mostly maximal settings with sudden jumps every
+  // 50-400 ms (incl. Flow 0 <-> 1), plus bursts of loud drops at ~20 per second.
+  stressTick(t) {
+    if (t >= this.stressNext) {
+      for (let k = 0; k < 4; k++) { const u = this.rnd(); this.stressV[k] = u < 0.65 ? 1 : (u < 0.8 ? 0 : this.rnd()); }
+      this.stressV[CC.M_FLOW] = this.rnd() < 0.85 ? 1 : 0;
+      this.stressNext = t + 0.05 + 0.35 * this.rnd();
+    }
+    while (t >= this.stressDrop) {
+      this.drops.push({ hz: 150 * Math.pow(2, 6 * this.rnd()), vel: 1 });
+      this.stressDrop = Math.max(this.stressDrop, t - 0.1) + 0.05;
+    }
   }
   gliding() { return this.glideT >= 0; }
   scaleName() { return CC.NOTE_NAMES[this.root] + ' ' + CC.SCALES[this.scale][0]; }
@@ -154,6 +175,7 @@ class CreekControls {
     m.scale = this.value[CC.M_SCALE]; m.aeration = this.value[CC.M_AER];
     m.gain = ccLevel(this.value[CC.M_LEVEL]); m.width = ccWidth(this.value[CC.M_WIDTH]);
     m.mask = this.mode === CC.MODE_DIAG ? this.diagMask : 0x1F;
+    if (this.stress) { m.flow = this.stressV[0]; m.roughness = this.stressV[1]; m.scale = this.stressV[2]; m.aeration = this.stressV[3]; m.mask = 0x1F; }
     m.hold = this.hold;
     if (!m.tuneHz) m.tuneHz = [0, 0, 0, 0];
     for (let k = 0; k < 4; k++) m.tuneHz[k] = k < this.held.length ? ccHz(this.padMidi(this.held[k])) : 0;

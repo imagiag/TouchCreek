@@ -56,13 +56,14 @@ Presets glide over 250 ms. After a preset, the four sound knobs (Flow, Roughness
 - **P06** - Small waterfalls on/off (the plops; their bubbly settling belongs to the bubbles)
 - **P07** - Surface detail on/off
 - **P08** - All layers on
+- **P09** - **Stress test** on/off: worst-case settings with sudden jumps and loud note bursts (LED blinks fast). For measuring the CPU load with the monitor (below). Leaving Diagnostics stops it.
 
 Muting is smooth (20 ms) and doesn't change what the other layers do. In Presets and Notes all layers always play; the diagnostic mutes are remembered for next time.
 
 ### LED
 - Switching mode: 1 blink = Presets, 2 = Notes, 3 = Diagnostics
 - 1–4 blinks: preset number; 1–7 quick blinks: scale number; octave changes blink the octave; 1 long blink: root set
-- 2 blinks: layer on; 1 blink: layer muted; 3 quick blinks: all layers on
+- 2 blinks: layer on; 1 blink: layer muted; 3 quick blinks: all layers on; fast blinking: stress test running
 - Otherwise it flickers with notes and the louder bubbles (in Diagnostics it stays lit and dips)
 
 ## Presets
@@ -87,8 +88,10 @@ Everything is made of short decaying tones; there is no noise in the sound for n
 
 ## Browser emulator and offline renders
 - **Emulator**: `python3 web/serve.py 8766`, then open http://localhost:8766. Same engine (JS twin of the firmware engine), same panel, same pickup and LED. "Render 30 s WAV" saves what you're hearing.
+- **Monitor**: open http://localhost:8766/monitor.html (Chrome or Edge) with the Touch 2 plugged in by USB and click Connect. The firmware reports CPU load (average and worst 1 ms block), voices, bubbles per second, stack use, dropped events and limiter activity once a second. Use Diagnostics + P09 for the worst case.
+- **Manual (HTML)**: [manual.html](manual.html). **Validation report**: [../REPORT.md](../REPORT.md).
 - **Reference renders**: `make -C daisy/test renders` renders every scenario in `scenarios/` to `renders/` with the C++ engine (24-bit WAV plus a .json with seed, settings, automation, version and stats). Identical every time.
-- **Tests**: `make -C daisy/test` runs the acceptance checks and compares the C++ engine with the JS one.
+- **Tests**: `make -C daisy/test` runs the acceptance checks and compares the C++ engine with the JS one; `make -C daisy/test soak` runs the 30-minute stability test.
 
 ## Building the firmware
 Needs the ARM GNU toolchain (13.3) on the PATH.
@@ -97,4 +100,4 @@ git submodule update --init --recursive
 make -C daisy/lib/libDaisy
 make -C daisy
 ```
-`DEBUG=1 make -C daisy` prints CPU load and voice statistics once a second over USB serial.
+The firmware always reports CPU load and voice statistics once a second over USB serial (115200 baud, lines starting with `CREEK`); see the monitor above.

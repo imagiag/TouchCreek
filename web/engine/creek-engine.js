@@ -708,7 +708,7 @@ class CreekEngine {
     this.flow.init(this.sr, this.rng[CR_S_DRIFT]);
     this.queue.reset(); this.pool.reset();
     this.sched.init(this.sr, this.rng[CR_S_BTIME]); this.sched.tuneAmt = 0;
-    this.bed.init(this.sr, this.rng[CR_S_BED_DRIFT]);
+    if (CK.BED_ON) this.bed.init(this.sr, this.rng[CR_S_BED_DRIFT]);
     this.eddies.init(this.rng[CR_S_EDDY]);
     this.falls.init(this.sr, this.rng[CR_S_FALLS]);
     this.surface.init(this.sr, this.rng[CR_S_SURFACE]);
@@ -769,7 +769,7 @@ class CreekEngine {
     this.surface.update(this.flow, this.rng[CR_S_SURFACE], this.flow.dt, ed);
     const tt = this.macros.tune && this.sched.nTune > 0 ? 1 : 0;
     this.sched.tuneAmt += (tt > this.sched.tuneAmt ? this.kTuneA : this.kTuneR) * (tt - this.sched.tuneAmt);
-    this.bed.update(this.flow, this.rng[CR_S_BED_DRIFT], this.flow.dt, next);
+    if (CK.BED_ON) this.bed.update(this.flow, this.rng[CR_S_BED_DRIFT], this.flow.dt, next);
   }
   process(L, R, n) {
     let pos = 0;

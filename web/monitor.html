@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creek Monitor</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .mon { max-width: 980px; margin: 0 auto; padding: 20px 16px; display: grid; gap: 16px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .tile .k { color: var(--muted); font-size: 12px; }
+  .tile .v { font: 600 26px/1.2 ui-monospace, Menlo, monospace; margin-top: 4px; }
+  .tile .s { color: var(--muted); font-size: 11px; }
+  .pass { color: var(--water); } .fail { color: var(--red); } .warn { color: var(--gold); }
+  #log { font: 11px/1.45 ui-monospace, Menlo, monospace; color: var(--muted); background: var(--oled); border: 1px solid var(--line);
+    border-radius: 12px; padding: 12px; height: 260px; overflow: auto; white-space: pre; }
+  #cpu { height: 120px; }
+  ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 13px; } ol li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><h1>Creek monitor</h1><span class="sub">live numbers from the Touch 2 over USB (Chrome or Edge)</span></div>
+  <div class="actions">
+    <button id="reset" title="Forget the worst values seen so far (on this page)">Reset worst</button>
+    <button id="copy">Copy log</button>
+    <button id="connect" class="primary">Connect</button>
+  </div>
+</header>
+<main class="mon">
+  <div class="card">
+    <ol>
+      <li>Flash the newest Creek firmware and plug the Touch 2 into this computer by USB.</li>
+      <li>Click <b>Connect</b> and pick <b>Creek</b> (or "Daisy Seed") in the list.</li>
+      <li>Play normally to see everyday load. For the worst case: left switch <b>down</b> (Diagnostics), tap <b>P09</b> (LED blinks fast, the creek goes wild) and let it run. Tap P09 again or leave Diagnostics to stop.</li>
+      <li>The brief asks for the <b>worst</b> audio callback below <b>70 %</b> of its 1 ms deadline.</li>
+    </ol>
+  </div>
+  <div class="tiles">
+    <div class="tile"><div class="k">CPU now (avg)</div><div class="v" id="tAvg">—</div><div class="s">average load of the 1 ms audio block</div></div>
+    <div class="tile"><div class="k">CPU worst block</div><div class="v" id="tWorst">—</div><div class="s" id="tVerdict">limit 70 %</div></div>
+    <div class="tile"><div class="k">Voices</div><div class="v" id="tVoices">—</div><div class="s">now / peak (budget 24)</div></div>
+    <div class="tile"><div class="k">Bubbles / s</div><div class="v" id="tBub">—</div><div class="s" id="tSteal">steals —</div></div>
+    <div class="tile"><div class="k">Stack used</div><div class="v" id="tStack">—</div><div class="s">of 128 KB</div></div>
+    <div class="tile"><div class="k">Dropped events</div><div class="v" id="tDrops">—</div><div class="s">queue / voices, since connect</div></div>
+    <div class="tile"><div class="k">Limiter</div><div class="v" id="tLim">—</div><div class="s">% of time reducing gain</div></div>
+    <div class="tile"><div class="k">Stress test</div><div class="v" id="tStress">—</div><div class="s" id="tStressT"></div></div>
+  </div>
+  <canvas id="cpu"></canvas>
+  <div id="log">Not connected.</div>
+</main>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const lines = [], hist = [];
+let worst = 0, drops = 0, vdrops = 0, stressSec = 0, stressWorst = 0;
+
+function parse(line) {
+  if (!line.startsWith('CREEK ')) return null;
+  const num = (re) => { const m = line.match(re); return m ? Number(m[1]) : NaN; };
+  return {
+    avg: num(/cpu (-?[\d.]+)/), max: num(/ max (-?[\d.]+)/), worst: num(/worst (-?[\d.]+)/),
+    voices: num(/voices (\d+)/), peak: num(/peak (\d+)/), bubbles: num(/bubbles (\d+)/), steals: num(/steals (\d+)/),
+    drops: num(/ drops (\d+)/), qdrop: num(/qdrop (\d+)/), lim: num(/lim (\d+)/), stack: num(/stack (\d+)/), stress: num(/stress (\d)/),
+  };
+}
+function show(s) {
+  worst = Math.max(worst, s.max);
+  hist.push(s.max); if (hist.length > 300) hist.shift();
+  vdrops += s.drops;
+  if (s.stress) { stressSec++; stressWorst = Math.max(stressWorst, s.max); }
+  $('tAvg').textContent = s.avg.toFixed(1) + ' %';
+  $('tWorst').textContent = worst.toFixed(1) + ' %';
+  $('tWorst').className = 'v ' + (worst < 60 ? 'pass' : worst < 70 ? 'warn' : 'fail');
+  $('tVerdict').textContent = worst < 70 ? 'below the 70 % limit: pass' : 'above the 70 % limit';
+  $('tVoices').textContent = `${s.voices} / ${s.peak}`;
+  $('tBub').textContent = s.bubbles;
+  $('tSteal').textContent = `steals ${s.steals}/s`;
+  $('tStack').textContent = (s.stack / 1024).toFixed(1) + ' KB';
+  $('tDrops').textContent = `${s.qdrop} / ${vdrops}`;
+  $('tLim').textContent = (s.lim / 480).toFixed(1) + ' %';
+  $('tStress').textContent = s.stress ? 'running' : 'off';
+  $('tStress').className = 'v ' + (s.stress ? 'warn' : '');
+  $('tStressT').textContent = stressSec ? `${stressSec} s run, worst ${stressWorst.toFixed(1)} %` : 'Diagnostics + P09';
+  draw();
+}
+function draw() {
+  const c = $('cpu'), g = c.getContext('2d'), W = (c.width = c.clientWidth * devicePixelRatio), H = (c.height = 120 * devicePixelRatio);
+  g.fillStyle = '#070a0b'; g.fillRect(0, 0, W, H);
+  const y = (p) => H - (p / 100) * H;
+  g.strokeStyle = '#6b4f2a'; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(0, y(70)); g.lineTo(W, y(70)); g.stroke(); g.setLineDash([]);
+  g.fillStyle = '#869490'; g.font = `${10 * devicePixelRatio}px system-ui`; g.fillText('70 %', 4, y(70) - 4);
+  g.strokeStyle = '#5fc3b4'; g.lineWidth = 2 * devicePixelRatio; g.beginPath();
+  hist.forEach((v, i) => { const x = W - (hist.length - 1 - i) * (W / 300); i ? g.lineTo(x, y(v)) : g.moveTo(x, y(v)); });
+  g.stroke();
+}
+async function connect() {
+  if (!('serial' in navigator)) { $('log').textContent = 'This browser has no Web Serial. Use Chrome or Edge.'; return; }
+  const port = await navigator.serial.requestPort();
+  await port.open({ baudRate: 115200 });
+  $('connect').textContent = 'Connected'; $('connect').disabled = true; $('log').textContent = '';
+  const reader = port.readable.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = '';
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += value;
+    let i;
+    while ((i = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!line) continue;
+      lines.push(line); if (lines.length > 2000) lines.shift();
+      const log = $('log'); log.textContent += line + '\n';
+      if (log.textContent.length > 60000) log.textContent = log.textContent.slice(-40000);
+      log.scrollTop = log.scrollHeight;
+      const s = parse(line); if (s && isFinite(s.avg)) show(s);
+    }
+  }
+}
+$('connect').onclick = () => connect().catch((e) => { $('log').textContent = 'Could not connect: ' + e.message; });
+$('reset').onclick = () => { worst = 0; vdrops = 0; stressSec = 0; stressWorst = 0; hist.length = 0; draw(); };
+$('copy').onclick = () => navigator.clipboard.writeText(lines.join('\n'));
+draw();
+</script>
+</body>
+</html>

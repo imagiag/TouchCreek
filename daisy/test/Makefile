@@ -1,6 +1,7 @@
 # Host tools for the portable engine (Mac/Linux compiler, no Daisy needed).
 #   make            build + run host_test, then compare C++ vs JS (compare.js)
 #   make renders    render every scenario in ../../scenarios to ../../renders/
+#   make soak       30-minute stability run (MINUTES=n to change)
 CXX ?= c++
 VERSION := $(shell git describe --always --dirty 2>/dev/null || echo dev)
 CXXFLAGS = -std=c++17 -O2 -Wall -Wextra -Wno-unused-parameter -DCREEK_VERSION=\"$(VERSION)\"
@@ -20,11 +21,15 @@ run: host_test creek_render
 	./host_test
 	node compare.js
 
+soak: soak.cpp $(ENGINE) $(HEADERS)
+	$(CXX) $(CXXFLAGS) soak.cpp $(ENGINE) -o soak
+	./soak $(or $(MINUTES),30)
+
 renders: creek_render
 	mkdir -p ../../renders
 	for f in ../../scenarios/*.txt; do ./creek_render $$f -o ../../renders/$$(basename $$f .txt).wav || exit 1; done
 
 clean:
-	rm -rf host_test creek_render out
+	rm -rf host_test creek_render soak out
 
-.PHONY: all run renders clean
+.PHONY: all run renders clean soak

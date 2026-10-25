@@ -72,6 +72,20 @@ static void controlsTests() {
     CHECK(n.root == 7, "P10 + P07 (G) sets root G (%d)", n.root);
     n.PadDown(3, .7f); n.PopDrop(d); n.PadUp(3); CHECK(fabsf(d.hz - MidiToHz(84 + 7)) < 0.01f, "G major, octave +1: P03 = G6");
     n.SetMode(MODE_PRESETS); n.Compute(m); CHECK(!m.tune, "leaving notes clears tuning");
+
+    // stress test (diagnostics P09)
+    Controls st; st.SetMode(MODE_DIAG); st.Tick(10.0);
+    st.PadDown(kPadStress, .7f); st.PadUp(kPadStress);
+    CHECK(st.stress, "P09 starts the stress test");
+    int nd = 0, changes = 0; float lastFlow = -1;
+    for (int i = 0; i < 500; i++) {                 // 2 s of 4 ms UI ticks
+        st.Tick(10.0 + i * 0.004); Drop dd; while (st.PopDrop(dd)) nd++;
+        Macros sm; st.Compute(sm); if (sm.flow != lastFlow) changes++; lastFlow = sm.flow;
+        if (sm.mask != 0x1Fu) { CHECK(false, "stress plays all layers"); break; }
+    }
+    CHECK(nd >= 30 && nd <= 50, "stress: ~20 drops per second (%d in 2 s)", nd);
+    CHECK(changes >= 2, "stress: settings jump (%d flow changes)", changes);
+    st.SetMode(MODE_PRESETS); CHECK(!st.stress, "leaving diagnostics stops the stress test");
 }
 
 static double rmsOf(const std::vector<float>& v, size_t a, size_t b) { double s = 0; for (size_t i = a; i < b; i++) s += v[i] * v[i]; return sqrt(s / std::max<size_t>(1, b - a)); }

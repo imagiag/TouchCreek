@@ -7,6 +7,11 @@
 #include "creek/creek_engine.h"
 #include "ui/creek_ui.h"
 
+// USB device names (Synthux's libDaisy fork expects these); the USB port shows up as "Creek"
+const char* USBD_MANUFACTURER_STRING = "Synthux";
+const char* USBD_PRODUCT_STRING_HS = "Creek";
+const char* USBD_PRODUCT_STRING_FS = "Creek";
+
 using namespace daisy;
 using namespace synthux;
 
@@ -17,29 +22,40 @@ Touch touch;
 creek::CreekEngine engine;
 CreekUI ui(touch, engine);
 
-#if DEBUG
 CpuLoadMeter cpu;
-#endif
 
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size) {
-#if DEBUG
     cpu.OnBlockStart();
-#endif
     ui.AudioBlock(out[0], out[1], size);
-#if DEBUG
     cpu.OnBlockEnd();
-#endif
+}
+
+// Stack margin: the stack has the 128 KB DTCM to itself (nothing else is placed
+// there). Fill the unused part with a pattern at boot; the untouched words
+// left later show how deep the stack has ever reached.
+static constexpr uint32_t kStackPattern = 0xC0FFEE11u;
+static uint32_t* const kDtcmBase = (uint32_t*)0x20000000;
+static uint32_t* const kDtcmTop = (uint32_t*)0x20020000;
+static void PaintStack() {
+    uint32_t* sp;
+    asm volatile("mov %0, sp" : "=r"(sp));
+    for (uint32_t* p = kDtcmBase; p < sp - 64; p++) *p = kStackPattern;
+}
+static uint32_t StackUsedBytes() {
+    uint32_t* p = kDtcmBase;
+    while (p < kDtcmTop && *p == kStackPattern) p++;
+    return (uint32_t)((uint8_t*)kDtcmTop - (uint8_t*)p);
 }
 
 int main(void) {
+    PaintStack();
     hw.Init(true);                     // boost to 480 MHz
     hw.SetAudioBlockSize(48);          // 1 ms blocks
     hw.SetAudioSampleRate(SaiHandle::Config::SampleRate::SAI_48KHZ);
 
-#if DEBUG
+    // USB serial stats, once a second (see web/monitor.html). Does not wait for a computer.
     hw.StartLog(false);
     cpu.Init(hw.AudioSampleRate(), hw.AudioBlockSize());
-#endif
 
     touch.Init(hw);
     for (int i = 0; i < 40; i++) { touch.Process(); System::Delay(3); } // let MPR121 baselines settle
@@ -49,22 +65,29 @@ int main(void) {
     ui.Process(hw);                    // read the panel once before sound starts
     hw.StartAudio(AudioCallback);
 
-    uint32_t lastUi = System::GetNow();
-#if DEBUG
-    uint32_t lastLog = lastUi;
-#endif
+    uint32_t lastUi = System::GetNow(), lastLog = lastUi;
+    float worst = 0;
+    creek::Stats prev; engine.GetStats(prev);
     while (1) {
         const uint32_t ms = System::GetNow();
         if (ms - lastUi >= 4) { lastUi = ms; ui.Process(hw); }
-#if DEBUG
         if (ms - lastLog >= 1000) {
             lastLog = ms;
+            const float mx = cpu.GetMaxCpuLoad();
+            if (mx > worst) worst = mx;
             creek::Stats s; engine.GetStats(s);
-            hw.PrintLine("cpu avg " FLT_FMT3 "%% max " FLT_FMT3 "%% | voices %d max %d | births %lu steals %lu drops %lu | lim %lu",
-                         FLT_VAR3(cpu.GetAvgCpuLoad() * 100.f), FLT_VAR3(cpu.GetMaxCpuLoad() * 100.f),
-                         s.active, s.maxActive, (unsigned long)s.births, (unsigned long)s.steals,
-                         (unsigned long)s.drops, (unsigned long)s.limited);
+            // one line per second: easy to read in a serial monitor and to parse
+            // CPU in tenths of a percent, printed as integers (no float printf)
+            const int avg10 = (int)(cpu.GetAvgCpuLoad() * 1000.f), max10 = (int)(mx * 1000.f), worst10 = (int)(worst * 1000.f);
+            hw.PrintLine("CREEK cpu %d.%d max %d.%d worst %d.%d | voices %d peak %d | bubbles %lu steals %lu drops %lu | splashes %lu ticks %lu | qdrop %lu | lim %lu | stack %lu | stress %d",
+                         avg10 / 10, avg10 % 10, max10 / 10, max10 % 10, worst10 / 10, worst10 % 10,
+                         s.active, s.maxActive,
+                         (unsigned long)(s.births - prev.births), (unsigned long)(s.steals - prev.steals), (unsigned long)(s.drops - prev.drops),
+                         (unsigned long)(s.splashes - prev.splashes), (unsigned long)(s.surface - prev.surface),
+                         (unsigned long)(s.queueDrops + ui.QueueDrops()), (unsigned long)(s.limited - prev.limited),
+                         (unsigned long)StackUsedBytes(), ui.Stress() ? 1 : 0);
+            prev = s;
+            cpu.Reset();
         }
-#endif
     }
 }

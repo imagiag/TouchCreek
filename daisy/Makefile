@@ -1,8 +1,8 @@
 # Creek firmware for the Synthux Touch 2 (Daisy Seed)
 TARGET = CreekTouch
 
-# DEBUG = 1 prints CPU load and voice stats over USB serial
-# DEBUG = 1
+# CPU load, voice and stack stats are printed over USB serial once a second
+# (web/monitor.html shows them).
 
 CPP_SOURCES = CreekTouch.cpp $(wildcard creek/*.cpp) $(wildcard ui/*.cpp) $(wildcard touch/*.cpp)
 C_INCLUDES = -Icommon/ -Itouch/

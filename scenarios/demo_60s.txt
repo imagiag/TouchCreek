@@ -1,0 +1,32 @@
+# 60-second stereo demonstration: trickle -> rocky -> cascade -> deeper run, then a short notes passage.
+seconds 60
+seed 7
+at 0 preset trickle
+ramp 10 10.25 flow 0.20 0.50
+ramp 10 10.25 roughness 0.25 0.60
+ramp 10 10.25 scale 0.20 0.45
+ramp 10 10.25 aeration 0.30 0.55
+ramp 22 22.25 flow 0.50 0.75
+ramp 22 22.25 roughness 0.60 0.80
+ramp 22 22.25 scale 0.45 0.50
+ramp 22 22.25 aeration 0.55 0.85
+ramp 34 34.25 flow 0.75 0.65
+ramp 34 34.25 roughness 0.80 0.35
+ramp 34 34.25 scale 0.50 0.80
+ramp 34 34.25 aeration 0.85 0.40
+ramp 44 46 flow 0.65 0.30
+ramp 44 46 roughness 0.35 0.35
+ramp 44 46 scale 0.80 0.40
+ramp 44 46 aeration 0.40 0.45
+at 47 drop hz 523.25 amp 0.7
+at 47.6 drop hz 659.26 amp 0.6
+at 48.2 drop hz 783.99 amp 0.8
+at 48.8 drop hz 1046.5 amp 0.5
+at 50 tune 523.25 783.99
+at 50 drop hz 523.25 amp 0.8
+at 54 tune
+at 55 drop hz 880 amp 0.6
+at 55.4 drop hz 783.99 amp 0.6
+at 55.8 drop hz 659.26 amp 0.7
+at 56.4 drop hz 523.25 amp 0.9
+ramp 57 60 flow 0.30 0.0

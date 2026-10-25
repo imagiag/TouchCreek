@@ -5,6 +5,7 @@
 daisy/build/
 daisy/test/host_test
 daisy/test/creek_render
+daisy/test/soak
 daisy/test/out/
 web/test/out/
 

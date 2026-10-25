@@ -10,7 +10,8 @@
 //   Notes:       P03..P09 play the scale (tap = tuned drop, hold = the creek's
 //                bubbles gather onto the held notes), P00 / P02 octave,
 //                P11 + P00 / P02 / P03..P09 = scale, P10 + note pad = root
-//   Diagnostics: P03..P07 toggle flow / bubbles / eddies / falls / surface, P08 = all on
+//   Diagnostics: P03..P07 toggle flow / bubbles / eddies / falls / surface, P08 = all on,
+//                P09 = stress test (worst-case settings, rapid jumps, note bursts)
 #pragma once
 #include <stdint.h>
 #include "creek_engine.h"
@@ -27,10 +28,10 @@ extern const Scale kScales[kNumScales];
 
 enum MacroIndex { M_FLOW = 0, M_ROUGH, M_SCALE, M_AER, M_LEVEL, M_WIDTH, M_COUNT };
 enum Mode { MODE_PRESETS = 0, MODE_NOTES, MODE_DIAG };
-enum ControlEvent : uint8_t { CE_NONE = 0, CE_PRESET, CE_LAYER, CE_ALL, CE_MODE, CE_SCALE, CE_OCT, CE_ROOT, CE_NOTE };
+enum ControlEvent : uint8_t { CE_NONE = 0, CE_PRESET, CE_LAYER, CE_ALL, CE_MODE, CE_SCALE, CE_OCT, CE_ROOT, CE_NOTE, CE_STRESS };
 
 constexpr int kPadOctDn = 0, kPadOctUp = 2, kPadRoot = 10, kPadScale = 11;
-constexpr int kPadPreset0 = 3, kPadNote0 = 3, kPadLayer0 = 3, kPadAll = 8;
+constexpr int kPadPreset0 = 3, kPadNote0 = 3, kPadLayer0 = 3, kPadAll = 8, kPadStress = 9;
 constexpr int kBaseMidi = 72;        // P03, root C, octave 0 = C5
 constexpr int kMaxHeld = 4;
 constexpr float kPresetGlideSec = 0.25f;
@@ -65,6 +66,7 @@ public:
     int scale = 4, root = 0, oct = 0;
     int held[kMaxHeld];
     int nHeld = 0;
+    bool stress = false;        // diagnostics P09: worst-case stress test
 
 private:
     bool chromatic() const { return scale == 0; }
@@ -72,6 +74,12 @@ private:
     void setScale(int s);
     void removeHeld(int pad);
     void push(ControlEvent t, int8_t a);
+    void pushDrop(float hz, float vel);
+    float rnd();
+    void stressTick(double t);
+    float stressV_[4] = {1, 1, 1, 1};
+    double stressNext_ = 0, stressDrop_ = 0;
+    uint32_t rs_ = 0x12345678u;
     float glideFrom_[4], glideTo_[4];
     float glideT_ = -1;
     double lastT_ = 0;

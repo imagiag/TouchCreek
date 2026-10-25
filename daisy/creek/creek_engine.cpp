@@ -22,7 +22,7 @@ void CreekEngine::Reset(uint32_t seed) {
     flow_.Init(rng_[S_DRIFT]);
     queue_.Reset(); pool_.Reset();
     sched_.Init(sr_, rng_[S_BTIME]);
-    bed_.Init(sr_, rng_[S_BED_DRIFT]);
+    if (ck::BED_ON) bed_.Init(sr_, rng_[S_BED_DRIFT]);   // wash off: not even compiled in (flash)
     eddies_.Init(rng_[S_EDDY]);
     falls_.Init(sr_, rng_[S_FALLS]);
     surface_.Init(sr_, rng_[S_SURFACE]);
@@ -85,7 +85,7 @@ void CreekEngine::controlTick() {
     surface_.Update(flow_, rng_[S_SURFACE], flow_.dt, ed);
     const float tt = macros_.tune && sched_.nTune > 0 ? 1.f : 0.f;
     sched_.tuneAmt += (tt > sched_.tuneAmt ? kTuneA_ : kTuneR_) * (tt - sched_.tuneAmt);
-    bed_.Update(flow_, rng_[S_BED_DRIFT], flow_.dt, next);
+    if (ck::BED_ON) bed_.Update(flow_, rng_[S_BED_DRIFT], flow_.dt, next);
 }
 
 void CreekEngine::Process(float* left, float* right, size_t frames) {
@@ -119,7 +119,7 @@ void CreekEngine::renderSegment(float* L, float* R, int n) {
         if (e.type == EV_BUBBLE) sched_.Make(rng_[S_TRIGGER], e.zone, pool_, o, &e);
         else if (e.type == EV_DROP) { const Event d = e; drop(d, o); }
     }
-    bed_.Render(bufL_[L_FLOW], bufR_[L_FLOW], n, rng_[S_NOISE_C], rng_[S_NOISE_L], rng_[S_NOISE_R]);
+    if (ck::BED_ON) bed_.Render(bufL_[L_FLOW], bufR_[L_FLOW], n, rng_[S_NOISE_C], rng_[S_NOISE_L], rng_[S_NOISE_R]);
     pool_.Render(bufL_[L_BUBBLES], bufR_[L_BUBBLES], n);
     falls_.pool.Render(bufL_[L_FALLS], bufR_[L_FALLS], n);
     surface_.pool.Render(bufL_[L_SURFACE], bufR_[L_SURFACE], n);

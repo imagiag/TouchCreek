@@ -111,6 +111,7 @@ void CreekUI::handleEvents() {
             case CE_OCT:   blink(arg < 0 ? 1 - arg : arg + 1, 25, 25); break;
             case CE_ROOT:  blink(1, 120, 0); break;
             case CE_NOTE:  flickerUntil_ = now() + 0.04; break;
+            case CE_STRESS: blink(arg ? 4 : 1, 40, 40); break;
             default: break;
         }
     }
@@ -132,6 +133,8 @@ void CreekUI::updateLed(DaisySeed& hw) {
             else { blinkLit_ = true; blinkPhaseEnd_ = t + blinkOn_ * 1e-3; }
         }
         led = blinkLit_;
+    } else if (ctl_.stress) {
+        led = (usAcc_ / 62500u) % 2 == 0;     // stress test running: 8 Hz blink
     } else if (ctl_.mode == MODE_DIAG) {
         led = t >= flickerUntil_;             // diagnostics: lit, dips on bubbles
     } else {

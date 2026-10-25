@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creek Manual</title>
+<style>
+  :root {
+    --bg: #f6f9f8; --panel: #ffffff; --text: #1f2524; --muted: #64706d; --line: #dce5e2;
+    --accent: #1f7f73; --accent-soft: #e2f2ef; --alt: #a8641c; --code: #edf2f0;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1213; --panel: #141b1c; --text: #e4ece9; --muted: #8d9b98; --line: #263033;
+      --accent: #5fc3b4; --accent-soft: #10302c; --alt: #e0a456; --code: #1b2426;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
+  .wrap { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 40px; max-width: 1180px; margin: 0 auto; padding: 32px 24px 80px; }
+  nav { position: sticky; top: 24px; align-self: start; font-size: 13px; }
+  nav b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 8px; }
+  nav a { display: block; color: var(--text); text-decoration: none; padding: 3px 0 3px 10px; border-left: 2px solid var(--line); }
+  nav a.sub { padding-left: 22px; color: var(--muted); }
+  nav a:hover { border-left-color: var(--accent); color: var(--accent); }
+  main { min-width: 0; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; }
+  h2 { font-size: 22px; margin: 44px 0 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin: 30px 0 10px; color: var(--accent); }
+  p.lead { font-size: 17px; color: var(--muted); max-width: 70ch; }
+  a { color: var(--accent); }
+  code { font: 13px ui-monospace, "SF Mono", Menlo, monospace; background: var(--code); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code); padding: 14px 16px; border-radius: 10px; overflow-x: auto; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+  pre code { background: none; padding: 0; }
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 28px; align-items: start; }
+  .hero img { width: 100%; border-radius: 12px; border: 1px solid var(--line); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin: 14px 0; }
+  .card.install { border-color: var(--accent); background: var(--accent-soft); }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); background: var(--code); }
+  tr:last-child td { border-bottom: none; }
+  td.id { white-space: nowrap; font-weight: 600; }
+  ul { padding-left: 20px; } li { margin: 4px 0; }
+  .muted { color: var(--muted); }
+  @media (max-width: 860px) {
+    .wrap { grid-template-columns: 1fr; gap: 12px; padding: 20px 16px 60px; }
+    nav { position: static; display: none; }
+    .hero { grid-template-columns: 1fr; } .hero img { max-width: 280px; }
+  }
+  @media print { nav { display: none; } .wrap { grid-template-columns: 1fr; } table, .card { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <b>Contents</b>
+  <a href="#install">Quick Install</a>
+  <a href="#controls">Controls</a>
+  <a class="sub" href="#faders">Faders</a>
+  <a class="sub" href="#knobs">Knobs</a>
+  <a class="sub" href="#switches">Switches</a>
+  <a class="sub" href="#presets">Presets</a>
+  <a class="sub" href="#notes">Notes</a>
+  <a class="sub" href="#diagnostics">Diagnostics</a>
+  <a href="#led">LED</a>
+  <a href="#sound">What you hear</a>
+  <a href="#emulator">Emulator &amp; monitor</a>
+  <a href="#build">Building</a>
+  <a href="#credits">Credits</a>
+</nav>
+<main>
+
+<div class="hero">
+  <div>
+    <h1>Creek</h1>
+    <p class="lead">A sample-free procedural creek for the Synthux Academy Touch&nbsp;2 (Daisy Seed), from a quiet trickle to a lively shallow stream. Nothing is recorded: hundreds of tiny bubbles per second, slow eddies, small splashes and fine surface ticks, all driven by one slowly changing creek state. Switch to Notes and play it: tap for tuned drops, hold to make the whole stream sing a note.</p>
+    <p class="muted">Each bubble is a short decaying tone whose pitch comes from its size, f₀ ≈ 3 / r (van den Doel, 2005). Big bubbles are low, small ones high.</p>
+  </div>
+  <img src="touch.jpeg" alt="Touch 2 control layout: pads P00 to P11, knobs S30 to S35, faders S36 and S37, switches S07 to S10">
+</div>
+
+<h2 id="install">Quick Install</h2>
+<div class="card install">
+  <p>Download the newest file from <a href="releases/">releases/</a> (its README says what each version changes) and flash it with the <a href="https://flash.daisy.audio/">Daisy web programmer</a> in Chrome or Edge:</p>
+  <ul>
+    <li><b>Unplugged</b>: hold BOOT while plugging in USB</li>
+    <li><b>Already powered</b>: hold BOOT, tap RESET, release BOOT</li>
+  </ul>
+  <p>Then <b>Connect</b> → <i>DFU in FS Mode</i> → choose the file → <b>Program</b>. To go back, flash any other firmware the same way.</p>
+</div>
+
+<h2 id="controls">Controls</h2>
+<p>At power-up the creek plays whatever the knobs and faders are set to. The <a href="#emulator">browser emulator</a> has the same panel and behaves the same.</p>
+
+<h3 id="faders">Faders</h3>
+<table>
+  <tr><th>Control</th><th>Function</th></tr>
+  <tr><td class="id">S36 (left)</td><td><b>Level</b>: output volume, as on TouchPulsar. Silent at the bottom, 0 dB at about 70 %, +6 dB at the top.</td></tr>
+  <tr><td class="id">S37 (right)</td><td><b>Roughness</b>: smooth channel → rocky interruptions. More turbulence, so more bubbling, deeper eddies, more uneven splashes and more surface ticks.</td></tr>
+</table>
+
+<h3 id="knobs">Knobs</h3>
+<table>
+  <tr><th>Control</th><th>Function</th></tr>
+  <tr><td class="id">S31</td><td><b>Scale</b>: fine shallow trickle → larger stream body. Bubbles get 0.6× to 1.8× bigger, so their typical pitch falls (about 3.2 kHz → 1.3 kHz); splashes plop lower and eddies get slower.</td></tr>
+  <tr><td class="id">S32</td><td><b>Aeration</b>: sparse bubbling → bubbly white water. Fully left = no bubbles at all.</td></tr>
+  <tr><td class="id">S33</td><td><b>Flow</b>: still → trickle → lively creek. More bubbles, more splashes at the drop (0.2 → 4 per second). Fully left: the creek fades to silence within about 1.5 s.</td></tr>
+  <tr><td class="id">S34</td><td><b>Width</b>: mono fully left, natural stereo at noon, wider fully right.</td></tr>
+  <tr><td class="id">S30, S35</td><td class="muted">Not used yet.</td></tr>
+</table>
+<p><b>Soft pickup</b>: after a preset, the four sound knobs (Flow, Roughness, Scale, Aeration) do nothing until you move them a little, then take over from where they are. Recalling a preset never jumps back to the knob positions.</p>
+
+<h3 id="switches">Switches</h3>
+<table>
+  <tr><th>Switch</th><th>Up</th><th>Centre</th><th>Down</th></tr>
+  <tr><td class="id">Left (S09/S10)</td><td><b>Presets</b></td><td><b>Notes</b></td><td><b>Diagnostics</b></td></tr>
+  <tr><td class="id">Right (S07/S08)</td><td>live</td><td>live</td><td><b>Hold</b> the slow creek state: flow, turbulence and air stop changing so you can compare settings; bubbles keep happening.</td></tr>
+</table>
+
+<h3 id="presets">Pads: Presets (left switch up)</h3>
+<table>
+  <tr><th>Pad</th><th>Preset</th><th>Flow</th><th>Roughness</th><th>Scale</th><th>Aeration</th></tr>
+  <tr><td class="id">P03</td><td>Quiet trickle</td><td>0.20</td><td>0.25</td><td>0.20</td><td>0.30</td></tr>
+  <tr><td class="id">P04</td><td>Rocky creek</td><td>0.50</td><td>0.60</td><td>0.45</td><td>0.55</td></tr>
+  <tr><td class="id">P05</td><td>Small cascade</td><td>0.75</td><td>0.80</td><td>0.50</td><td>0.85</td></tr>
+  <tr><td class="id">P06</td><td>Deeper run</td><td>0.65</td><td>0.35</td><td>0.80</td><td>0.40</td></tr>
+</table>
+<p>Presets glide over 250 ms.</p>
+
+<h3 id="notes">Pads: Notes (left switch centre)</h3>
+<p>Play the creek as an instrument; the creek keeps running underneath.</p>
+<table>
+  <tr><th>Pad</th><th>Function</th></tr>
+  <tr><td class="id">P03 … P09</td><td>Notes of the scale (default C major pentatonic, from C5).<br><b>Tap</b>: a tuned <b>drop</b>, a bubble at that note with a short bubbly tail (1–3 quieter bubbles at the same note or an octave up). Hit harder for a louder drop.<br><b>Hold</b>: the creek's own bubbles gather onto the held note over about a quarter second, so the whole stream sings it. Hold several pads (up to 4) for a chord. They drift free again about half a second after you let go.</td></tr>
+  <tr><td class="id">P00 / P02</td><td>Octave down / up (−1 to +2; in Chromatic, pages of 7 semitones)</td></tr>
+  <tr><td class="id">P11 + P00 / P02</td><td>Previous / next scale</td></tr>
+  <tr><td class="id">P11 + P03 … P09</td><td>Choose a scale: Chromatic, Major, Natural Minor, Minor Pentatonic, Major Pentatonic, Dorian, Harmonic Minor (the same seven as TouchPulsar)</td></tr>
+  <tr><td class="id">P10 + P03 … P09</td><td>Set the root key to that pad's note</td></tr>
+</table>
+
+<h3 id="diagnostics">Pads: Diagnostics (left switch down)</h3>
+<table>
+  <tr><th>Pad</th><th>Function</th></tr>
+  <tr><td class="id">P03</td><td>Flow bed on/off <span class="muted">(the noise wash is switched off for now, so this is silent)</span></td></tr>
+  <tr><td class="id">P04</td><td>Bubbles on/off</td></tr>
+  <tr><td class="id">P05</td><td>Eddies on/off (no sound of their own: muting them stops the rock wake from surging)</td></tr>
+  <tr><td class="id">P06</td><td>Small waterfalls on/off (the plops; their bubbly settling belongs to the bubbles)</td></tr>
+  <tr><td class="id">P07</td><td>Surface detail on/off</td></tr>
+  <tr><td class="id">P08</td><td>All layers on</td></tr>
+  <tr><td class="id">P09</td><td><b>Stress test</b> on/off: worst-case settings with sudden jumps and loud note bursts, LED blinks fast. For measuring the CPU load with the <a href="#emulator">monitor</a>.</td></tr>
+</table>
+<p>Muting is smooth (20 ms) and doesn't change what the other layers do. In Presets and Notes all layers always play; the mutes are remembered for next time.</p>
+
+<h2 id="led">LED</h2>
+<ul>
+  <li>Switching mode: 1 blink = Presets, 2 = Notes, 3 = Diagnostics</li>
+  <li>1–4 blinks: preset number · 1–7 quick blinks: scale number · octave changes blink the octave · 1 long blink: root set</li>
+  <li>2 blinks: layer on · 1 blink: layer muted · 3 quick blinks: all on · 4 quick blinks then fast blinking: stress test running</li>
+  <li>Otherwise it flickers with notes and the louder bubbles (in Diagnostics it stays lit and dips)</li>
+</ul>
+
+<h2 id="sound">What you hear</h2>
+<p>Everything is made of short decaying tones; there is no noise in the sound for now.</p>
+<ul>
+  <li><b>Bubbles</b>: the main voice. Up to 24 at once, mostly small and quiet, now and then a larger, lower and louder one. About a third rise slightly in pitch as they fade. They gather in the rock wake (slightly left) and the drop (slightly right), fewer in the open flow (centre).</li>
+  <li><b>Eddies</b>: two to four overlapping slow swells (0.3–3 s, slower with larger Scale) in the rock wake: the left side of the creek surges with more, slightly bigger and lower bubbles, then settles.</li>
+  <li><b>Small waterfalls</b>: at the drop (right), 0.2–4 times a second as Flow rises: a soft low plop falling in pitch, then 2–8 bubbles settling over the next tenth of a second (more with Aeration), plus a short burst of extra air. Overlapping splashes share a limited energy, so they never swamp the creek.</li>
+  <li><b>Surface detail</b>: sparse, very short, quiet high ticks (2–9 kHz), more near the drop, at turbulence peaks and right after splashes, in loose bursts rather than a steady crackle.</li>
+  <li><b>Shared state</b>: three places (flow, rock wake, drop) each have their own energy, turbulence and air. They follow the knobs with some inertia (0.1–0.35 s) and drift on their own, so surges feel connected without everything pulsing at once.</li>
+</ul>
+
+<h2 id="emulator">Emulator &amp; monitor</h2>
+<ul>
+  <li><b>Emulator</b>: run <code>python3 web/serve.py 8766</code> and open <code>http://localhost:8766</code>. Same engine (a JavaScript twin, checked against the firmware's), same panel, pickup and LED. "Render 30 s WAV" saves what you hear.</li>
+  <li><b>Monitor</b>: <code>http://localhost:8766/monitor.html</code> reads the firmware's once-a-second report over USB (Chrome or Edge): CPU load (average and worst audio block), voices, bubbles per second, stack use, dropped events and limiter activity. Use Diagnostics + P09 for the worst case; the brief asks for the worst block below 70 %.</li>
+</ul>
+
+<h2 id="build">Building</h2>
+<p>Needs the ARM GNU toolchain (13.3) on the PATH.</p>
+<pre><code>git submodule update --init --recursive
+make -C daisy/lib/libDaisy
+make -C daisy</code></pre>
+<p>Tests and renders (Mac or Linux compiler, no Daisy needed): <code>make -C daisy/test</code> (acceptance checks and C++/JS comparison), <code>make -C daisy/test soak</code> (30-minute stability run), <code>make -C daisy/test renders</code> (reference WAVs of every scenario in <code>scenarios/</code>, each with a .json of seed, settings, automation and statistics).</p>
+
+<h2 id="credits">Credits</h2>
+<p>Bubble model after Kees van den Doel, <i>Physically-based Models for Liquid Sounds</i> (ACM TAP 2005); sound decomposition after Andy Farnell, <i>Designing Sound</i> (2010). Hardware: <a href="https://www.synthux.academy/store/simple-touch-2">Touch 2</a> by <a href="https://www.synthux.academy/">Synthux Academy</a>; pad, knob and switch drivers from Synthux Academy's TouchString. libDaisy by Electrosmith (MIT). Written with Claude Code. See CREDITS.md.</p>
+
+</main>
+</div>
+</body>
+</html>

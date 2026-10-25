@@ -62,6 +62,7 @@ function handleEvents() {
     else if (e.type === CC.EV_OCT) blink(e.arg < 0 ? 1 - e.arg : e.arg + 1, 25, 25);
     else if (e.type === CC.EV_ROOT) blink(1, 120, 0);
     else if (e.type === CC.EV_NOTE) led.flickerUntil = performance.now() + 40;
+    else if (e.type === CC.EV_STRESS) blink(e.arg ? 4 : 1, 40, 40);
   }
   ctl.events.length = 0;
 }
@@ -72,6 +73,7 @@ function ledState(t) {
     }
     return led.lit;
   }
+  if (ctl.stress) return Math.floor(t / 62.5) % 2 === 0;    // stress test: 8 Hz blink
   return ctl.mode === CC.MODE_DIAG ? t >= led.flickerUntil : t < led.flickerUntil;
 }
 
@@ -208,6 +210,7 @@ function drawBoard() {
       const sub = noteLabel(p.id);
       if (sub) { html += `<small>${sub}</small>`; cls = ctl.held.includes(p.id) ? 'sel' : ''; }
     } else if (p.id === CC.PAD_ALL) { html += '<small>All on</small>'; cls = ''; }
+    else if (p.id === CC.PAD_STRESS) { html += '<small>Stress</small>'; cls = ctl.stress ? 'sel' : ''; }
     else {
       const l = p.id - CC.PAD_LAYER0;
       if (l >= 0 && l < CK_LAYERS) { html += `<small>${CC_LAYER_NAMES[l]}</small>`; cls = (ctl.diagMask >> l) & 1 ? 'layer-on' : 'muted'; }
@@ -221,7 +224,7 @@ function drawBoard() {
   $('dPreset').textContent = ctl.mode === CC.MODE_DIAG ? 'layers ' + CC_LAYER_NAMES.map((n, l) => ((ctl.diagMask >> l) & 1 ? n[0] : '·')).join('')
     : ctl.mode === CC.MODE_NOTES ? `${ctl.scaleName()} · oct ${ctl.oct > 0 ? '+' : ''}${ctl.oct}` : CREEK_PRESETS[ctl.preset].name;
   $('hint').textContent = !running ? 'Press Start audio, then play the panel.'
-    : ctl.mode === CC.MODE_DIAG ? 'Diagnostics: P03–P07 mute / unmute layers, P08 all on.'
+    : ctl.mode === CC.MODE_DIAG ? (ctl.stress ? 'Stress test running: worst-case settings and note bursts. Tap P09 to stop.' : 'Diagnostics: P03–P07 mute / unmute layers, P08 all on, P09 stress test.')
     : ctl.mode === CC.MODE_NOTES ? 'Tap a note for a drop, hold it to tune the creek. Hit a pad higher up = louder.'
     : 'P03–P06 recall presets. Knobs pick up once moved.';
 }

@@ -66,6 +66,7 @@ void Controls::SetMode(Mode m) {
     if (m == mode) return;
     mode = m;
     if (m != MODE_NOTES) nHeld = 0;
+    if (m != MODE_DIAG && stress) { stress = false; push(CE_STRESS, 0); }
     push(CE_MODE, (int8_t)m);
 }
 
@@ -98,6 +99,7 @@ void Controls::PadDown(int pad, float vel) {
         const int l = pad - kPadLayer0;
         if (l >= 0 && l < ck::LAYERS) { diagMask ^= 1u << l; push(CE_LAYER, (int8_t)((diagMask >> l) & 1u)); }
         else if (pad == kPadAll) { diagMask = 0x1F; push(CE_ALL, 0); }
+        else if (pad == kPadStress) { stress = !stress; stressNext_ = 0; push(CE_STRESS, stress ? 1 : 0); }
     } else {
         const bool note = pad >= kPadNote0 && pad <= kPadNote0 + 6;
         if (touched[kPadScale] && pad != kPadScale) {                 // P11 + pad: scale
@@ -111,9 +113,7 @@ void Controls::PadDown(int pad, float vel) {
             oct = oct < lo ? lo : (oct > hi ? hi : oct);
             push(CE_OCT, (int8_t)oct);
         } else if (note) {
-            const float v = vel > 0.f ? fminf(1.f, vel) : 0.7f;
-            const int n = (dW_ + 1) % kDrops;
-            if (n != dR_) { drops_[dW_] = {MidiToHz(PadMidi(pad)), v}; dW_ = n; }
+            pushDrop(MidiToHz(PadMidi(pad)), vel > 0.f ? fminf(1.f, vel) : 0.7f);
             removeHeld(pad);
             if (nHeld == kMaxHeld) { for (int j = 0; j + 1 < nHeld; j++) held[j] = held[j + 1]; nHeld--; }
             held[nHeld++] = pad;
@@ -137,12 +137,38 @@ void Controls::Tick(double t) {
         for (int k = 0; k < 4; k++) value[k] = glideFrom_[k] + (glideTo_[k] - glideFrom_[k]) * s;
         if (x >= 1.f) glideT_ = -1;
     }
+    if (stress) stressTick(t);
+}
+
+void Controls::pushDrop(float hz, float vel) {
+    const int n = (dW_ + 1) % kDrops;
+    if (n != dR_) { drops_[dW_] = {hz, vel}; dW_ = n; }
+}
+
+float Controls::rnd() {
+    uint32_t x = rs_; x ^= x << 13; x ^= x >> 17; x ^= x << 5; rs_ = x;
+    return (float)(x >> 8) * 5.9604645e-8f;
+}
+
+// Worst case for the engine: mostly maximal settings with sudden jumps every
+// 50-400 ms (incl. Flow 0 <-> 1), plus bursts of loud drops at ~20 per second.
+void Controls::stressTick(double t) {
+    if (t >= stressNext_) {
+        for (int k = 0; k < 4; k++) { const float u = rnd(); stressV_[k] = u < 0.65f ? 1.f : (u < 0.8f ? 0.f : rnd()); }
+        stressV_[M_FLOW] = rnd() < 0.85f ? 1.f : 0.f;
+        stressNext_ = t + 0.05 + 0.35 * rnd();
+    }
+    while (t >= stressDrop_) {
+        pushDrop(150.f * exp2f(6.f * rnd()), 1.f);
+        stressDrop_ = (stressDrop_ > t - 0.1 ? stressDrop_ : t - 0.1) + 0.05;
+    }
 }
 
 void Controls::Compute(Macros& m) const {
     m.flow = value[M_FLOW]; m.roughness = value[M_ROUGH]; m.scale = value[M_SCALE]; m.aeration = value[M_AER];
     m.gain = LevelToGain(value[M_LEVEL]); m.width = KnobToWidth(value[M_WIDTH]);
     m.mask = mode == MODE_DIAG ? diagMask : 0x1Fu;
+    if (stress) { m.flow = stressV_[0]; m.roughness = stressV_[1]; m.scale = stressV_[2]; m.aeration = stressV_[3]; m.mask = 0x1Fu; }
     m.hold = hold;
     for (int k = 0; k < 4; k++) m.tuneHz[k] = k < nHeld ? MidiToHz(PadMidi(held[k])) : 0.f;
     m.tune = mode == MODE_NOTES && nHeld > 0;

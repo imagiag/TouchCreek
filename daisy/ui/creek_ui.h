@@ -44,6 +44,7 @@ public:
     // audio callback side: newest macros from the mailbox, then render
     void AudioBlock(float* left, float* right, size_t n);
 
+    bool Stress() const { return ctl_.stress; }
     uint32_t QueueDrops() const { return trigDrops_; } // note drops lost to a full queue (the mailbox itself coalesces)
 
 private:

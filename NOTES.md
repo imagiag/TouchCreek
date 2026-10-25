@@ -14,7 +14,7 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - 2026-10-25, Claude Code: firmware `CreekTouch-v1.bin` (105 KB of 128 KB flash, engine 7 KB RAM) and the Touch 2 emulator page. Waiting for the user's listening notes on hardware. CPU on hardware not measured yet (`DEBUG=1` build prints it).
 - 2026-10-25, Claude Code: v2-notes released (notes mode, Level fader, wash gated by Roughness). 52/52 host checks; C++/JS match incl. note mode.
 - 2026-10-25, Claude Code: Phase 2 (v3-layers): eddies (modulation only), falls (plop + J impulse + bubble children), surface ticks; all noise-free. 58/58 checks. Flash 114/128 KB.
-- TODO: HTML manual (`daisy/manual.html`) like TouchPulsar's, once the controls settle.
+- 2026-10-25, Claude Code: Phases 3–4 offline: v4-monitor (USB stats, P09 stress test), web/monitor.html, 30-min soak (pass), daisy/manual.html, REPORT.md. Hardware CPU / stack numbers and the listener test are still open (REPORT.md has the tables).
 
 ## Decisions
 - 2026-10-25: audition host = browser page (JS twin of the engine) + C++ offline renderer; the C++/JS comparison test keeps them equal (user's choice).
