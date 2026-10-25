@@ -63,7 +63,7 @@ void CreekUI::Process(DaisySeed& hw) {
     // switches: libDaisy Switch3 POS_UP / POS_CENTER / POS_DOWN
     const int left = touch_.switches().B();                     // left S09/S10: presets / notes / diagnostics
     ctl_.SetMode(left == Switch3::POS_UP ? MODE_PRESETS : (left == Switch3::POS_DOWN ? MODE_DIAG : MODE_NOTES));
-    ctl_.hold = touch_.switches().A() == Switch3::POS_DOWN;     // right S07/S08: down = hold slow state
+    ctl_.SetRightSwitch(touch_.switches().A() == Switch3::POS_DOWN);  // right S07/S08: down = Latch (Notes) / Hold
     Drop d;
     while (ctl_.PopDrop(d)) {                                   // note pads -> tuned drops
         Event e; e.type = EV_DROP; e.radiusMm = 3000.f / d.hz; e.amp = 0.25f + 0.75f * d.vel;

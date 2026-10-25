@@ -32,7 +32,7 @@ The browser emulator (`web/`, see below) has the same layout and behaves like th
 
 ### Switches
 - **Left switch** (S09/S10) | Up: **Presets**. Centre: **Notes**. Down: **Diagnostics**. It sets what the pads do.
-- **Right switch** (S07/S08) | Down: **Hold** the slow creek state. The flow, turbulence and air in the water stop changing, so you can compare settings, while bubbles keep happening. Up or centre: live.
+- **Right switch** (S07/S08) | In Notes, down = **Latch**: notes you touch keep pouring after you let go (up to 4, a chord); tap a latched note again to release it; switching Latch off releases everything you're not touching. In Presets and Diagnostics, down = **Hold** the slow creek state. The flow, turbulence and air in the water stop changing, so you can compare settings, while bubbles keep happening. Up or centre: live.
 
 ### Pads
 **Presets** (left switch up)

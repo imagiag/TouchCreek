@@ -6,7 +6,8 @@
 //   S31 = Scale, S32 = Aeration, S33 = Flow, S34 = Decay (P10 + S34 = Width),
 //   S30 = Free flow (Notes mode), S35 = Variety
 //   left switch  (S09/S10): up = Presets, centre = Notes, down = Diagnostics
-//   right switch (S07/S08): down = Hold slow state
+//   right switch (S07/S08): down = Hold slow state; in Notes = Latch (touched notes keep pouring,
+//                tap a latched note again to release it)
 //   Presets:     P03..P06 recall the four presets (250 ms glide)
 //   Notes:       P03..P09 play the scale (tap = tuned drop, hold = the creek's
 //                bubbles gather onto the held notes), P00 / P02 octave,
@@ -51,6 +52,7 @@ public:
     void SetMode(Mode m);
     void PadDown(int pad, float vel);
     void PadUp(int pad);
+    void SetRightSwitch(bool down);   // Latch in Notes, Hold (slow state) elsewhere
     void Tick(double t);
     bool Gliding() const { return glideT_ >= 0; }
     void Compute(Macros& m) const;
@@ -69,12 +71,14 @@ public:
     int held[kMaxHeld];
     int nHeld = 0;
     bool stress = false;        // diagnostics P09: worst-case stress test
+    bool latch = false;         // Notes + right switch down: notes stay held after release
 
 private:
     bool chromatic() const { return scale == 0; }
     void octRange(int& lo, int& hi) const { if (chromatic()) { lo = -2; hi = 4; } else { lo = -1; hi = 2; } }
     void setScale(int s);
     void removeHeld(int pad);
+    bool isHeld(int pad) const;
     void push(ControlEvent t, int8_t a);
     void pushDrop(float hz, float vel);
     float rnd();

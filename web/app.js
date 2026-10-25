@@ -27,7 +27,7 @@ const KNOBS = [
 const FADERS = [{ id: 'S36', p: 6, x: 6.5, y: 42, m: CC.M_LEVEL }, { id: 'S37', p: 7, x: 93.5, y: 42, m: CC.M_ROUGH }];
 const SWITCHES = [ // pos 0 = up, 1 = centre, 2 = down
   { k: 'mode', id: 'S09/10', x: 37.8, y: 66, names: ['PRESETS', 'NOTES', 'DIAG'] },
-  { k: 'hold', id: 'S07/08', x: 53.5, y: 72.5, names: ['LIVE', 'LIVE', 'HOLD'] },
+  { k: 'hold', id: 'S07/08', x: 53.5, y: 72.5, names: ['LIVE', 'LIVE', 'HOLD'], notesNames: ['LIVE', 'LIVE', 'LATCH'] },
 ];
 const MACRO_NAMES = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width', 'Free flow', 'Variety', 'Decay'];
 
@@ -95,7 +95,7 @@ setInterval(() => {
   if (altHeld() !== altWas) {              // layer switch: the newly active control waits until the knob moves
     altWas = altHeld(); const m = altWas ? CC.M_WIDTH : CC.M_DECAY; take[m].hold(ctl.value[m], physPos[4]);
   }
-  ctl.hold = sw.hold === 2;
+  ctl.setRightSwitch(sw.hold === 2);       // Latch in Notes, Hold elsewhere
   for (const d of ctl.drops) if (node) node.port.postMessage({ type: 'trigger', ev: { type: 2, radiusMm: 3000 / d.hz, amp: 0.25 + 0.75 * d.vel } });
   ctl.drops.length = 0;
   handleEvents();
@@ -212,7 +212,7 @@ function drawBoard() {
   for (const k in swEls) {
     const e = swEls[k], pos = sw[k];
     e._lever.style.top = ['6%', '35%', '64%'][pos];
-    e._label.textContent = e._s.names[pos];
+    e._label.textContent = (ctl.mode === CC.MODE_NOTES && e._s.notesNames ? e._s.notesNames : e._s.names)[pos];
   }
   for (const p of PADS) {
     const e = padEls[p.id];
@@ -239,7 +239,7 @@ function drawBoard() {
   }
   $('led').classList.toggle('on', ledState(performance.now()));
   $('dMode').textContent = ['PRESETS', 'NOTES', 'DIAGNOSTICS'][ctl.mode]; $('dMode').classList.toggle('diag', ctl.mode !== CC.MODE_PRESETS);
-  $('dHold').textContent = ctl.hold ? 'HOLD' : 'LIVE'; $('dHold').classList.toggle('on', ctl.hold);
+  $('dHold').textContent = ctl.latch ? 'LATCH' : ctl.hold ? 'HOLD' : 'LIVE'; $('dHold').classList.toggle('on', ctl.hold || ctl.latch);
   $('dPreset').textContent = ctl.mode === CC.MODE_DIAG ? 'layers ' + CC_LAYER_NAMES.map((n, l) => ((ctl.diagMask >> l) & 1 ? n[0] : '·')).join('')
     : ctl.mode === CC.MODE_NOTES ? `${ctl.scaleName()} · oct ${ctl.oct > 0 ? '+' : ''}${ctl.oct}` : CREEK_PRESETS[ctl.preset].name;
   $('hint').textContent = !running ? 'Press Start audio, then play the panel.'

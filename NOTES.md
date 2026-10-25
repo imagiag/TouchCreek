@@ -38,3 +38,4 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - 2026-10-25, user: stress test on hardware (v5 + monitor) stays under 25 % CPU worst block: timing criterion passes.
 - 2026-10-25 (user): Free flow (S30, Notes only; 0 = still, holding notes pours), Variety (S35, bipolar: one note .. default .. across the scale), Decay (S34, bipolar 1/4x..4x), Width -> P10 + S34. Scales stay exactly as TouchPulsar. Emulator knobs always show name, S-number, P10 layer and value.
 - 2026-10-25 (user agreed): keep the USB monitor + P09 stress test in releases for now (~14 KB flash; v6 = 120/128 KB). When a feature no longer fits, make it a build option (normal releases without, a separate -monitor build with).
+- 2026-10-25 (user): right switch in Notes = Latch (like TouchPulsar's Hold); elsewhere still Hold slow state.

@@ -7,7 +7,8 @@
 //   S31 = Scale, S32 = Aeration, S33 = Flow, S34 = Decay (P10 + S34 = Width),
 //   S30 = Free flow (Notes mode), S35 = Variety
 //   left switch  (S09/S10): up = Presets, centre = Notes, down = Diagnostics
-//   right switch (S07/S08): down = Hold slow state
+//   right switch (S07/S08): down = Hold slow state; in Notes = Latch (touched notes keep pouring,
+//                tap a latched note again to release it)
 //   Presets:     P03..P06 recall the four presets (250 ms glide)
 //   Notes:       P03..P09 play the scale (tap = tuned drop, hold = the creek's
 //                bubbles gather onto the held notes), P00 / P02 octave,
@@ -79,6 +80,7 @@ class CreekControls {
     this.events = [];            // {type, arg} for the UI (LED blinks, display)
     this.lastT = 0;
     this.stress = false;         // diagnostics P09: worst-case stress test
+    this.latch = false;          // Notes + right switch down: notes stay held after release
     this.stressV = new Float32Array(4); this.stressNext = 0; this.stressDrop = 0; this.rs = 0x12345678;
   }
   // a physical control moved (after pickup): cancels a running glide for that macro
@@ -131,6 +133,9 @@ class CreekControls {
         const r = this.octRange();
         this.oct = Math.max(r[0], Math.min(r[1], this.oct + (pad === CC.P_OCT_UP ? 1 : -1)));
         this.events.push({ type: CC.EV_OCT, arg: this.oct });
+      } else if (note && this.latch && this.held.includes(pad)) {
+        this.held.splice(this.held.indexOf(pad), 1);                // latched note tapped again: release it
+        this.events.push({ type: CC.EV_NOTE, arg: pad });
       } else if (note) {
         const v = vel > 0 ? Math.min(1, vel) : 0.7;
         this.drops.push({ hz: ccHz(this.padMidi(pad)), vel: v });
@@ -143,7 +148,15 @@ class CreekControls {
   padUp(pad) {
     if (pad < 0 || pad > 11) return;
     this.touched[pad] = 0;
+    if (this.latch && this.mode === CC.MODE_NOTES) return;          // latched: the note keeps pouring
     const j = this.held.indexOf(pad); if (j >= 0) this.held.splice(j, 1);
+  }
+  // right switch: Latch in Notes, Hold (slow state) elsewhere
+  setRightSwitch(down) {
+    const latch = down && this.mode === CC.MODE_NOTES;
+    if (this.latch && !latch) this.held = this.held.filter((p) => this.touched[p]);   // release what isn't touched
+    this.latch = latch;
+    this.hold = down && this.mode !== CC.MODE_NOTES;
   }
   // t in seconds (monotonic)
   tick(t) {

@@ -121,6 +121,9 @@ void Controls::PadDown(int pad, float vel) {
             oct += pad == kPadOctUp ? 1 : -1;
             oct = oct < lo ? lo : (oct > hi ? hi : oct);
             push(CE_OCT, (int8_t)oct);
+        } else if (note && latch && isHeld(pad)) {
+            removeHeld(pad);                                          // latched note tapped again: release it
+            push(CE_NOTE, (int8_t)pad);
         } else if (note) {
             pushDrop(MidiToHz(PadMidi(pad)), vel > 0.f ? fminf(1.f, vel) : 0.7f);
             removeHeld(pad);
@@ -134,7 +137,24 @@ void Controls::PadDown(int pad, float vel) {
 void Controls::PadUp(int pad) {
     if (pad < 0 || pad > 11) return;
     touched[pad] = false;
+    if (latch && mode == MODE_NOTES) return;                          // latched: the note keeps pouring
     removeHeld(pad);
+}
+
+bool Controls::isHeld(int pad) const {
+    for (int i = 0; i < nHeld; i++) if (held[i] == pad) return true;
+    return false;
+}
+
+void Controls::SetRightSwitch(bool down) {
+    const bool l = down && mode == MODE_NOTES;
+    if (latch && !l) {                                                // release what isn't touched
+        int n = 0;
+        for (int i = 0; i < nHeld; i++) if (touched[held[i]]) held[n++] = held[i];
+        nHeld = n;
+    }
+    latch = l;
+    hold = down && mode != MODE_NOTES;
 }
 
 void Controls::Tick(double t) {

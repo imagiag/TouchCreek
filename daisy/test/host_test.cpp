@@ -76,6 +76,25 @@ static void controlsTests() {
     n.SetMode(MODE_PRESETS); n.Compute(m); CHECK(!m.tune, "leaving notes clears tuning");
     CHECK(m.freeFlow == 1.f, "Presets mode always flows");
 
+    // latch: Notes + right switch down
+    {
+        Controls l; l.SetMode(MODE_NOTES); l.SetRightSwitch(true); Drop dl; Macros ml;
+        CHECK(l.latch && !l.hold, "right switch in Notes = Latch, not Hold");
+        l.PadDown(4, .7f); l.PadUp(4); l.Compute(ml);
+        CHECK(ml.tune && l.nHeld == 1, "latched note keeps pouring after release");
+        l.PadDown(6, .7f); l.PadUp(6); l.Compute(ml);
+        CHECK(l.nHeld == 2 && ml.tuneHz[1] > 0, "latch builds a chord");
+        while (l.PopDrop(dl)) {}
+        l.PadDown(4, .7f); l.PadUp(4);
+        CHECK(l.nHeld == 1 && !l.PopDrop(dl), "tapping a latched note releases it (no drop)");
+        l.PadDown(8, .7f);                       // still touching P08
+        l.SetRightSwitch(false);
+        CHECK(l.nHeld == 1 && l.held[0] == 8, "latch off keeps only what is touched");
+        l.PadUp(8); l.Compute(ml); CHECK(!ml.tune, "then releases normally");
+        Controls h; h.SetMode(MODE_PRESETS); h.SetRightSwitch(true);
+        CHECK(h.hold && !h.latch, "right switch in Presets = Hold slow state");
+    }
+
     // stress test (diagnostics P09)
     Controls st; st.SetMode(MODE_DIAG); st.Tick(10.0);
     st.PadDown(kPadStress, .7f); st.PadUp(kPadStress);
