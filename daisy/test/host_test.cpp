@@ -35,26 +35,43 @@ static void writeF32(const char* name, const std::vector<float>& L, const std::v
 
 static void controlsTests() {
     Controls c;
-    CHECK(fabsf(KnobToGain(0.5f) - 1.f) < 1e-5f, "gain noon = 0 dB");
-    CHECK(KnobToGain(0.f) == 0.f, "gain bottom = off");
+    CHECK(fabsf(LevelToGain(0.7071f) - 1.f) < 1e-3f, "level ~70 %% = 0 dB");
+    CHECK(LevelToGain(0.f) == 0.f, "level bottom = silent");
     CHECK(fabsf(KnobToWidth(0.5f) - 1.f) < 1e-6f, "width noon = 1");
     c.Tick(0.0);
-    c.PadDown(kPadPreset0 + 2);  // Small cascade
+    c.PadDown(kPadPreset0 + 2, .7f); c.PadUp(kPadPreset0 + 2);  // Small cascade
     c.Tick(0.1);
     CHECK(c.value[M_FLOW] > 0.2f && c.value[M_FLOW] < 0.75f, "preset glide in progress (%f)", c.value[M_FLOW]);
     c.Tick(0.3);
     CHECK(fabsf(c.value[M_FLOW] - 0.75f) < 1e-6f && fabsf(c.value[M_AER] - 0.85f) < 1e-6f, "preset reached after 250 ms");
     CHECK(!c.Gliding(), "glide finished");
-    c.SetMode(true);
-    c.PadDown(kPadLayer0 + 1);   // mute bubbles
+    c.SetMode(MODE_DIAG);
+    c.PadDown(kPadLayer0 + 1, .7f);   // mute bubbles
     Macros m; c.Compute(m);
     CHECK(m.mask == (0x1Fu & ~2u), "diag: P04 mutes bubbles (mask %x)", m.mask);
-    c.PadDown(kPadAll); c.Compute(m);
+    c.PadDown(kPadAll, .7f); c.Compute(m);
     CHECK(m.mask == 0x1Fu, "diag: P08 restores all");
-    c.PadDown(kPadLayer0); c.SetMode(false); c.Compute(m);
-    CHECK(m.mask == 0x1Fu, "performance mode always plays all layers");
-    c.SetMode(true); c.Compute(m);
+    c.PadDown(kPadLayer0, .7f); c.SetMode(MODE_PRESETS); c.Compute(m);
+    CHECK(m.mask == 0x1Fu, "presets mode always plays all layers");
+    c.SetMode(MODE_DIAG); c.Compute(m);
     CHECK(m.mask == 0x1Eu, "diag mask remembered");
+
+    // notes
+    Controls n; n.SetMode(MODE_NOTES);
+    Drop d;
+    n.PadDown(3, 0.9f); CHECK(n.PopDrop(d) && fabsf(d.hz - MidiToHz(72)) < 0.01f && d.vel == 0.9f, "P03 = C5 drop (Maj Pent)");
+    n.Compute(m); CHECK(m.tune && fabsf(m.tuneHz[0] - MidiToHz(72)) < 0.01f, "held note tunes the creek");
+    n.PadDown(5, 0.5f); n.PopDrop(d); CHECK(fabsf(d.hz - MidiToHz(76)) < 0.01f, "P05 = E5");
+    n.Compute(m); CHECK(m.tuneHz[1] > 0 && m.tuneHz[2] == 0, "two held notes");
+    n.PadUp(3); n.PadUp(5); n.Compute(m); CHECK(!m.tune, "release: no tuning");
+    n.PadDown(kPadOctUp, .7f); n.PadUp(kPadOctUp);
+    n.PadDown(3, .7f); n.PopDrop(d); n.PadUp(3); CHECK(fabsf(d.hz - MidiToHz(84)) < 0.01f, "octave up = C6");
+    n.PadDown(kPadScale, .7f); n.PadDown(4, .7f); n.PadUp(4); n.PadUp(kPadScale);
+    CHECK(n.scale == 1 && !n.PopDrop(d), "P11 + P04 = Major, no drop");
+    n.PadDown(kPadRoot, .7f); n.PadDown(7, .7f); n.PadUp(7); n.PadUp(kPadRoot);
+    CHECK(n.root == 7, "P10 + P07 (G) sets root G (%d)", n.root);
+    n.PadDown(3, .7f); n.PopDrop(d); n.PadUp(3); CHECK(fabsf(d.hz - MidiToHz(84 + 7)) < 0.01f, "G major, octave +1: P03 = G6");
+    n.SetMode(MODE_PRESETS); n.Compute(m); CHECK(!m.tune, "leaving notes clears tuning");
 }
 
 static double rmsOf(const std::vector<float>& v, size_t a, size_t b) { double s = 0; for (size_t i = a; i < b; i++) s += v[i] * v[i]; return sqrt(s / std::max<size_t>(1, b - a)); }
@@ -141,6 +158,48 @@ static void engineTests() {
         if (!strcmp(k, "sweep_flow")) writeF32("sweep_flow", L1, R1);
     }
 
+    // --- the flow-bed wash only comes in with high Roughness ---
+    {
+        auto lo = scenario::parse("seconds 3\nat 0 set flow 0.7 roughness 0.3 scale 0.5 aeration 0.5 mask 1\n", SR);
+        auto hi = scenario::parse("seconds 3\nat 0 set flow 0.7 roughness 1 scale 0.5 aeration 0.5 mask 1\n", SR);
+        render(eng, lo, 48, L1, R1); const double rl = rmsOf(L1, (size_t)SR, L1.size());
+        render(eng, hi, 48, L1, R1); const double rh = rmsOf(L1, (size_t)SR, L1.size());
+        CHECK(rl < 1e-6, "Roughness 0.3: no wash (rms %g)", rl);
+        CHECK(rh > 0.02, "Roughness 1: wash present (rms %g)", rh);
+    }
+
+    // --- note mode: tuned drop pitch, and held notes tune the creek ---
+    {
+        eng.Init(SR, 1);
+        Macros m; m.aeration = 0; eng.SetMacros(m);
+        Event e; e.type = EV_DROP; e.radiusMm = 3000.f / 880.f; e.amp = 1; e.pan = 0;
+        eng.Trigger(e);
+        std::vector<float> a(4800), b(4800);
+        eng.Process(a.data(), b.data(), 4800);
+        int zc = 0; for (size_t i = 97; i < 960; i++) if ((a[i - 1] < 0) != (a[i] < 0)) zc++;
+        const float f = zc / 2.f / (863.f / SR);
+        CHECK(fabsf(f - 880.f) / 880.f < 0.05f, "tuned drop at 880 Hz sounds at %.0f Hz", f);
+        Stats s; eng.GetStats(s);
+        CHECK(s.births >= 2 && s.births <= 4, "drop = bubble + 1..3 children (%u)", s.births);
+
+        eng.Init(SR, 1);
+        Macros t; t.flow = 0.6f; t.roughness = 0.5f; t.scale = 0.5f; t.aeration = 0.7f; t.tune = true; t.tuneHz[0] = 1000.f;
+        eng.SetMacros(t);
+        std::vector<float> L(48), R(48);
+        for (int i = 0; i < 1000; i++) eng.Process(L.data(), R.data(), 48);       // 1 s to gather
+        uint32_t last = eng.Pool().logW; int on = 0, tot = 0;
+        for (int i = 0; i < 2000; i++) {
+            eng.Process(L.data(), R.data(), 48);
+            const BubblePool& p = eng.Pool();
+            for (; last != p.logW; last++) {
+                const float l2 = log2f(p.logF[last & (kLog - 1)] / 1000.f);
+                if (fabsf(l2 - roundf(l2)) < 0.01f) on++;
+                tot++;
+            }
+        }
+        CHECK(tot > 50 && on > 0.75f * tot, "holding a note tunes most creek bubbles (%d of %d)", on, tot);
+    }
+
     // --- stress: finite, protected peaks, DC ---
     {
         auto st = load("stress");
@@ -161,8 +220,8 @@ static void engineTests() {
         writeF32("stress", L1, R1);
     }
     // --- reference renders for the JS comparison ---
-    for (const char* k : {"trickle", "rocky", "cascade", "deeper", "single_bubble", "presets_walk"}) {
-        auto sc = load(k, strcmp(k, "presets_walk") && strcmp(k, "single_bubble") ? 10.f : -1.f);
+    for (const char* k : {"trickle", "rocky", "cascade", "deeper", "single_bubble", "presets_walk", "notes"}) {
+        auto sc = load(k, strcmp(k, "presets_walk") && strcmp(k, "single_bubble") && strcmp(k, "notes") ? 10.f : -1.f);
         render(eng, sc, 48, L1, R1);
         writeF32(k, L1, R1);
     }

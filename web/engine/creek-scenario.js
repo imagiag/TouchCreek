@@ -10,6 +10,8 @@
 //   ramp 0 20 flow 0 1             linear from t0 to t1 (updated every 48 samples)
 //   at 1.5 bubble zone 0 radius 2 amp 1 rise 0 pan 0
 //   every 0 5 0.25 bubble radius 1 repeat a bubble from t0 (incl.) to t1 (excl.)
+//   at 2 drop hz 880 amp 1         note-mode tuned drop (optional pan)
+//   at 2 tune 523.25 659.26        held notes tuning the creek (up to 4 Hz values; 'at 3 tune' = off)
 // Times in seconds; '#' starts a comment.
 
 const CS_KEYS = ['flow', 'roughness', 'scale', 'aeration', 'gain', 'width', 'mask', 'hold'];
@@ -38,6 +40,8 @@ function csParse(text, sr) {
       if (op === 'preset') sc.points.push({ s, order: order++, op, name: w[3] });
       else if (op === 'set') sc.points.push({ s, order: order++, op, v: kv(w.slice(3), CS_KEYS) });
       else if (op === 'bubble') sc.points.push({ s, order: order++, op, v: kv(w.slice(3), CS_BUBBLE_KEYS) });
+      else if (op === 'drop') sc.points.push({ s, order: order++, op, v: kv(w.slice(3), ['hz', 'amp', 'pan']) });
+      else if (op === 'tune') sc.points.push({ s, order: order++, op, hz: w.slice(3, 7).map(Number) });
       else throw new Error('unknown op ' + op);
     } else if (w[0] === 'every') {
       const t0 = Number(w[1]), t1 = Number(w[2]), dt = Number(w[3]);
@@ -58,7 +62,7 @@ function csParse(text, sr) {
 // result is independent of `block`.
 function csRun(sc, eng, sr, block, presets, onBlock) {
   const n = Math.floor(sc.seconds * sr), L = new Float32Array(n), R = new Float32Array(n);
-  const m = { flow: 0.2, roughness: 0.25, scale: 0.2, aeration: 0.3, gain: 1, width: 1, mask: 31, hold: 0 };
+  const m = { flow: 0.2, roughness: 0.25, scale: 0.2, aeration: 0.3, gain: 1, width: 1, mask: 31, hold: 0, tuneHz: [0, 0, 0, 0] };
   eng.reset(sc.seed);
   let pi = 0, pos = 0;
   const bl = new Float32Array(block), br = new Float32Array(bl.length);
@@ -68,13 +72,16 @@ function csRun(sc, eng, sr, block, presets, onBlock) {
       const p = sc.points[pi];
       if (p.op === 'preset') { const q = presets.find((x) => x.key === p.name); m.flow = q.flow; m.roughness = q.roughness; m.scale = q.scale; m.aeration = q.aeration; changed = true; }
       else if (p.op === 'set') { Object.assign(m, p.v); changed = true; }
+      else if (p.op === 'tune') { for (let k = 0; k < 4; k++) m.tuneHz[k] = p.hz[k] || 0; changed = true; }
+      else if (p.op === 'drop') eng.trigger({ type: 2, radiusMm: 3000 / p.v.hz, amp: p.v.amp || 0.7, pan: p.v.pan === undefined ? -2 : p.v.pan });
       else eng.trigger({ zone: p.v.zone === undefined ? 1 : p.v.zone, radiusMm: p.v.radius || 0, amp: p.v.amp || 0, tauSec: p.v.tau || 0,
         rise: p.v.rise === undefined ? -1 : p.v.rise, pan: p.v.pan === undefined ? -2 : p.v.pan });
     }
     if (pos % CS_RAMP_STEP === 0) for (const r of sc.ramps) if (pos >= r.s0 && pos <= r.s1 + CS_RAMP_STEP) {
       const x = Math.min(1, (pos - r.s0) / Math.max(1, r.s1 - r.s0)); m[r.key] = r.v0 + (r.v1 - r.v0) * x; changed = true;
     }
-    if (changed) eng.setMacros({ flow: m.flow, roughness: m.roughness, scale: m.scale, aeration: m.aeration, gain: m.gain, width: m.width, mask: m.mask | 0, hold: !!m.hold });
+    if (changed) eng.setMacros({ flow: m.flow, roughness: m.roughness, scale: m.scale, aeration: m.aeration, gain: m.gain, width: m.width, mask: m.mask | 0, hold: !!m.hold,
+      tuneHz: m.tuneHz.slice(), tune: m.tuneHz.some((h) => h > 0) ? 1 : 0 });
     const rampOn = sc.ramps.some((r) => pos <= r.s1 + CS_RAMP_STEP);
     let next = rampOn ? Math.min(n, (Math.floor(pos / CS_RAMP_STEP) + 1) * CS_RAMP_STEP) : n;
     if (pi < sc.points.length && sc.points[pi].s < next) next = sc.points[pi].s;

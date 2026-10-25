@@ -32,6 +32,8 @@ struct Macros {
     float width = 1.f;     // 0 = mono .. ck::WIDTH_MAX
     uint32_t mask = 0x1F;  // diagnostic layer mask (bit = layer on)
     bool hold = false;     // hold the slow state (events keep going)
+    float tuneHz[4] = {0, 0, 0, 0}; // note mode: held note pitches (0 = none)
+    bool tune = false;     // true while notes are held
 };
 
 struct Stats {
@@ -58,6 +60,8 @@ private:
     void applyMacros(bool snap);
     void controlTick();
     void renderSegment(float* L, float* R, int n);
+    void drop(const Event& e, int off);
+    float kTuneA_ = 0, kTuneR_ = 0;
 
     float sr_ = 48000;
     uint32_t srInt_ = 48000;

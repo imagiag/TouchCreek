@@ -1,0 +1,17 @@
+# Note mode: rocky creek, tuned drops (C major pentatonic) and held notes tuning the creek.
+seconds 16
+seed 5
+at 0 preset rocky
+at 1 drop hz 523.25 amp 0.8
+at 1.5 drop hz 659.26 amp 0.6
+at 2 drop hz 783.99 amp 0.9
+at 2.5 drop hz 1046.5 amp 0.5
+at 3 drop hz 880 amp 0.7
+at 4 tune 523.25
+at 4 drop hz 523.25 amp 0.8
+at 8 tune 523.25 783.99
+at 8 drop hz 783.99 amp 0.7
+at 11 tune
+at 12 drop hz 587.33 amp 0.9
+at 12.3 drop hz 659.26 amp 0.7
+at 12.6 drop hz 783.99 amp 0.8

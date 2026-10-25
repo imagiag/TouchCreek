@@ -21,14 +21,14 @@ const PADS = [
 // physical control -> macro index (CC.M_*), or -1 = reserved
 const KNOBS = [
   { id: 'S30', x: 21.2, y: 49.5, m: -1 }, { id: 'S31', x: 21.2, y: 35.5, m: CC.M_SCALE }, { id: 'S32', x: 40.8, y: 35.5, m: CC.M_AER },
-  { id: 'S33', x: 60.3, y: 35.5, m: CC.M_GAIN }, { id: 'S34', x: 79.2, y: 35.5, m: CC.M_WIDTH }, { id: 'S35', x: 79.2, y: 49.5, m: -1 },
+  { id: 'S33', x: 60.3, y: 35.5, m: CC.M_FLOW }, { id: 'S34', x: 79.2, y: 35.5, m: CC.M_WIDTH }, { id: 'S35', x: 79.2, y: 49.5, m: -1 },
 ];
-const FADERS = [{ id: 'S36', x: 6.5, y: 42, m: CC.M_FLOW }, { id: 'S37', x: 93.5, y: 42, m: CC.M_ROUGH }];
+const FADERS = [{ id: 'S36', x: 6.5, y: 42, m: CC.M_LEVEL }, { id: 'S37', x: 93.5, y: 42, m: CC.M_ROUGH }];
 const SWITCHES = [ // pos 0 = up, 1 = centre, 2 = down
-  { k: 'mode', id: 'S09/10', x: 37.8, y: 66, names: ['PERF', 'PERF', 'DIAG'] },
+  { k: 'mode', id: 'S09/10', x: 37.8, y: 66, names: ['PRESETS', 'NOTES', 'DIAG'] },
   { k: 'hold', id: 'S07/08', x: 53.5, y: 72.5, names: ['LIVE', 'LIVE', 'HOLD'] },
 ];
-const MACRO_NAMES = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Gain', 'Width'];
+const MACRO_NAMES = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width'];
 
 // ------------------------------------------------------------------ hardware glue (as creek_ui.cpp)
 // Soft pickup: after a preset recall a macro knob only writes again once it
@@ -57,7 +57,11 @@ function handleEvents() {
     if (e.type === CC.EV_PRESET) { for (let i = 0; i < 4; i++) take[i].hold(ctl.value[i], phys[i]); blink(e.arg + 1, 70, 90); }
     else if (e.type === CC.EV_LAYER) blink(e.arg ? 2 : 1, 60, 80);
     else if (e.type === CC.EV_ALL) blink(3, 40, 40);
-    else if (e.type === CC.EV_MODE) blink(e.arg ? 2 : 1, 150, 100);
+    else if (e.type === CC.EV_MODE) blink(e.arg + 1, 150, 100);
+    else if (e.type === CC.EV_SCALE) blink(e.arg + 1, 30, 30);
+    else if (e.type === CC.EV_OCT) blink(e.arg < 0 ? 1 - e.arg : e.arg + 1, 25, 25);
+    else if (e.type === CC.EV_ROOT) blink(1, 120, 0);
+    else if (e.type === CC.EV_NOTE) led.flickerUntil = performance.now() + 40;
   }
   ctl.events.length = 0;
 }
@@ -68,15 +72,17 @@ function ledState(t) {
     }
     return led.lit;
   }
-  return ctl.diag ? t >= led.flickerUntil : t < led.flickerUntil;
+  return ctl.mode === CC.MODE_DIAG ? t >= led.flickerUntil : t < led.flickerUntil;
 }
 
 // UI tick every 4 ms, like the firmware main loop
 const t0 = performance.now();
 setInterval(() => {
   ctl.tick((performance.now() - t0) / 1000);
-  ctl.setMode(sw.mode === 2);
+  ctl.setMode(sw.mode);                    // 0 presets, 1 notes, 2 diagnostics
   ctl.hold = sw.hold === 2;
+  for (const d of ctl.drops) if (node) node.port.postMessage({ type: 'trigger', ev: { type: 2, radiusMm: 3000 / d.hz, amp: 0.25 + 0.75 * d.vel } });
+  ctl.drops.length = 0;
   handleEvents();
   ctl.compute(macros);
   const key = JSON.stringify(macros);
@@ -100,9 +106,15 @@ function buildBoard() {
     const e = el('div', 'pad' + (p.small ? ' small' : ''), board);
     e.style.left = p.x + '%'; e.style.top = p.y + '%';
     e._lbl = el('div', 'lbl', e);
-    e.addEventListener('pointerdown', (ev) => { ev.preventDefault(); e.classList.add('down'); ctl.padDown(p.id); ensureAudio(); });
-    const up = () => e.classList.remove('down');
-    e.addEventListener('pointerup', up); e.addEventListener('pointercancel', up); e.addEventListener('pointerleave', up);
+    // velocity: pen pressure when available, otherwise where you hit the pad (top = hard), like TouchPulsar
+    e.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault(); e.setPointerCapture(ev.pointerId); e.classList.add('down'); ensureAudio();
+      const r = e.getBoundingClientRect();
+      const vel = ev.pointerType === 'pen' && ev.pressure > 0 ? ev.pressure : clamp(1 - (ev.clientY - r.top) / r.height, 0.1, 1);
+      ctl.padDown(p.id, vel);
+    });
+    const up = () => { if (!e.classList.contains('down')) return; e.classList.remove('down'); ctl.padUp(p.id); };
+    e.addEventListener('pointerup', up); e.addEventListener('pointercancel', up);
     padEls[p.id] = e;
   }
   for (const k of KNOBS) {
@@ -158,7 +170,7 @@ function bindFader(e, m) {
 }
 
 function fmt(m, v) {
-  if (m === CC.M_GAIN) { const g = ccGain(v); return g === 0 ? 'off' : (20 * Math.log10(g)).toFixed(1) + ' dB'; }
+  if (m === CC.M_LEVEL) { const g = ccLevel(v); return g < 1e-4 ? 'off' : (20 * Math.log10(g)).toFixed(1).replace(/^-0\.0$/, '0.0') + ' dB'; }
   if (m === CC.M_WIDTH) return ccWidth(v).toFixed(2) + '×';
   if (m === CC.M_SCALE) return (CK.SCALE_MUL_MIN * Math.pow(CK.SCALE_MUL_MAX / CK.SCALE_MUL_MIN, v)).toFixed(2) + '× size';
   return Math.round(v * 100) + '%';
@@ -189,9 +201,12 @@ function drawBoard() {
   for (const p of PADS) {
     const e = padEls[p.id];
     let html = `P${String(p.id).padStart(2, '0')}`, cls = 'idle';
-    if (!ctl.diag) {
+    if (ctl.mode === CC.MODE_PRESETS) {
       const k = p.id - CC.PAD_PRESET0;
       if (k >= 0 && k < CREEK_PRESETS.length) { html += `<small>${CREEK_PRESETS[k].name}</small>`; cls = k === ctl.preset ? 'sel' : ''; }
+    } else if (ctl.mode === CC.MODE_NOTES) {
+      const sub = noteLabel(p.id);
+      if (sub) { html += `<small>${sub}</small>`; cls = ctl.held.includes(p.id) ? 'sel' : ''; }
     } else if (p.id === CC.PAD_ALL) { html += '<small>All on</small>'; cls = ''; }
     else {
       const l = p.id - CC.PAD_LAYER0;
@@ -201,11 +216,20 @@ function drawBoard() {
     e.classList.remove('idle', 'sel', 'muted', 'layer-on'); if (cls) e.classList.add(cls);
   }
   $('led').classList.toggle('on', ledState(performance.now()));
-  $('dMode').textContent = ctl.diag ? 'DIAGNOSTICS' : 'PERFORMANCE'; $('dMode').classList.toggle('diag', ctl.diag);
+  $('dMode').textContent = ['PRESETS', 'NOTES', 'DIAGNOSTICS'][ctl.mode]; $('dMode').classList.toggle('diag', ctl.mode !== CC.MODE_PRESETS);
   $('dHold').textContent = ctl.hold ? 'HOLD' : 'LIVE'; $('dHold').classList.toggle('on', ctl.hold);
-  $('dPreset').textContent = ctl.diag ? 'layers ' + CC_LAYER_NAMES.map((n, l) => ((ctl.diagMask >> l) & 1 ? n[0] : '·')).join('') : CREEK_PRESETS[ctl.preset].name;
+  $('dPreset').textContent = ctl.mode === CC.MODE_DIAG ? 'layers ' + CC_LAYER_NAMES.map((n, l) => ((ctl.diagMask >> l) & 1 ? n[0] : '·')).join('')
+    : ctl.mode === CC.MODE_NOTES ? `${ctl.scaleName()} · oct ${ctl.oct > 0 ? '+' : ''}${ctl.oct}` : CREEK_PRESETS[ctl.preset].name;
   $('hint').textContent = !running ? 'Press Start audio, then play the panel.'
-    : ctl.diag ? 'Diagnostics: P03–P07 mute / unmute layers, P08 all on.' : 'P03–P06 recall presets. Knobs pick up once moved.';
+    : ctl.mode === CC.MODE_DIAG ? 'Diagnostics: P03–P07 mute / unmute layers, P08 all on.'
+    : ctl.mode === CC.MODE_NOTES ? 'Tap a note for a drop, hold it to tune the creek. Hit a pad higher up = louder.'
+    : 'P03–P06 recall presets. Knobs pick up once moved.';
+}
+const midiName = (m) => CC.NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+function noteLabel(id) {
+  if (id >= CC.PAD_NOTE0 && id <= CC.PAD_NOTE0 + 6) return midiName(ctl.padMidi(id));
+  if (ctl.touched[CC.P_SCALE] && (id === CC.P_OCT_DN || id === CC.P_OCT_UP)) return id === CC.P_OCT_UP ? 'scale +' : 'scale −';
+  return { 0: 'oct −', 2: 'oct +', 10: 'root', 11: 'scale' }[id] || '';
 }
 
 // ------------------------------------------------------------------ audio
@@ -295,10 +319,19 @@ document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   const n = Number(e.key);
   if (e.key === ' ') { e.preventDefault(); running ? stop() : start(); }
-  else if (e.key === 'd' || e.key === 'D') sw.mode = sw.mode === 2 ? 0 : 2;
+  else if (e.repeat) return;
+  else if (e.key === 'd' || e.key === 'D') sw.mode = (sw.mode + 1) % 3;
   else if (e.key === 'h' || e.key === 'H') sw.hold = sw.hold === 2 ? 0 : 2;
-  else if (!ctl.diag && n >= 1 && n <= 4) ctl.padDown(CC.PAD_PRESET0 + n - 1);
-  else if (ctl.diag && n >= 1 && n <= 5) ctl.padDown(CC.PAD_LAYER0 + n - 1);
-  else if (ctl.diag && n === 6) ctl.padDown(CC.PAD_ALL);
+  else if (ctl.mode === CC.MODE_PRESETS && n >= 1 && n <= 4) ctl.padDown(CC.PAD_PRESET0 + n - 1, 0.7);
+  else if (ctl.mode === CC.MODE_NOTES && n >= 1 && n <= 7) ctl.padDown(CC.PAD_NOTE0 + n - 1, 0.7);
+  else if (ctl.mode === CC.MODE_NOTES && (e.key === 'z' || e.key === 'x')) ctl.padDown(e.key === 'x' ? CC.P_OCT_UP : CC.P_OCT_DN, 0.7);
+  else if (ctl.mode === CC.MODE_DIAG && n >= 1 && n <= 5) ctl.padDown(CC.PAD_LAYER0 + n - 1, 0.7);
+  else if (ctl.mode === CC.MODE_DIAG && n === 6) ctl.padDown(CC.PAD_ALL, 0.7);
+});
+document.addEventListener('keyup', (e) => {
+  const n = Number(e.key);
+  if (n >= 1 && n <= 7) ctl.padUp(CC.PAD_NOTE0 + n - 1);
+  if (e.key === 'z' || e.key === 'x') ctl.padUp(e.key === 'x' ? CC.P_OCT_UP : CC.P_OCT_DN);
+  if (n >= 1 && n <= 6) { ctl.padUp(CC.PAD_PRESET0 + n - 1); ctl.padUp(CC.PAD_ALL); }
 });
 buildBoard(); frame();

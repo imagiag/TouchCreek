@@ -22,7 +22,8 @@ void FlowBed::Update(const FlowState& fs, Rng& rngD, float dt, int span) {
     const float R = fs.m[1], S = fs.m[2], E = fs.E[0], T = fs.T[0], e0 = fs.eta0.v;
     const float db = dBody_.Tick(rngD, dt, 1.f), dm = dMid_.Tick(rngD, dt, 1.f), dh = dHi_.Tick(rngD, dt, 1.f), dc = dCut_.Tick(rngD, dt, 1.f);
     const float fm = flMid_.Tick(rngD, dt, 1.f), fh = flHi_.Tick(rngD, dt, 1.f);
-    const float level = ck::BED_GAIN * powf(E, ck::BED_E_EXP) * fs.gate / (1.f + ck::BED_TOP_SQUASH * E * E);
+    const float rx = Clamp((R - ck::BED_R_ON[0]) / (ck::BED_R_ON[1] - ck::BED_R_ON[0]), 0.f, 1.f), rOn = rx * rx * (3.f - 2.f * rx);
+    const float level = ck::BED_GAIN * powf(E, ck::BED_E_EXP) * fs.gate * rOn / (1.f + ck::BED_TOP_SQUASH * E * E);
     const float depth = Lerp(ck::MOD_DEPTH[0], ck::MOD_DEPTH[1], Clamp(0.6f * R + 0.8f * T, 0.f, 1.f));
     const float flut = depth * Clamp(0.3f + 1.5f * T, 0.f, 1.f);
     const float tilt = powf(2.f, -ck::SCALE_TILT * (2.f * S - 1.f));          // larger Scale -> darker

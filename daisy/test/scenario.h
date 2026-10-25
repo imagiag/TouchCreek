@@ -16,7 +16,7 @@ namespace scenario {
 
 constexpr int kRampStep = 48;
 
-struct Point { long s; int order; std::string op, name; std::vector<std::pair<std::string, float>> v; };
+struct Point { long s; int order; std::string op, name; std::vector<std::pair<std::string, float>> v; float hz[4] = {0, 0, 0, 0}; };
 struct Ramp { long s0, s1; std::string key; float v0, v1; };
 struct Scenario { float seconds = 10; uint32_t seed = 1; std::vector<Point> points; std::vector<Ramp> ramps; std::string text; };
 
@@ -58,6 +58,8 @@ inline Scenario parse(const std::string& text, float sr) {
             if (pt.op == "preset") pt.name = w[3];
             else if (pt.op == "set") pt.v = kv(3, keys, 8);
             else if (pt.op == "bubble") pt.v = kv(3, bkeys, 6);
+            else if (pt.op == "drop") { static const char* dk[] = {"hz", "amp", "pan"}; pt.v = kv(3, dk, 3); }
+            else if (pt.op == "tune") { for (size_t i = 3; i < w.size() && i < 7; i++) pt.hz[i - 3] = (float)atof(w[i].c_str()); }
             else throw std::runtime_error("unknown op " + pt.op);
             sc.points.push_back(pt);
         } else if (w[0] == "every") {
@@ -74,7 +76,7 @@ inline Scenario parse(const std::string& text, float sr) {
     return sc;
 }
 
-struct M { float flow = 0.2f, roughness = 0.25f, scale = 0.2f, aeration = 0.3f, gain = 1, width = 1, mask = 31, hold = 0; };
+struct M { float flow = 0.2f, roughness = 0.25f, scale = 0.2f, aeration = 0.3f, gain = 1, width = 1, mask = 31, hold = 0; float tuneHz[4] = {0, 0, 0, 0}; };
 inline void setKey(M& m, const std::string& k, float v) {
     if (k == "flow") m.flow = v; else if (k == "roughness") m.roughness = v; else if (k == "scale") m.scale = v;
     else if (k == "aeration") m.aeration = v; else if (k == "gain") m.gain = v; else if (k == "width") m.width = v;
@@ -101,6 +103,15 @@ void run(const Scenario& sc, creek::CreekEngine& eng, float sr, int block, std::
                 }
                 changed = true;
             } else if (p.op == "set") { for (auto& kv : p.v) setKey(m, kv.first, kv.second); changed = true; }
+            else if (p.op == "tune") { for (int k = 0; k < 4; k++) m.tuneHz[k] = p.hz[k]; changed = true; }
+            else if (p.op == "drop") {
+                creek::Event e; e.type = creek::EV_DROP; e.amp = 0.7f;
+                for (auto& kv : p.v) {
+                    if (kv.first == "hz") e.radiusMm = 3000.f / kv.second; else if (kv.first == "amp") e.amp = kv.second;
+                    else if (kv.first == "pan") e.pan = kv.second;
+                }
+                eng.Trigger(e);
+            }
             else {
                 creek::Event e;
                 for (auto& kv : p.v) {
@@ -121,6 +132,8 @@ void run(const Scenario& sc, creek::CreekEngine& eng, float sr, int block, std::
             creek::Macros cm;
             cm.flow = m.flow; cm.roughness = m.roughness; cm.scale = m.scale; cm.aeration = m.aeration;
             cm.gain = m.gain; cm.width = m.width; cm.mask = (uint32_t)m.mask; cm.hold = m.hold != 0;
+            cm.tune = false;
+            for (int k = 0; k < 4; k++) { cm.tuneHz[k] = m.tuneHz[k]; if (m.tuneHz[k] > 0) cm.tune = true; }
             eng.SetMacros(cm);
         }
         long next = rampOn ? std::min(n, (pos / kRampStep + 1) * kRampStep) : n;

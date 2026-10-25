@@ -10,6 +10,8 @@ void CreekEngine::Init(float sampleRate, uint32_t seed) {
     srInt_ = (uint32_t)lroundf(sampleRate);
     for (int l = 0; l < ck::LAYERS; l++) { pL_[l] = bufL_[l]; pR_[l] = bufR_[l]; }
     pool_.Init(sr_); mixer_.Init(sr_); out_.Init(sr_);
+    kTuneA_ = 1.f - expf(-1.f / (ck::CONTROL_HZ * ck::TUNE_ATTACK_SEC));
+    kTuneR_ = 1.f - expf(-1.f / (ck::CONTROL_HZ * ck::TUNE_RELEASE_SEC));
     Reset(seed);
 }
 
@@ -34,6 +36,8 @@ void CreekEngine::SetMacros(const Macros& v) {
     m.scale = fin(v.scale, 0.f, 1.f, m.scale); m.aeration = fin(v.aeration, 0.f, 1.f, m.aeration);
     m.gain = fin(v.gain, 0.f, 4.f, m.gain); m.width = fin(v.width, 0.f, ck::WIDTH_MAX, m.width);
     m.mask = v.mask & 0x1Fu; m.hold = v.hold;
+    for (int k = 0; k < 4; k++) { const float h = v.tuneHz[k]; m.tuneHz[k] = isfinite(h) && h > 20.f && h < 20000.f ? h : 0.f; }
+    m.tune = v.tune;
     applyMacros(snapNext_);
     snapNext_ = false;
 }
@@ -45,6 +49,8 @@ void CreekEngine::applyMacros(bool snap) {
     mixer_.SetMask(m.mask, m.width);
     out_.gTarget = m.gain;
     if (snap) { mixer_.w = m.width; out_.g = m.gain; for (int l = 0; l < ck::LAYERS; l++) mixer_.g[l] = mixer_.target[l]; }
+    sched_.nTune = 0;
+    for (int k = 0; k < 4; k++) if (m.tuneHz[k] > 0) sched_.tuneLog2[sched_.nTune++] = log2f(m.tuneHz[k]);
 }
 
 bool CreekEngine::Trigger(const Event& src) {
@@ -65,6 +71,8 @@ void CreekEngine::controlTick() {
     const int next = (int)(((k + 1) * srInt_) / ck::CONTROL_HZ - (k * srInt_) / ck::CONTROL_HZ);
     untilTick_ = next; tickIndex_++;
     sched_.Update(flow_, flow_.m[2]);
+    const float tt = macros_.tune && sched_.nTune > 0 ? 1.f : 0.f;
+    sched_.tuneAmt += (tt > sched_.tuneAmt ? kTuneA_ : kTuneR_) * (tt - sched_.tuneAmt);
     bed_.Update(flow_, rng_[S_BED_DRIFT], flow_.dt, next);
 }
 
@@ -95,11 +103,33 @@ void CreekEngine::renderSegment(float* L, float* R, int n) {
         queue_.used[i] = false;
         const int o = e.at > sample_ ? (int)(e.at - sample_) : 0;
         if (e.type == EV_BUBBLE) sched_.Make(rng_[S_TRIGGER], e.zone, pool_, o, &e);
+        else if (e.type == EV_DROP) { const Event d = e; drop(d, o); }
     }
     bed_.Render(bufL_[L_FLOW], bufR_[L_FLOW], n, rng_[S_NOISE_C], rng_[S_NOISE_L], rng_[S_NOISE_R]);
     pool_.Render(bufL_[L_BUBBLES], bufR_[L_BUBBLES], n);
     mixer_.Mix(pL_, pR_, L, R, n);
     out_.Process(L, R, n);
+}
+
+// note mode: a tuned drop = one bubble at the note plus a few quieter
+// follow-up bubbles (same pitch or an octave up) over the next 12-90 ms
+void CreekEngine::drop(const Event& e, int o) {
+    Rng& r = rng_[S_TRIGGER];
+    const float rMm = e.radiusMm > 0 ? e.radiusMm : 3.f;
+    const float u0 = r.Uni(), u1 = r.Bip();
+    const float pan = e.pan >= -1 ? e.pan : ck::DROP_PAN * u1, amp = e.amp > 0 ? e.amp : 0.7f;
+    pool_.Spawn(fmaxf(ck::F_MIN_HZ, 3000.f / rMm), amp * ck::DROP_GAIN * ck::BUBBLE_GAIN, sched_.TauFor(rMm) * ck::DROP_TAU_MUL,
+                ck::ATTACK_MIN, ck::DROP_RISE, pan, o);
+    const int nc = 1 + (int)floorf(u0 * ck::DROP_CHILDREN * fminf(1.f, amp));
+    for (int k = 0; k < (int)ck::DROP_CHILDREN; k++) {
+        const float d = r.Uni(), a = r.Uni(), oc = r.Uni(), pj = r.Bip();
+        if (k >= nc) continue;
+        Event c;
+        c.type = EV_BUBBLE; c.zone = 0; c.radiusMm = oc < 0.35f ? rMm * 0.5f : rMm;
+        c.amp = amp * ck::DROP_GAIN * Lerp(ck::DROP_CHILD_AMP[0], ck::DROP_CHILD_AMP[1], a);
+        c.rise = 0; c.tauSec = 0; c.pan = Clamp(pan + 0.15f * pj, -1.f, 1.f);
+        queue_.Push(c, sample_ + (uint64_t)o + (uint64_t)lroundf(Lerp(ck::DROP_CHILD_MS[0], ck::DROP_CHILD_MS[1], d) * 0.001f * sr_));
+    }
 }
 
 void CreekEngine::GetStats(Stats& s) const {

@@ -1,7 +1,8 @@
 // =============================================================================
 // CreekUI — Touch 2 hardware glue for creek::Controls / creek::CreekEngine.
-// Pads, knobs (soft pickup after preset recall), switches, LED, and the
-// double-buffered macro mailbox read by the audio callback.
+// Pads, knobs (soft pickup after preset recall), switches, LED, the
+// double-buffered macro mailbox and the note-drop queue read by the audio
+// callback.
 // Runs in the main loop; the audio callback only calls AudioBlock().
 // =============================================================================
 #pragma once
@@ -43,7 +44,7 @@ public:
     // audio callback side: newest macros from the mailbox, then render
     void AudioBlock(float* left, float* right, size_t n);
 
-    uint32_t MailboxDrops() const { return 0; } // the mailbox coalesces, never drops
+    uint32_t QueueDrops() const { return trigDrops_; } // note drops lost to a full queue (the mailbox itself coalesces)
 
 private:
     double now();
@@ -52,6 +53,8 @@ private:
     void updateLed(daisy::DaisySeed& hw);
     void blink(uint8_t count, uint32_t onMs, uint32_t offMs);
     void post();
+    void pushTrigger(const creek::Event& e);
+    void knobsPhys(daisy::AnalogControl** out);
 
     Touch& touch_;
     creek::CreekEngine& engine_;
@@ -66,6 +69,12 @@ private:
     volatile int mailRead_ = 0;
     volatile uint32_t mailSeq_ = 0;
     uint32_t mailSeen_ = 0;
+
+    // note drops: single-producer (main loop) single-consumer (audio) ring
+    static constexpr uint32_t kTrig = 16;
+    creek::Event trig_[kTrig];
+    volatile uint32_t trigW_ = 0, trigR_ = 0;
+    uint32_t trigDrops_ = 0;
 
     // time (64-bit microsecond accumulator; System::GetUs wraps after ~71 min)
     uint32_t lastUs_ = 0;

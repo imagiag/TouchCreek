@@ -17,6 +17,12 @@ public:
     void Update(const FlowState& fs, float S);   // control tick
     void Run(Rng& rngT, int n);                  // births in the next n samples
     bool Make(Rng& rngP, int z, BubblePool& pool, int off, const Event* ev);
+    float TauFor(float rMm) const;     // decay time of a bubble of this radius
+
+    // note mode: held notes gather some creek bubbles onto their pitches
+    float tuneLog2[4];
+    int nTune = 0;
+    float tuneAmt = 0;
 
     float rate[ck::ZONES];
     int nBorn = 0;
@@ -24,6 +30,7 @@ public:
     uint32_t over = 0;
 
 private:
+    float snap(float l2) const;
     float sr_ = 48000;
     float acc_[ck::ZONES], thr_[ck::ZONES], inc_[ck::ZONES];
     float lnRmin_ = 0, lnRspan_ = 1, lnTauSpan_ = 1;

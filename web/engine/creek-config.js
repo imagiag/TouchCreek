@@ -79,11 +79,25 @@ const CK = {
   MID_GAIN: 0.30,
   HIGH_GAIN: 0.10,
   BED_E_EXP: 0.45,
-  BED_TOP_SQUASH: 0.95,     // headroom at full flow: level / (1 + k E^2)          // level ~ E^exp
+  BED_TOP_SQUASH: 0.95,     // headroom at full flow: level / (1 + k E^2)
+  BED_R_ON: [0.45, 0.95],   // the wash only comes in with high Roughness (smoothstep over this range)          // level ~ E^exp
   MOD_DEPTH: [0.12, 0.45],  // gain modulation depth, low .. high roughness
   CUT_DEPTH: 0.25,          // cutoff modulation depth (fraction, log)
   FLUTTER_MIN_SEC: 0.04, FLUTTER_MAX_SEC: 0.3, // faster turbulent flutter (scaled by T)
   SCALE_TILT: 0.45,         // larger Scale lowers the bed's spectral centre
+
+  // ---- note mode: tuned drops and creek tuning ----
+  DROP_GAIN: 0.55,          // drop level at full velocity (x BUBBLE_GAIN)
+  DROP_TAU_MUL: 1.6,        // drops ring a little longer than creek bubbles
+  DROP_RISE: 0.04,          // slight upward "plink"
+  DROP_CHILDREN: 3,         // up to this many quieter follow-up bubbles ...
+  DROP_CHILD_MS: [12, 90],  // ... after this delay ...
+  DROP_CHILD_AMP: [0.15, 0.4], // ... at this level relative to the drop
+  DROP_PAN: 0.35,           // drops spread +- this around the centre
+  TUNE_ATTACK_SEC: 0.25,    // holding a note gathers the creek's bubbles onto it ...
+  TUNE_RELEASE_SEC: 0.6,    // ... and lets go after release
+  TUNE_MAX: 0.9,            // share of creek bubbles tuned when fully gathered
+  TUNE_TAU_MUL: 1.3,        // tuned bubbles ring a bit longer
 
   // ---- output ----
   DC_HZ: 25,
