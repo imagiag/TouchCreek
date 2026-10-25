@@ -22,7 +22,7 @@ The browser emulator (`web/`, see below) has the same layout and behaves like th
 - S37 (right) **Roughness** | Smooth channel → rocky interruptions: more turbulence, so more bubbling, deeper eddies, more uneven splashes and more surface ticks.
 
 ### Knobs
-- S31 **Scale** | Fine shallow trickle → larger stream body. Bubbles get 0.6× to 1.8× bigger, so their typical pitch falls (about 3.2 kHz → 1.3 kHz); splashes plop lower and eddies get slower.
+- S31 **Scale** | Fine shallow trickle → larger stream body. Bubbles get 0.6× to 1.8× bigger over most of the knob, so their typical pitch falls (about 3 kHz → 1.3 kHz); in the last quarter it bends up to 4× for bass, with the deepest bubbles around 125 Hz ringing longer. Splashes plop lower and eddies get slower.
 - S32 **Aeration** | Sparse bubbling → bubbly white water. Fully left = no bubbles at all.
 - S33 **Flow** | Still → trickle → lively creek. More bubbles, more splashes at the drop (0.2 → 4 per second). Fully left: the creek fades to silence within about 1.5 s.
 - S34 **Decay** | How long every bubble, drop, plop and tick rings. Noon = default; left shorter (down to ¼), right longer (up to 4×).

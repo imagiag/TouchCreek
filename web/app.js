@@ -189,7 +189,7 @@ function bindFader(e, c) {
 function fmt(m, v) {
   if (m === CC.M_LEVEL) { const g = ccLevel(v); return g < 1e-4 ? 'off' : (20 * Math.log10(g)).toFixed(1).replace(/^-0\.0$/, '0.0') + ' dB'; }
   if (m === CC.M_WIDTH) return ccWidth(v).toFixed(2) + '×';
-  if (m === CC.M_SCALE) return (CK.SCALE_MUL_MIN * Math.pow(CK.SCALE_MUL_MAX / CK.SCALE_MUL_MIN, v)).toFixed(2) + '×';
+  if (m === CC.M_SCALE) return crScaleMul(v).toFixed(2) + '×';
   if (m === CC.M_DECAY) return '×' + Math.pow(2, CK.DECAY_OCT * (2 * v - 1)).toFixed(2);
   if (m === CC.M_VARIETY) return Math.abs(v - 0.5) < 0.02 ? 'default' : v < 0.5 ? `one note ${Math.round((0.5 - v) * 200)}%` : `scale ${Math.round((v - 0.5) * 200)}%`;
   if (m === CC.M_FREE) return (v < 0.005 ? 'still' : Math.round(v * 100) + '%') + (ctl.mode === CC.MODE_NOTES ? '' : ' (Notes)');

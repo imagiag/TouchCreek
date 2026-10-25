@@ -278,6 +278,11 @@ class CrBubblePool {
 // Bubble parameters come from their own stream, so timing and timbre are
 // reproducible independently.
 // =============================================================================
+// Scale knob -> bubble radius multiplier: 0.6x .. 1.8x, bending up to 4x at the very top
+function crScaleMul(S) {
+  return CK.SCALE_MUL_MIN * Math.pow(CK.SCALE_MUL_MAX / CK.SCALE_MUL_MIN, S) * Math.pow(CK.SCALE_MUL_TOP / CK.SCALE_MUL_MAX, Math.pow(S, CK.SCALE_TOP_EXP));
+}
+
 // Move d steps through a scale (12-bit pitch-class mask, bit 0 = C) from MIDI note n.
 function crStepScale(n, d, mask) {
   const dir = d > 0 ? 1 : -1;
@@ -305,7 +310,7 @@ class CrBubbleScheduler {
   }
   // decay time of a bubble of radius rMm (longer for larger bubbles)
   tauFor(rMm) {
-    const x = crClamp((Math.log(rMm) - this.lnRmin) / this.lnRspan, 0, 1);
+    const x = crClamp((Math.log(rMm) - this.lnRmin) / this.lnRspan, 0, CK.TAU_X_MAX);
     return CK.TAU_MIN * Math.exp(this.lnTauSpan * x);
   }
   // nearest pitch (any octave) of the held notes, in log2 Hz
@@ -347,7 +352,7 @@ class CrBubbleScheduler {
       const lam = B > CK.B_MIN ? CK.RATE_MAX * CK.ZONE_RATE_W[z] * Math.pow(B, CK.RATE_EXP) * fs.gate * this.rateMul[z] * this.activity : 0;
       this.rate[z] = lam; this.inc[z] = lam / this.sr; total += lam;
     }
-    this.scaleMul = CK.SCALE_MUL_MIN * Math.pow(CK.SCALE_MUL_MAX / CK.SCALE_MUL_MIN, S);
+    this.scaleMul = crScaleMul(S);
     this.ampScale = CK.BUBBLE_GAIN / Math.sqrt(1 + total / CK.DENSITY_REF);
   }
   // collect births in the next n samples
@@ -377,7 +382,8 @@ class CrBubbleScheduler {
     let rMm = Math.exp(logr) * this.scaleMul * this.radMul[z];
     if (ev && ev.radiusMm > 0) rMm = ev.radiusMm;
     let f0 = Math.max(CK.F_MIN_HZ, 3000 / rMm);                   // f0 = 3 / r
-    let tau = this.tauFor(rMm) * (1 + CK.TAU_JITTER * u6);
+    const tauBase = this.tauFor(rMm);
+    let tau = tauBase * (1 + CK.TAU_JITTER * u6);
     if (ev && ev.tauSec > 0) tau = ev.tauSec;
     // note mode: held notes gather some of the creek's own bubbles onto their pitches
     // note mode: held notes gather the creek's bubbles onto their pitches; with
@@ -390,6 +396,7 @@ class CrBubbleScheduler {
     }
     let amp = Math.pow(10, -CK.AMP_DB_RANGE * Math.pow(u1, CK.AMP_SKEW) / 20) *
       Math.min(CK.AMP_R_MAX, Math.pow(rMm, CK.AMP_R_EXP)) * this.ampScale;
+    if (tauBase > CK.TAU_MAX) amp *= Math.sqrt(CK.TAU_MAX / tauBase);   // deep bubbles ring longer: same energy
     if (ev && ev.amp > 0) amp = ev.amp * CK.BUBBLE_GAIN;
     const attack = CK.ATTACK_MIN + (CK.ATTACK_MAX - CK.ATTACK_MIN) * u2;
     let rise = u3 < CK.RISE_PROB && !tuned ? CK.RISE_MAX * u4 : 0;

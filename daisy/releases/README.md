@@ -5,6 +5,7 @@ Flash these with https://flash.daisy.audio/ (hold BOOT while plugging in, or BOO
 
 | File | Date | Changes |
 |---|---|---|
+| `CreekTouch-v8-deep.bin` | 2026-10-25 | **Deeper Scale**: the last quarter of S31 bends up to 4× bubble size (was 1.8×) for bass, deepest bubbles ~125 Hz, ringing longer at matched energy. Notes can tune down to C2. Presets unchanged. |
 | `CreekTouch-v7-latch.bin` | 2026-10-25 | **Latch** in Notes: right switch down keeps touched notes pouring after release (up to 4); tap a latched note again to release it. In Presets / Diagnostics the right switch still holds the slow creek state. |
 | `CreekTouch-v6-pour.bin` | 2026-10-25 | **Free flow** (S30, Notes): how much the creek plays by itself, fully left = still; holding a note now **pours** water onto it. **Variety** (S35): left = one note, noon = default, right = across the active scale. **Decay** (S34): ¼× … 4×, noon = default. **Width moved to P10 + S34.** |
 | `CreekTouch-v5-monitor-fix.bin` | 2026-10-25 | Fixes the USB report for `web/monitor.html` (lines were too long for libDaisy's logger and got cut off). Sound unchanged from v4. |
