@@ -31,7 +31,7 @@
 <main class="mon">
   <div class="card">
     <ol>
-      <li>Flash the newest Creek <b>monitor</b> build (<code>daisy/releases/CreekTouch-v*-monitor.bin</code>; the normal build uses USB for MIDI instead) and plug the Touch 2 into this computer by USB.</li>
+      <li>Build the monitor firmware with <code>make -C daisy monitor</code> (it isn't part of the releases; the normal build uses USB for MIDI instead), flash <code>daisy/build-monitor/CreekTouch-monitor.bin</code> and plug the Touch 2 into this computer by USB.</li>
       <li>Click <b>Connect</b> and pick <b>Creek</b> (or "Daisy Seed") in the list.</li>
       <li>Play normally to see everyday load. For the worst case: left switch <b>down</b> (Diagnostics), tap <b>P09</b> (LED blinks fast, the creek goes wild) and let it run. Tap P09 again or leave Diagnostics to stop.</li>
       <li>The brief asks for the <b>worst</b> audio callback below <b>70 %</b> of its 1 ms deadline.</li>

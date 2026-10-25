@@ -4,7 +4,7 @@
 #   make soak       30-minute stability run (MINUTES=n to change)
 CXX ?= c++
 VERSION := $(shell git describe --always --dirty 2>/dev/null || echo dev)
-CXXFLAGS = -std=c++17 -O2 -Wall -Wextra -Wno-unused-parameter -DCREEK_VERSION=\"$(VERSION)\"
+CXXFLAGS = -std=c++17 -O2 -Wall -Wextra -Wno-unused-parameter -DCREEK_VERSION=\"$(VERSION)\" -DCREEK_STRESS=1
 ENGINE = $(wildcard ../creek/*.cpp)
 HEADERS = $(wildcard ../creek/*.h) scenario.h
 

@@ -3,7 +3,8 @@ TARGET = CreekTouch
 
 # USB carries MIDI in the normal build. `make monitor` builds CreekTouch-monitor
 # instead, which sends CPU / voice / stack stats over USB serial once a second
-# for web/monitor.html (no MIDI).
+# for web/monitor.html (no MIDI) and adds the P09 stress test. Only built when
+# needed (not part of releases).
 
 CPP_SOURCES = CreekTouch.cpp $(wildcard creek/*.cpp) $(wildcard ui/*.cpp) $(wildcard touch/*.cpp)
 C_INCLUDES = -Icommon/ -Itouch/
@@ -20,7 +21,7 @@ CPP_STANDARD = -std=gnu++17
 # -Os keeps the 128 KB internal flash comfortable; the DSP files in creek/ force -O3.
 OPT = -Os
 ifeq ($(MONITOR),1)
-C_DEFS += -DCREEK_MONITOR=1
+C_DEFS += -DCREEK_MONITOR=1 -DCREEK_STRESS=1
 endif
 LDFLAGS += -Wl,--no-warn-rwx-segments
 

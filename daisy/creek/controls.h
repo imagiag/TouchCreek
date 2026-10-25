@@ -17,9 +17,13 @@
 //                sustain pedal holds notes, pitch bend +-2, mod wheel / aftertouch = Surge,
 //                CCs for every knob, CC 14/15 scale/root, Program Change 1-4 = presets
 //   Diagnostics: P03..P07 toggle flow / bubbles / eddies / falls / surface, P08 = all on,
-//                P09 = stress test (worst-case settings, rapid jumps, note bursts)
+//                P09 = stress test (worst-case settings, rapid jumps, note bursts) - only in
+//                builds with CREEK_STRESS=1 (the monitor build and the host tests)
 #pragma once
 #include <stdint.h>
+#ifndef CREEK_STRESS
+#define CREEK_STRESS 0
+#endif
 #include "creek_engine.h"
 
 namespace creek {

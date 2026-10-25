@@ -13,7 +13,7 @@ Download the newest file from [releases/](releases/) (see its README for what ea
 
 Then **Connect** → *DFU in FS Mode* → choose the file → **Program**. To go back, flash any Synthux firmware the same way.
 
-Each version comes as two files: the normal one (USB is **MIDI**) and one ending in `-monitor` (USB sends a CPU and voice report to the monitor page instead of MIDI). Flash the normal one to play. Every version is kept in `releases/` with a name saying what changed, so you can always flash an older one. `build/CreekTouch.bin` is a working build and may be newer than any release.
+USB is **MIDI**; for measuring CPU there's a separate monitor build (see Emulator & Monitor), not part of the releases. Every version is kept in `releases/` with a name saying what changed, so you can always flash an older one. `build/CreekTouch.bin` is a working build and may be newer than any release.
 
 ## Controls
 
@@ -31,7 +31,7 @@ At power-up the creek plays whatever the knobs and faders are set to; the second
 - **Diagnostics** (left switch down)
   - **P03** - Flow bed on/off (the noise wash is off for now: silent) | **P04** - Bubbles | **P05** - Eddies | **P06** - Small waterfalls | **P07** - Surface detail
   - **P08** - All layers on
-  - **P09** - **Stress test** on/off (worst-case settings and note bursts; LED blinks fast)
+  - (monitor build only: **P09** - stress test, worst-case settings and note bursts; LED blinks fast)
 - **P10** - Modifier:
   - Hold P10 + S30 / S31 / S34 - **Width** / **Tone** / **Release** (see Knobs)
   - Notes: hold P10 + P03...P09 - set the **root key** to that pad's current note (the scale type stays)
@@ -60,7 +60,7 @@ Diagnostic mutes are smooth (20 ms), don't change what the other layers do, and 
 - **Left Switch — Mode**:
   - **Up**: PRESETS (P03–P06 recall the four presets)
   - **Center**: NOTES (P03–P09 play the scale; Free flow and Variety apply)
-  - **Down**: DIAGNOSTICS (P03–P07 mute layers, P08 all on, P09 stress test)
+  - **Down**: DIAGNOSTICS (P03–P07 mute layers, P08 all on)
 - **Right Switch — Latch / Hold**:
   - **Up / Center**: live
   - **Down in Notes**: **Latch** - notes you touch keep pouring after you let go (up to 4); tap a latched note again to release it; switching Latch off releases everything you're not touching
@@ -110,7 +110,7 @@ The onboard LED provides visual feedback:
 - **Scale Confirmation**: Blinks N times for scale 1 through 7 (Chromatic = 1 blink, ..., Harmonic Minor = 7 blinks).
 - **Octave Shift**: Quick blinks: 1 at octave 0, 2 at ±1, 3 at +2.
 - **Root Key**: 1 long blink.
-- **Diagnostics**: 2 blinks = layer on, 1 blink = layer muted, 3 quick blinks = all on; stress test: 4 quick blinks, then fast blinking while it runs.
+- **Diagnostics**: 2 blinks = layer on, 1 blink = layer muted, 3 quick blinks = all on (monitor build: stress test = 4 quick blinks, then fast blinking while it runs).
 
 ### MIDI
 Creek appears as a USB MIDI device (listed as **Creek**) when connected via the Daisy Seed's USB port to a computer, DAW, iPad or USB-MIDI host. A keyboard plugged straight into the Touch won't work (both are USB devices), so route it through the computer or a host box. It listens on all MIDI channels.
@@ -148,7 +148,7 @@ Creek appears as a USB MIDI device (listed as **Creek**) when connected via the 
 
 ### Emulator & Monitor
 - **Browser emulator**: `python3 web/serve.py 8766`, then open http://localhost:8766. The same panel and the same engine (a JavaScript twin, tested against the firmware's), with pickup, layers and LED behaving as on the hardware. **Enable MIDI** plays it from a keyboard on your computer; **Render 30 s WAV** saves what you hear.
-- **Monitor**: Flash the `-monitor` build, open http://localhost:8766/monitor.html in Chrome or Edge, plug in the Touch and click **Connect**. It shows CPU load (average and worst 1 ms block), voices, bubbles per second, stack use, dropped events and limiter activity. For the worst case use Diagnostics + P09 (stress test); measured on the Touch it stays under 25 % (limit 70 %).
+- **Monitor**: Build it with `make monitor` in `daisy/` (USB sends the report instead of MIDI, and Diagnostics P09 becomes a stress test), flash `build-monitor/CreekTouch-monitor.bin`, open http://localhost:8766/monitor.html in Chrome or Edge, plug in the Touch and click **Connect**. It shows CPU load (average and worst 1 ms block), voices, bubbles per second, stack use, dropped events and limiter activity. For the worst case use Diagnostics + P09 (stress test); measured on the Touch it stays under 25 % (limit 70 %).
 
 ## Project Structure
 ```
@@ -175,7 +175,7 @@ $ make libs -j8
 $ make clean; make -j8
 $ make program-dfu
 ```
-- `make monitor` builds `build-monitor/CreekTouch-monitor.bin`: USB sends the CPU report instead of MIDI.
+- `make monitor` builds `build-monitor/CreekTouch-monitor.bin` (only when needed): USB sends the CPU report instead of MIDI, and Diagnostics P09 runs a stress test.
 - `make -C test` checks the engine on your computer and compares its sound with the browser engine in `../web`; `make -C test soak` runs a 30-minute stability test; `make -C test renders` writes reference WAVs of every scenario.
 - All tuning constants live in `web/engine/creek-config.js`; `node tools/gen-config.js` writes the C++ copy.
 

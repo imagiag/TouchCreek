@@ -128,7 +128,9 @@ void Controls::PadDown(int pad, float vel) {
         const int l = pad - kPadLayer0;
         if (l >= 0 && l < ck::LAYERS) { diagMask ^= 1u << l; push(CE_LAYER, (int8_t)((diagMask >> l) & 1u)); }
         else if (pad == kPadAll) { diagMask = 0x1F; push(CE_ALL, 0); }
+#if CREEK_STRESS
         else if (pad == kPadStress) { stress = !stress; stressNext_ = 0; push(CE_STRESS, stress ? 1 : 0); }
+#endif
     } else {
         const bool note = pad >= kPadNote0 && pad <= kPadNote0 + 6;
         if (touched[kPadScale] && pad != kPadScale) {                 // P11 + pad: scale
@@ -231,7 +233,9 @@ void Controls::Tick(double t) {
         for (int k = 0; k < 4; k++) value[k] = glideFrom_[k] + (glideTo_[k] - glideFrom_[k]) * s;
         if (x >= 1.f) glideT_ = -1;
     }
+#if CREEK_STRESS
     if (stress) stressTick(t);
+#endif
 }
 
 void Controls::pushDrop(float hz, float vel) {
@@ -246,6 +250,7 @@ float Controls::rnd() {
 
 // Worst case for the engine: mostly maximal settings with sudden jumps every
 // 50-400 ms (incl. Flow 0 <-> 1), plus bursts of loud drops at ~20 per second.
+#if CREEK_STRESS
 void Controls::stressTick(double t) {
     if (t >= stressNext_) {
         for (int k = 0; k < 4; k++) { const float u = rnd(); stressV_[k] = u < 0.65f ? 1.f : (u < 0.8f ? 0.f : rnd()); }
@@ -257,6 +262,7 @@ void Controls::stressTick(double t) {
         stressDrop_ = (stressDrop_ > t - 0.1 ? stressDrop_ : t - 0.1) + 0.05;
     }
 }
+#endif
 
 void Controls::Compute(Macros& m) const {
     m.flow = value[M_FLOW]; m.roughness = value[M_ROUGH]; m.scale = value[M_SCALE]; m.aeration = value[M_AER];
@@ -266,7 +272,7 @@ void Controls::Compute(Macros& m) const {
         m.flow += surge * (1.f - m.flow); m.roughness += 0.6f * surge * (1.f - m.roughness); m.aeration += 0.4f * surge * (1.f - m.aeration);
     }
     m.mask = mode == MODE_DIAG ? diagMask : 0x1Fu;
-    if (stress) { m.flow = stressV_[0]; m.roughness = stressV_[1]; m.scale = stressV_[2]; m.aeration = stressV_[3]; m.mask = 0x1Fu; }
+    if (CREEK_STRESS && stress) { m.flow = stressV_[0]; m.roughness = stressV_[1]; m.scale = stressV_[2]; m.aeration = stressV_[3]; m.mask = 0x1Fu; }
     m.hold = hold;
     const float bendMul = exp2f(bend / 12.f);
     for (int k = 0; k < 4; k++) m.tuneHz[k] = k < nHeld ? MidiToHz(KeyMidi(held[k])) * bendMul : 0.f;

@@ -1,12 +1,13 @@
 # Creek releases
 
-Normal releases use USB for MIDI; files ending in `-monitor` send the CPU report for `web/monitor.html` instead.
+Releases use USB for MIDI. The monitor build (CPU report for `web/monitor.html` + P09 stress test) is no longer released from v12 on; build it with `make -C daisy monitor` when needed. Older `-monitor` files are kept.
 
 Flash these with https://flash.daisy.audio/ (hold BOOT while plugging in, or BOOT + RESET).
 `../build/CreekTouch.bin` is only a working build and may be newer than any release: flash from here.
 
 | File | Date | Changes |
 |---|---|---|
+| `CreekTouch-v12.bin` | 2026-10-25 | Same sound and controls as v11. The P09 stress test is now only in the monitor build (saves flash); monitor builds are no longer released. |
 | `CreekTouch-v11-attack-release.bin` | 2026-10-25 | **Attack** (P11 + S33, 4 ms – 3 s) and **Release** (P10 + S34, 20 ms – 4 s) for the note pour, as TouchPulsar (CC 107 / 72); release tails stay on the played notes. **Tone** (P10 + S31): dark ↔ bright mix (CC 28). **Deeper Scale**: up to 8× bubble size, ~60 Hz. **Width moved to P10 + S30** (as TouchPulsar). |
 | `CreekTouch-v11-monitor.bin` | 2026-10-25 | Same as v11, USB = CPU report instead of MIDI. |
 | `CreekTouch-v10-filter.bin` | 2026-10-25 | **Filter** as TouchPulsar: P11 + right fader = low-pass cutoff (30 Hz – 18 kHz, open at power-up), P11 + left fader = resonance (CC 102/103). USB now has its own product ID, so iOS / Audiobus should list it as **Creek** instead of a remembered name. |

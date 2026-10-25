@@ -106,7 +106,7 @@
     <li><b>Already powered</b>: hold <span class="kbd">BOOT</span>, tap <span class="kbd">RESET</span>, release <span class="kbd">BOOT</span></li>
   </ul>
   <p>Then <b>Connect</b> → <i>DFU in FS Mode</i> → choose the file → <b>Program</b>. To go back, flash any Synthux firmware the same way.</p>
-  <p>Each version comes as two files: the normal one (USB is <b>MIDI</b>) and one ending in <code>-monitor</code> (USB sends a CPU and voice report to the <a href="#emulator">monitor page</a> instead of MIDI). Flash the normal one to play.</p>
+  <p>USB is <b>MIDI</b>. For measuring CPU there's a separate monitor build (see <a href="#emulator">Emulator &amp; Monitor</a>); it isn't part of the releases.</p>
   <p style="margin-bottom:0">Every version is kept in <code>releases/</code> with a name saying what changed, so you can always flash an older one. <code>build/CreekTouch.bin</code> is a working build and may be newer than any release.</p>
 </div>
 
@@ -129,7 +129,7 @@
   <tr><td class="id">P06</td><td>Deeper run</td><td>Small waterfalls on/off</td></tr>
   <tr><td class="id">P07</td><td>—</td><td>Surface detail on/off</td></tr>
   <tr><td class="id">P08</td><td>—</td><td>All layers on</td></tr>
-  <tr><td class="id">P09</td><td>—</td><td><b>Stress test</b> on/off (worst-case settings and note bursts; LED blinks fast)</td></tr>
+  <tr><td class="id">P09</td><td>—</td><td>— <span class="notes">(monitor build: stress test)</span></td></tr>
   <tr><td class="id">P10</td><td colspan="3">Modifier:
     <ul>
       <li>Hold P10 + S30 / S31 / S34: <span class="to">Width</span> / <span class="to">Tone</span> / <span class="to">Release</span> (see Knobs)</li>
@@ -171,7 +171,7 @@
     <ul style="margin-bottom:0">
       <li><b>Up</b>: PRESETS (P03–P06 recall the four presets)</li>
       <li><b>Center</b>: NOTES (P03–P09 play the scale; Free flow and Variety apply)</li>
-      <li><b>Down</b>: DIAGNOSTICS (P03–P07 mute layers, P08 all on, P09 stress test)</li>
+      <li><b>Down</b>: DIAGNOSTICS (P03–P07 mute layers, P08 all on)</li>
     </ul>
   </div>
   <div class="card">
@@ -244,7 +244,7 @@
   <li><b>Scale Confirmation</b>: blinks N times for scale 1 through 7 (Chromatic = 1 blink, …, Harmonic Minor = 7 blinks).</li>
   <li><b>Octave Shift</b>: quick blinks: 1 at octave 0, 2 at ±1, 3 at +2.</li>
   <li><b>Root Key</b>: 1 long blink.</li>
-  <li><b>Diagnostics</b>: 2 blinks = layer on, 1 blink = layer muted, 3 quick blinks = all on; stress test: 4 quick blinks, then fast blinking while it runs.</li>
+  <li><b>Diagnostics</b>: 2 blinks = layer on, 1 blink = layer muted, 3 quick blinks = all on (monitor build: stress test = 4 quick blinks, then fast blinking while it runs).</li>
 </ul>
 
 <h2 id="midi">MIDI</h2>
@@ -277,7 +277,7 @@
 <h2 id="emulator">Emulator &amp; Monitor</h2>
 <ul>
   <li><b>Browser emulator</b>: <code>python3 web/serve.py 8766</code>, then open <code>http://localhost:8766</code>. The same panel and the same engine (a JavaScript twin, tested against the firmware's), with pickup, layers and LED behaving as on the hardware. Every knob shows its name, S-number, second layer and value. <b>Enable MIDI</b> plays it from a keyboard on your computer; <b>Render 30&nbsp;s WAV</b> saves what you hear.</li>
-  <li><b>Monitor</b>: flash the <code>-monitor</code> build, open <code>http://localhost:8766/monitor.html</code> in Chrome or Edge, plug in the Touch and click <b>Connect</b>. It shows CPU load (average and worst 1&nbsp;ms block), voices, bubbles per second, stack use, dropped events and limiter activity. For the worst case use Diagnostics + P09 (stress test); measured on the Touch it stays under 25&nbsp;% (limit 70&nbsp;%).</li>
+  <li><b>Monitor</b>: build it with <code>make monitor</code> in <code>daisy/</code> (USB sends the report instead of MIDI, and Diagnostics P09 becomes a stress test), flash <code>build-monitor/CreekTouch-monitor.bin</code>, open <code>http://localhost:8766/monitor.html</code> in Chrome or Edge, plug in the Touch and click <b>Connect</b>. It shows CPU load (average and worst 1&nbsp;ms block), voices, bubbles per second, stack use, dropped events and limiter activity. For the worst case use Diagnostics + P09 (stress test); measured on the Touch it stays under 25&nbsp;% (limit 70&nbsp;%).</li>
 </ul>
 
 <h2 id="structure">Project Structure</h2>
@@ -302,7 +302,7 @@ $ make libs -j8
 $ make clean; make -j8
 $ make program-dfu</code></pre>
 <ul>
-  <li><code>make monitor</code> builds <code>build-monitor/CreekTouch-monitor.bin</code>: USB sends the CPU report instead of MIDI.</li>
+  <li><code>make monitor</code> builds <code>build-monitor/CreekTouch-monitor.bin</code> (only when needed): USB sends the CPU report instead of MIDI, and Diagnostics P09 runs a stress test.</li>
   <li><code>make -C test</code> checks the engine on your computer and compares its sound with the browser engine in <code>../web</code>; <code>make -C test soak</code> runs a 30-minute stability test; <code>make -C test renders</code> writes reference WAVs of every scenario.</li>
   <li>All tuning constants live in <code>web/engine/creek-config.js</code>; <code>node tools/gen-config.js</code> writes the C++ copy.</li>
 </ul>

@@ -94,7 +94,8 @@ class CreekControls {
     this.drops = [];             // {hz, vel} for the host to send as engine drop events
     this.events = [];            // {type, arg} for the UI (LED blinks, display)
     this.lastT = 0;
-    this.stress = false;         // diagnostics P09: worst-case stress test
+    this.stress = false;         // diagnostics P09: worst-case stress test ...
+    this.stressEnabled = false;  // ... only in the firmware's monitor build (set true to try it here)
     this.latch = false;          // Notes + right switch down: notes stay held after release
     this.midiDown = new Uint8Array(128); this.sustain = false;
     this.surge = 0; this.wheel = 0; this.pressure = 0; this.bend = 0;   // MIDI performance controls
@@ -139,7 +140,7 @@ class CreekControls {
       const l = pad - CC.PAD_LAYER0;
       if (l >= 0 && l < CK_LAYERS) { this.diagMask ^= 1 << l; this.events.push({ type: CC.EV_LAYER, arg: (this.diagMask >> l) & 1 }); }
       else if (pad === CC.PAD_ALL) { this.diagMask = 0x1F; this.events.push({ type: CC.EV_ALL, arg: 0 }); }
-      else if (pad === CC.PAD_STRESS) { this.stress = !this.stress; this.stressNext = 0; this.events.push({ type: CC.EV_STRESS, arg: this.stress ? 1 : 0 }); }
+      else if (pad === CC.PAD_STRESS && this.stressEnabled) { this.stress = !this.stress; this.stressNext = 0; this.events.push({ type: CC.EV_STRESS, arg: this.stress ? 1 : 0 }); }
     } else {
       const note = pad >= CC.PAD_NOTE0 && pad <= CC.PAD_NOTE0 + 6;
       if (this.touched[CC.P_SCALE] && pad !== CC.P_SCALE) {          // P11 + pad: scale
