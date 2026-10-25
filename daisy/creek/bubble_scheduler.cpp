@@ -11,13 +11,14 @@ void BubbleScheduler::Init(float sr, Rng& rngT) {
     lnTauSpan_ = logf(ck::TAU_MAX / ck::TAU_MIN);
     for (int z = 0; z < ck::ZONES; z++) { acc_[z] = 0; thr_[z] = -logf(rngT.UniPos()); inc_[z] = 0; rate[z] = 0; }
     over = 0; nBorn = 0; ampScale_ = 0; scaleMul_ = 1; nTune = 0; tuneAmt = 0;
+    for (int z = 0; z < ck::ZONES; z++) { rateMul[z] = 1; radMul[z] = 1; }
 }
 
 void BubbleScheduler::Update(const FlowState& fs, float S) {
     float total = 0;
     for (int z = 0; z < ck::ZONES; z++) {
         const float B = fs.B[z];
-        const float lam = B > ck::B_MIN ? ck::RATE_MAX * ck::ZONE_RATE_W[z] * powf(B, ck::RATE_EXP) * fs.gate : 0.f;
+        const float lam = B > ck::B_MIN ? ck::RATE_MAX * ck::ZONE_RATE_W[z] * powf(B, ck::RATE_EXP) * fs.gate * rateMul[z] : 0.f;
         rate[z] = lam; inc_[z] = lam / sr_; total += lam;
     }
     scaleMul_ = ck::SCALE_MUL_MIN * powf(ck::SCALE_MUL_MAX / ck::SCALE_MUL_MIN, S);
@@ -61,7 +62,7 @@ bool BubbleScheduler::Make(Rng& rngP, int z, BubblePool& pool, int off, const Ev
     const float u0 = rngP.Uni(), u1 = rngP.Uni(), u2 = rngP.Uni(), u3 = rngP.Uni(), u4 = rngP.Uni(), u5 = rngP.Uni();
     const float u6 = rngP.Bip(), u7 = rngP.Bip();
     const float logr = lnRmin_ + lnRspan_ * powf(u0, ck::R_SKEW);
-    float rMm = expf(logr) * scaleMul_;
+    float rMm = expf(logr) * scaleMul_ * radMul[z];
     if (ev && ev->radiusMm > 0) rMm = ev->radiusMm;
     float f0 = fmaxf(ck::F_MIN_HZ, 3000.f / rMm);                       // f0 = 3 / r
     float tau = TauFor(rMm) * (1.f + ck::TAU_JITTER * u6);

@@ -13,6 +13,7 @@ public:
     float m[4];          // smoothed Flow, Roughness, Scale, Aeration
     float gate = 0;      // scene gate (0 = silent)
     bool hold = false;
+    float eddy = 0;      // eddy swell in the wake (0..1), set by Eddies
     float dt = 0;
     Drift eta0, etaZ[ck::ZONES];
 

@@ -21,6 +21,7 @@
 #include "bubble_scheduler.h"
 #include "flow_bed.h"
 #include "mixer_output.h"
+#include "layers.h"
 
 namespace creek {
 
@@ -39,7 +40,8 @@ struct Macros {
 struct Stats {
     uint32_t births, drops, steals, queueDrops, limited;
     int active, maxActive;
-    float meanF, sumLog2F, peak, rate, gate;
+    float meanF, sumLog2F, peak, rate, gate, eddy, splashRate, surfaceRate;
+    uint32_t splashes, surface;
     float E[ck::ZONES], T[ck::ZONES], B[ck::ZONES];
 };
 
@@ -77,6 +79,9 @@ private:
     BubbleScheduler sched_;
     BubblePool pool_;
     FlowBed bed_;
+    Eddies eddies_;
+    Falls falls_;
+    Surface surface_;
     SpatialMixer mixer_;
     OutputStage out_;
 

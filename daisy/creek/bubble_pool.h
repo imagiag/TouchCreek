@@ -15,6 +15,8 @@ constexpr int kLog = 64; // bubble birth log (displays, LED)
 class BubblePool {
 public:
     void Init(float sr);
+    // budget = voices sounding at once; slots (<= VOICE_SLOTS) = budget + room for steal fades
+    void Configure(int budget, int slots, bool log) { budget_ = budget; n_ = slots < N ? slots : N; log_ = log; }
     void Reset();
     bool Spawn(float f0, float amp, float tau, float attack, float rise, float pan, int off);
     void Micro();
@@ -31,6 +33,8 @@ public:
 
 private:
     static constexpr int N = ck::VOICE_SLOTS;
+    int budget_ = ck::VOICES, n_ = N;
+    bool log_ = true;
     float sr_ = 48000, wMax_ = 0, fadeInc_ = 0, lifeLn_ = 0, retireAbs_ = 0;
     uint8_t on_[N], fading_[N];
     float zr_[N], zi_[N], c_[N], s_[N], damp_[N], w0_[N], rise_[N], riseInc_[N];

@@ -1,0 +1,5 @@
+# Small cascade, falls only
+seconds 15
+seed 1
+at 0 preset cascade
+at 0 set mask 8

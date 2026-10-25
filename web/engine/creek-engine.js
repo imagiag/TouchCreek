@@ -105,6 +105,7 @@ class CrFlowState {
     this.target = new Float32Array(4);
     this.hold = false;
     this.gate = 0;                      // scene gate (0 = silent)
+    this.eddy = 0;                      // eddy swell in the wake (0..1), set by CrEddies
   }
   init(sr, rng) {
     const dt = 1 / CK.CONTROL_HZ;
@@ -131,7 +132,7 @@ class CrFlowState {
     let eMax = 0;
     for (let z = 0; z < 3; z++) {
       const ez = this.etaZ[z].tick(rng, this.dt, 1);
-      const Es = crClamp(F * F * (0.85 + 0.10 * e0 + 0.05 * ez), 0, 1);
+      const Es = crClamp(F * F * (0.85 + 0.10 * e0 + 0.05 * ez) * (z === 1 ? 1 + CK.EDDY_E * this.eddy : 1), 0, 1);
       this.E[z] += this.kE * (Es - this.E[z]);
       const E = this.E[z];
       const Ts = crClamp(E * (0.15 + 0.85 * R) * CK.KZ[z] + 0.10 * ez * E, 0, 1);
@@ -170,9 +171,10 @@ class CrEventQueue {
 // update the rotation at micro ticks, so phase stays continuous.
 // =============================================================================
 class CrBubblePool {
-  constructor() {
-    const N = CK.VOICE_SLOTS;
-    this.n = N;
+  // budget = voices sounding at once; slots = budget + room for 2 ms steal fades
+  constructor(budget, slots, log) {
+    const N = slots || CK.VOICE_SLOTS;
+    this.n = N; this.budget = budget || CK.VOICES; this.log = log !== false;
     this.on = new Uint8Array(N); this.fading = new Uint8Array(N);
     this.zr = new Float64Array(N); this.zi = new Float64Array(N);
     this.c = new Float32Array(N); this.s = new Float32Array(N); this.damp = new Float32Array(N);
@@ -208,20 +210,20 @@ class CrBubblePool {
       const e = this.zr[i] * this.zr[i] + this.zi[i] * this.zi[i];
       if (e < lowE) { lowE = e; low = i; }
     }
-    if (act >= CK.VOICES) {
+    if (act >= this.budget) {
       if (amp * amp <= lowE) { this.drops++; return false; }   // quieter than everything: drop it
       this.fading[low] = 1; this.fade[low] = 1; this.fadeStep[low] = this.fadeInc; this.steals++;
     }
     let v = -1;
     for (let i = 0; i < N; i++) if (!this.on[i]) { v = i; break; }
     if (v < 0) { this.drops++; return false; }
-    const w = Math.min(CR_TWO_PI * f0 / sr, this.wMax / (1 + rise));
+    const w = Math.min(CR_TWO_PI * f0 / sr, this.wMax / (1 + Math.max(0, rise)));
     const r = Math.exp(-1 / (tau * sr));
     this.on[v] = 1; this.fading[v] = 0; this.fade[v] = 1; this.fadeStep[v] = 0;
     this.zr[v] = amp; this.zi[v] = 0;
     this.damp[v] = r; this.w0[v] = w;
     this.c[v] = r * Math.cos(w); this.s[v] = r * Math.sin(w);
-    this.rise[v] = rise; this.riseInc[v] = rise > 0 ? 1 / (CK.RISE_TIME_TAUS * tau * sr) : 0;
+    this.rise[v] = rise; this.riseInc[v] = rise !== 0 ? 1 / (CK.RISE_TIME_TAUS * tau * sr) : 0;
     this.att[v] = 0; this.ka[v] = 1 - Math.exp(-3 / (attack * sr));  // ~95 % after `attack`
     const p = (crClamp(pan, -1, 1) + 1) * 0.25 * Math.PI;
     this.gl[v] = Math.cos(p); this.gr[v] = Math.sin(p);
@@ -229,9 +231,11 @@ class CrBubblePool {
     const lifeLn = Math.min(this.lifeLn, Math.log(Math.max(amp, 1e-9) / this.retireAbs));
     this.life[v] = Math.max(1, Math.ceil(tau * sr * lifeLn)); this.age[v] = 0; this.start[v] = off;
     this.births++; this.sumLog2F += Math.log2(w * sr / CR_TWO_PI);
-    const j = this.logW & (CR_LOG - 1);
-    this.logF[j] = w * sr / CR_TWO_PI; this.logA[j] = amp; this.logP[j] = pan; this.logW = (this.logW + 1) >>> 0;
-    const nowActive = act >= CK.VOICES ? act : act + 1;
+    if (this.log) {
+      const j = this.logW & (CR_LOG - 1);
+      this.logF[j] = w * sr / CR_TWO_PI; this.logA[j] = amp; this.logP[j] = pan; this.logW = (this.logW + 1) >>> 0;
+    }
+    const nowActive = act >= this.budget ? act : act + 1;
     if (nowActive > this.maxActive) this.maxActive = nowActive;
     return true;
   }
@@ -283,6 +287,8 @@ class CrBubbleScheduler {
     this.lnTauSpan = Math.log(CK.TAU_MAX / CK.TAU_MIN);
     this.ampScale = 0; this.scaleMul = 1;
     this.tuneLog2 = new Float32Array(4); this.nTune = 0; this.tuneAmt = 0;
+    this.rateMul = new Float32Array([1, 1, 1]); this.radMul = new Float32Array([1, 1, 1]);   // eddies (wake)
+    this.lastZone = 1;
   }
   // decay time of a bubble of radius rMm (longer for larger bubbles)
   tauFor(rMm) {
@@ -308,7 +314,7 @@ class CrBubbleScheduler {
     let total = 0;
     for (let z = 0; z < 3; z++) {
       const B = fs.B[z];
-      const lam = B > CK.B_MIN ? CK.RATE_MAX * CK.ZONE_RATE_W[z] * Math.pow(B, CK.RATE_EXP) * fs.gate : 0;
+      const lam = B > CK.B_MIN ? CK.RATE_MAX * CK.ZONE_RATE_W[z] * Math.pow(B, CK.RATE_EXP) * fs.gate * this.rateMul[z] : 0;
       this.rate[z] = lam; this.inc[z] = lam / this.sr; total += lam;
     }
     this.scaleMul = CK.SCALE_MUL_MIN * Math.pow(CK.SCALE_MUL_MAX / CK.SCALE_MUL_MIN, S);
@@ -337,7 +343,7 @@ class CrBubbleScheduler {
   make(rngP, z, pool, off, ev) {
     const u0 = rngP.uni(), u1 = rngP.uni(), u2 = rngP.uni(), u3 = rngP.uni(), u4 = rngP.uni(), u5 = rngP.uni(), u6 = rngP.bip(), u7 = rngP.bip();
     const logr = this.lnRmin + this.lnRspan * Math.pow(u0, CK.R_SKEW);
-    let rMm = Math.exp(logr) * this.scaleMul;
+    let rMm = Math.exp(logr) * this.scaleMul * this.radMul[z];
     if (ev && ev.radiusMm > 0) rMm = ev.radiusMm;
     let f0 = Math.max(CK.F_MIN_HZ, 3000 / rMm);                   // f0 = 3 / r
     let tau = this.tauFor(rMm) * (1 + CK.TAU_JITTER * u6);
@@ -409,6 +415,7 @@ class CrFlowBed {
     this.hiL.set(fH, CK.HIGH_Q, this.sr); this.hiR.set(fH * 0.97, CK.HIGH_Q, this.sr);
   }
   render(L, R, n, rc, rl, rr) {
+    if (!CK.BED_ON) return;             // wash switched off (buffers stay zero)
     const hp = this.hp, b = this.body, mL = this.midL, mR = this.midR, hL = this.hiL, hR = this.hiR;
     const aM = this.aM, bM = this.bM, aH = this.aH, bH = this.bH;
     let g0 = this.g[0], g1 = this.g[1], g2 = this.g[2];
@@ -436,6 +443,160 @@ function crSvfBpN(f, x) { // band-pass normalised to unity gain at the centre
   const v3 = x - f.ic2, v1 = f.a1 * f.ic1 + f.a2 * v3, v2 = f.ic2 + f.a2 * f.ic1 + f.a3 * v3;
   f.ic1 = 2 * v1 - f.ic1; f.ic2 = 2 * v2 - f.ic2;
   return v1 * f.k;
+}
+
+// =============================================================================
+// Hazard: one Poisson event stream with a time-varying rate (same scheme as the
+// bubble scheduler: float accumulator, exponential thresholds, exact samples).
+// =============================================================================
+class CrHazard {
+  constructor(max) { this.acc = 0; this.thr = 1; this.inc = 0; this.off = new Int32Array(max); this.n = 0; this.over = 0; }
+  init(rng) { this.acc = 0; this.thr = Math.fround(-Math.log(rng.uniPos())); this.inc = 0; this.n = 0; this.over = 0; }
+  setRate(lam, sr) { this.inc = Math.fround(lam / sr); }
+  run(rng, n) {
+    this.n = 0;
+    if (this.inc <= 0) return;
+    let acc = this.acc;
+    for (let i = 0; i < n; i++) {
+      acc = Math.fround(acc + this.inc);
+      if (acc >= this.thr) {
+        acc = Math.fround(acc - this.thr);
+        this.thr = Math.fround(-Math.log(rng.uniPos()));
+        if (this.n < this.off.length) this.off[this.n++] = i; else this.over++;
+      }
+    }
+    this.acc = acc;
+  }
+}
+
+// =============================================================================
+// Eddies: 2-4 overlapping slow swells (bounded random, not an LFO). They have
+// no audio of their own: they make the rock wake surge (energy, bubble rate,
+// larger and lower bubbles). Scale slows them down.
+// =============================================================================
+class CrEddies {
+  constructor() {
+    const N = CK.EDDY_SLOTS;
+    this.t = new Float32Array(N); this.dur = new Float32Array(N); this.peak = new Float32Array(N); this.wait = new Float32Array(N);
+    this.active = new Uint8Array(N); this.value = 0;
+  }
+  init(rng) {
+    for (let k = 0; k < this.t.length; k++) { this.active[k] = 0; this.t[k] = 0; this.dur[k] = 1; this.peak[k] = 0; this.wait[k] = CK.EDDY_GAP_SEC[1] * rng.uni(); }
+    this.value = 0;
+  }
+  // control tick; mul = Scale time multiplier, depth = how strong swells are
+  tick(rng, dt, mul, depth) {
+    let sum = 0;
+    for (let k = 0; k < this.t.length; k++) {
+      if (!this.active[k]) {
+        this.wait[k] -= dt;
+        if (this.wait[k] <= 0) {
+          const u0 = rng.uni(), u1 = rng.uni();
+          this.active[k] = 1; this.t[k] = 0;
+          this.dur[k] = crLerp(CK.EDDY_DUR_SEC[0], CK.EDDY_DUR_SEC[1], u0) * mul;
+          this.peak[k] = 0.4 + 0.6 * u1;
+        }
+      }
+      if (this.active[k]) {
+        this.t[k] += dt;
+        if (this.t[k] >= this.dur[k]) {
+          this.active[k] = 0;
+          this.wait[k] = crLerp(CK.EDDY_GAP_SEC[0], CK.EDDY_GAP_SEC[1], rng.uni()) * mul;
+        } else {
+          const s = Math.sin(Math.PI * this.t[k] / this.dur[k]);
+          sum += this.peak[k] * s * s;
+        }
+      }
+    }
+    this.value = crClamp(sum, 0, 1) * depth;
+    return this.value;
+  }
+}
+
+// =============================================================================
+// Small waterfalls at the drop zone. Each parent event: a soft low "plop"
+// (falling tone, no noise), an entrainment impulse into the drop zone, and -
+// when Aeration permits - 2-8 bubble children over the next 10-120 ms, which
+// the bubble bank renders. Overlapping splashes share a bounded energy budget.
+// =============================================================================
+class CrFalls {
+  constructor() { this.hz = new CrHazard(4); this.pool = new CrBubblePool(CK.FALLS_VOICES, CK.FALLS_VOICES + 2, false); this.energy = 0; this.count = 0; }
+  init(sr, rng) {
+    this.sr = sr; this.hz.init(rng); this.pool.init(sr); this.pool.reset(); this.energy = 0; this.count = 0;
+    this.kE = Math.exp(-1 / (CK.CONTROL_HZ * CK.FALLS_ENERGY_SEC));
+  }
+  update(fs) {
+    const E = fs.E[2];
+    const lam = E > 0.002 ? crLerp(CK.FALLS_RATE[0], CK.FALLS_RATE[1], Math.pow(E, CK.FALLS_RATE_EXP)) * fs.gate : 0;
+    this.hz.setRate(lam, this.sr); this.rate = lam;
+    this.energy *= this.kE;
+  }
+  // births in this segment -> plops, splash impulses and queued children
+  run(rng, n, eng) {
+    this.hz.run(rng, n);
+    const fs = eng.flow, A = fs.m[3], E = fs.E[2], R = fs.m[1];
+    for (let b = 0; b < this.hz.n; b++) {
+      const off = this.hz.off[b];
+      const u0 = rng.uni(), u1 = rng.uni(), u2 = rng.uni(), u3 = rng.uni(), u4 = rng.uni(), u5 = rng.bip();
+      // rougher water: more uneven splashes
+      let a = crLerp(0.55, 0.15, R) + crLerp(0.45, 0.85, R) * u0;
+      a *= 0.5 + 0.5 * E;
+      a /= 1 + CK.FALLS_ENERGY_K * this.energy;
+      this.energy += a;
+      this.count++;
+      const pan = CK.ZONE_PAN[2] + CK.ZONE_JITTER[2] * u5;
+      const f = crLerp(CK.FALLS_PLOP_HZ[0], CK.FALLS_PLOP_HZ[1], u1) / eng.sched.scaleMul;
+      this.pool.spawn(f, a * CK.FALLS_PLOP_GAIN, crLerp(CK.FALLS_TAU_SEC[0], CK.FALLS_TAU_SEC[1], u2),
+        crLerp(CK.FALLS_ATTACK_SEC[0], CK.FALLS_ATTACK_SEC[1], u3), CK.FALLS_PLOP_GLIDE, pan, off);
+      fs.addSplash(2, a * CK.FALLS_SPLASH_J);
+      eng.surface.boost += a * CK.SURF_SPLASH;
+      const nc = A > 0.02 ? Math.min(CK.FALLS_CHILDREN[1], Math.round(crLerp(CK.FALLS_CHILDREN[0], CK.FALLS_CHILDREN[1], A * u4))) : 0;
+      for (let k = 0; k < CK.FALLS_CHILDREN[1]; k++) {
+        const d = rng.uni(), ca = rng.uni(), pj = rng.bip();
+        if (k >= nc) continue;
+        const c = eng.tmpEvent;
+        c.type = CR_EV_BUBBLE; c.zone = 2; c.radiusMm = 0; c.tauSec = 0; c.rise = -1;
+        c.amp = a * CK.FALLS_CHILD_GAIN * crLerp(CK.FALLS_CHILD_AMP[0], CK.FALLS_CHILD_AMP[1], ca);
+        c.pan = crClamp(pan + 0.12 * pj, -1, 1);
+        eng.queue.push(c, eng.sample + off + Math.round(crLerp(CK.FALLS_CHILD_MS[0], CK.FALLS_CHILD_MS[1], d) * 0.001 * this.sr));
+      }
+    }
+  }
+}
+
+// =============================================================================
+// Surface detail: sparse, quiet, very short high ticks (2-9 kHz), more near
+// the drop and at turbulence peaks, briefly more after splashes. A slow drift
+// makes them come in loose bursts rather than a constant crackle.
+// =============================================================================
+class CrSurface {
+  constructor() { this.hz = new CrHazard(4); this.pool = new CrBubblePool(CK.SURF_VOICES, CK.SURF_VOICES + 2, false); this.drift = new CrDrift(); this.boost = 0; this.count = 0; }
+  init(sr, rng) {
+    this.sr = sr; this.hz.init(rng); this.pool.init(sr); this.pool.reset(); this.boost = 0; this.count = 0;
+    this.drift.init(rng, 0.3, 2.5);
+    this.kB = Math.exp(-1 / (CK.CONTROL_HZ * CK.SURF_BOOST_SEC));
+    this.lnHz = Math.log(CK.SURF_HZ[1] / CK.SURF_HZ[0]);
+  }
+  update(fs, rng, dt, eddy) {
+    const d = this.drift.tick(rng, dt, 1);
+    const Tm = CK.SURF_ZONE_W[0] * fs.T[0] + CK.SURF_ZONE_W[1] * fs.T[1] + CK.SURF_ZONE_W[2] * fs.T[2];
+    const x = crClamp(1.6 * Tm + 0.3 * eddy + this.boost, 0, 1);
+    const lam = fs.gate > 0 ? crLerp(CK.SURF_RATE[0], CK.SURF_RATE[1], x) * (0.35 + 0.65 * 0.5 * (d + 1)) * fs.gate : 0;
+    this.hz.setRate(lam, this.sr); this.rate = lam;
+    this.boost *= this.kB;
+  }
+  run(rng, n) {
+    this.hz.run(rng, n);
+    for (let b = 0; b < this.hz.n; b++) {
+      const u0 = rng.uni(), u1 = rng.uni(), u2 = rng.uni(), u3 = rng.uni(), u4 = rng.uni(), u5 = rng.bip(), u6 = rng.bip();
+      const z = u0 < CK.SURF_ZONE_W[0] ? 0 : (u0 < CK.SURF_ZONE_W[0] + CK.SURF_ZONE_W[1] ? 1 : 2);
+      const f = CK.SURF_HZ[0] * Math.exp(this.lnHz * u1);
+      const amp = CK.SURF_GAIN * Math.pow(10, -CK.SURF_DB_RANGE * Math.pow(u2, CK.SURF_SKEW) / 20);
+      this.pool.spawn(f, amp, crLerp(CK.SURF_TAU_SEC[0], CK.SURF_TAU_SEC[1], u3), crLerp(CK.SURF_ATTACK_SEC[0], CK.SURF_ATTACK_SEC[1], u4),
+        0.08 * u5, CK.ZONE_PAN[z] + CK.ZONE_JITTER[z] * u6, this.hz.off[b]);
+      this.count++;
+    }
+  }
 }
 
 // =============================================================================
@@ -526,6 +687,8 @@ class CreekEngine {
     this.flow = new CrFlowState(); this.queue = new CrEventQueue(CK.QUEUE_SIZE);
     this.sched = new CrBubbleScheduler(); this.pool = new CrBubblePool();
     this.bed = new CrFlowBed(); this.mixer = new CrSpatialMixer(); this.out = new CrOutputStage();
+    this.eddies = new CrEddies(); this.falls = new CrFalls(); this.surface = new CrSurface();
+    this.tmpEvent = new CrEvent();
     this.bufL = []; this.bufR = [];
     for (let l = 0; l < CK_LAYERS; l++) { this.bufL.push(new Float32Array(CK.MICRO)); this.bufR.push(new Float32Array(CK.MICRO)); }
     this.macros = new CreekMacros();
@@ -546,6 +709,10 @@ class CreekEngine {
     this.queue.reset(); this.pool.reset();
     this.sched.init(this.sr, this.rng[CR_S_BTIME]); this.sched.tuneAmt = 0;
     this.bed.init(this.sr, this.rng[CR_S_BED_DRIFT]);
+    this.eddies.init(this.rng[CR_S_EDDY]);
+    this.falls.init(this.sr, this.rng[CR_S_FALLS]);
+    this.surface.init(this.sr, this.rng[CR_S_SURFACE]);
+    this.sched.rateMul.fill(1); this.sched.radMul.fill(1);
     this.mixer.init(this.sr); this.out.reset();
     this.applyMacros(true);
     this.snapNext = true;      // the first setMacros() after a reset jumps instead of gliding
@@ -586,11 +753,20 @@ class CreekEngine {
     return this.queue.push(e, this.sample + Math.round(d * this.sr));
   }
   controlTick() {
+    // eddies first: they shape this tick's wake energy (muting the layer removes them)
+    const fs = this.flow, R = fs.m[1], T1 = fs.T[1];
+    const eMul = crLerp(CK.EDDY_TIME_MUL[0], CK.EDDY_TIME_MUL[1], fs.m[2]);
+    const depth = crLerp(CK.EDDY_DEPTH[0], CK.EDDY_DEPTH[1], crClamp(0.7 * R + 0.6 * T1, 0, 1)) * fs.gate * this.mixer.target[CK_L_EDDIES];
+    const ed = this.eddies.tick(this.rng[CR_S_EDDY], fs.dt, eMul, depth);
+    fs.eddy = ed;
     this.flow.tick(this.rng[CR_S_DRIFT]);
     const k = this.tickIndex;
     const next = Math.floor((k + 1) * this.sr / CK.CONTROL_HZ) - Math.floor(k * this.sr / CK.CONTROL_HZ);
     this.untilTick = next; this.tickIndex++;
+    this.sched.rateMul[1] = 1 + CK.EDDY_RATE * ed; this.sched.radMul[1] = 1 + CK.EDDY_RADIUS * ed;
     this.sched.update(this.flow, this.flow.m[2]);
+    this.falls.update(this.flow);
+    this.surface.update(this.flow, this.rng[CR_S_SURFACE], this.flow.dt, ed);
     const tt = this.macros.tune && this.sched.nTune > 0 ? 1 : 0;
     this.sched.tuneAmt += (tt > this.sched.tuneAmt ? this.kTuneA : this.kTuneR) * (tt - this.sched.tuneAmt);
     this.bed.update(this.flow, this.rng[CR_S_BED_DRIFT], this.flow.dt, next);
@@ -600,7 +776,7 @@ class CreekEngine {
     while (pos < n) {
       if (this.untilTick === 0) this.controlTick();
       const intoMicro = this.sample % CK.MICRO;
-      if (intoMicro === 0) this.pool.micro();
+      if (intoMicro === 0) { this.pool.micro(); this.falls.pool.micro(); this.surface.pool.micro(); }
       let seg = CK.MICRO - intoMicro;
       if (seg > this.untilTick) seg = this.untilTick;
       if (seg > n - pos) seg = n - pos;
@@ -615,6 +791,8 @@ class CreekEngine {
     const s = this.sched;
     s.run(this.rng[CR_S_BTIME], n);
     for (let b = 0; b < s.nBorn; b++) s.make(this.rng[CR_S_BPARAM], s.bornZone[b], this.pool, s.bornOff[b], null);
+    this.falls.run(this.rng[CR_S_FALLS], n, this);
+    this.surface.run(this.rng[CR_S_SURFACE], n);
     const q = this.queue, end = this.sample + n;
     for (let i = 0; i < q.used.length; i++) {
       if (!q.used[i]) continue;
@@ -627,6 +805,8 @@ class CreekEngine {
     }
     this.bed.render(bl[CK_L_FLOW], br[CK_L_FLOW], n, this.rng[CR_S_NOISE_C], this.rng[CR_S_NOISE_L], this.rng[CR_S_NOISE_R]);
     this.pool.render(bl[CK_L_BUBBLES], br[CK_L_BUBBLES], n);
+    this.falls.pool.render(bl[CK_L_FALLS], br[CK_L_FALLS], n);
+    this.surface.pool.render(bl[CK_L_SURFACE], br[CK_L_SURFACE], n);
     this.mixer.mix(bl, br, L, R, off, n);
     this.out.process(L, R, off, n);
   }
@@ -657,6 +837,8 @@ class CreekEngine {
       limited: this.out.limited, peak: this.out.peak,
       E: Array.from(this.flow.E), T: Array.from(this.flow.T), B: Array.from(this.flow.B),
       rate: this.sched.rate[0] + this.sched.rate[1] + this.sched.rate[2], gate: this.flow.gate,
+      eddy: this.flow.eddy, splashes: this.falls.count, surface: this.surface.count,
+      splashRate: this.falls.rate, surfaceRate: this.surface.rate,
     };
   }
 }

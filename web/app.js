@@ -263,7 +263,8 @@ function onStats(d) {
   }
   const s = d.s;
   $('dRate').textContent = `${s.rate.toFixed(0)} bubbles/s`;
-  $('stats').textContent = `voices ${s.active} (max ${s.maxActive}) · steals ${s.steals} · drops ${s.drops} · mean pitch ${s.meanF.toFixed(0)} Hz · ` +
+  $('stats').textContent = `eddy ${(s.eddy * 100).toFixed(0)}% · splashes ${s.splashRate.toFixed(1)}/s · surface ${s.surfaceRate.toFixed(0)}/s · ` +
+    `voices ${s.active} (max ${s.maxActive}) · steals ${s.steals} · mean pitch ${s.meanF.toFixed(0)} Hz · ` +
     `peak ${d.peak > 0 ? (20 * Math.log10(d.peak)).toFixed(1) : '−∞'} dBFS · limiter ${s.limited} samples`;
   const names = ['Flow bed · centre', 'Rock wake · left', 'Drop · right'];
   $('zones').innerHTML = names.map((n, z) => `<div class="zone"><h4>${n}</h4>` +

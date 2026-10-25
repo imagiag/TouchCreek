@@ -8,7 +8,7 @@ void FlowState::Init(Rng& rng) {
     kM_ = 1.f - expf(-dt / ck::MACRO_SMOOTH_SEC);
     kJ_ = expf(-dt / ck::J_DECAY_SEC);
     for (int z = 0; z < ck::ZONES; z++) E[z] = T[z] = B[z] = J[z] = 0;
-    gate = 0;
+    gate = 0; eddy = 0;
     eta0.Init(rng, ck::ETA_MIN_SEC, ck::ETA_MAX_SEC);
     for (int z = 0; z < ck::ZONES; z++) etaZ[z].Init(rng, ck::ETA_MIN_SEC, ck::ETA_MAX_SEC);
 }
@@ -27,7 +27,7 @@ void FlowState::Tick(Rng& rng) {
     float eMax = 0;
     for (int z = 0; z < ck::ZONES; z++) {
         const float ez = etaZ[z].Tick(rng, dt, 1.f);
-        const float Es = Clamp(F * F * (0.85f + 0.10f * e0 + 0.05f * ez), 0.f, 1.f);
+        const float Es = Clamp(F * F * (0.85f + 0.10f * e0 + 0.05f * ez) * (z == 1 ? 1.f + ck::EDDY_E * eddy : 1.f), 0.f, 1.f);
         E[z] += kE_ * (Es - E[z]);
         const float e = E[z];
         const float Ts = Clamp(e * (0.15f + 0.85f * R) * ck::KZ[z] + 0.10f * ez * e, 0.f, 1.f);

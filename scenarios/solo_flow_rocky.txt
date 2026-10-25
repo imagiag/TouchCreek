@@ -1,5 +1,0 @@
-# Rocky creek, flow bed only
-seconds 15
-seed 1
-at 0 preset rocky
-at 0 set mask 1

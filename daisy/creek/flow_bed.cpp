@@ -42,6 +42,7 @@ void FlowBed::Update(const FlowState& fs, Rng& rngD, float dt, int span) {
 }
 
 void FlowBed::Render(float* L, float* R, int n, Rng& rc, Rng& rl, Rng& rr) {
+    if (!ck::BED_ON) return;             // wash switched off (buffers stay zero)
     float g0 = g_[0], g1 = g_[1], g2 = g_[2];
     const float s0 = gStep_[0], s1 = gStep_[1], s2 = gStep_[2];
     for (int i = 0; i < n; i++) {

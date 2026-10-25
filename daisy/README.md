@@ -1,6 +1,6 @@
 # This is Creek
 
-A sample-free procedural creek for the Synthux Touch 2 and Daisy Seed, from a quiet trickle to a lively shallow stream. Nothing is recorded: a continuous flow bed plus hundreds of tiny "bubbles" per second. Each bubble is a short decaying tone whose pitch comes from its size (f₀ ≈ 3 / r, after van den Doel 2005). A slowly changing shared "creek state" drives all of it, so surges feel connected without pulsing in step.
+A sample-free procedural creek for the Synthux Touch 2 and Daisy Seed, from a quiet trickle to a lively shallow stream. Nothing is recorded: up to a few hundred tiny "bubbles" per second, slow eddies, small splashes and fine surface ticks. Each bubble is a short decaying tone whose pitch comes from its size (f₀ ≈ 3 / r, after van den Doel 2005). A slowly changing shared "creek state" drives all of it, so surges feel connected without pulsing in step.
 
 ## Quick Install
 Download the newest file from [releases/](releases/) (see its README for what each version changes) and flash it with the [Daisy web programmer](https://flash.daisy.audio/) in Chrome or Edge:
@@ -19,12 +19,12 @@ The browser emulator (`web/`, see below) has the same layout and behaves like th
 
 ### Faders
 - S36 (left) **Level** | Output volume, as on TouchPulsar: silent at the bottom, 0 dB at about 70 %, +6 dB at the top.
-- S37 (right) **Roughness** | Smooth channel → rocky interruptions: more turbulence, so more bubbling and movement. The rushing **wash** (the noisy flow bed) only comes in above about half way and is full at the top; at lower settings you hear just the water.
+- S37 (right) **Roughness** | Smooth channel → rocky interruptions: more turbulence, so more bubbling, deeper eddies, more uneven splashes and more surface ticks.
 
 ### Knobs
-- S31 **Scale** | Fine shallow trickle → larger stream body. Bubbles get 0.6× to 1.8× bigger, so their typical pitch falls (about 3.2 kHz → 1.3 kHz), and the wash gets darker and fuller.
+- S31 **Scale** | Fine shallow trickle → larger stream body. Bubbles get 0.6× to 1.8× bigger, so their typical pitch falls (about 3.2 kHz → 1.3 kHz); splashes plop lower and eddies get slower.
 - S32 **Aeration** | Sparse bubbling → bubbly white water. Fully left = no bubbles at all.
-- S33 **Flow** | Still → trickle → lively creek. More bubbles and, with Roughness up, more wash. Fully left: the creek fades to silence within about 1.5 s.
+- S33 **Flow** | Still → trickle → lively creek. More bubbles, more splashes at the drop (0.2 → 4 per second). Fully left: the creek fades to silence within about 1.5 s.
 - S34 **Width** | Mono fully left, natural stereo at noon, wider fully right. The low body of the creek is always centred, so it holds up in mono.
 - S30, S35 | Not used yet.
 
@@ -50,11 +50,11 @@ Presets glide over 250 ms. After a preset, the four sound knobs (Flow, Roughness
 - **P10 + P03...P09** - Set the root key to that pad's note
 
 **Diagnostics** (left switch down)
-- **P03** - Flow bed on/off
+- **P03** - Flow bed on/off *(the noise wash is switched off for now, so this is silent)*
 - **P04** - Bubbles on/off
-- **P05** - Eddies on/off *(arrives with Phase 2)*
-- **P06** - Small waterfalls on/off *(Phase 2)*
-- **P07** - Surface detail on/off *(Phase 2)*
+- **P05** - Eddies on/off (they have no sound of their own: muting them stops the wake from surging)
+- **P06** - Small waterfalls on/off (the plops; their bubbly settling belongs to the bubbles)
+- **P07** - Surface detail on/off
 - **P08** - All layers on
 
 Muting is smooth (20 ms) and doesn't change what the other layers do. In Presets and Notes all layers always play; the diagnostic mutes are remembered for next time.
@@ -76,12 +76,14 @@ Muting is smooth (20 ms) and doesn't change what the other layers do. In Presets
 
 At power-up the creek plays whatever the knobs and faders are set to.
 
-## What you hear (Phase 1)
-- **Flow bed (wash)**: filtered noise in three overlapping bands (a centred body, a mid band and a soft sheen), slowly breathing with the creek state; faster flutter as turbulence rises. Only with Roughness above about half way.
-- **Bubbles**: up to 24 at once, mostly small and quiet, now and then a larger, lower and louder one. About a third of them rise slightly in pitch as they fade. They gather in the rock wake (slightly left) and the drop (slightly right), fewer in the open flow (centre).
-- The creek state has three places, flow (centre), rock wake (left) and drop (right), each with its own energy, turbulence and air. They follow the macros with some inertia (0.1–0.35 s) and drift on their own.
-
-Coming in Phase 2: eddies (slow swells), small waterfalls (soft splashes followed by bubbly settling) and surface detail (fine flecks), all sharing the same state.
+## What you hear
+Everything is made of short decaying tones; there is no noise in the sound for now.
+- **Bubbles**: the main voice. Up to 24 at once, mostly small and quiet, now and then a larger, lower and louder one. About a third rise slightly in pitch as they fade. They gather in the rock wake (slightly left) and the drop (slightly right), fewer in the open flow (centre).
+- **Eddies**: two to four overlapping slow swells (0.3–3 s, slower with larger Scale) in the rock wake. Each one gathers energy there: more bubbles, slightly bigger and lower ones, then lets go. You hear them as the left side of the creek surging and settling.
+- **Small waterfalls**: at the drop (right), 0.2–4 times a second as Flow rises: a soft low plop that falls in pitch, then 2–8 bubbles settling over the next tenth of a second (more with Aeration), plus a short burst of extra air in the drop. Overlapping splashes share a limited energy, so they never swamp the creek.
+- **Surface detail**: sparse, very short and quiet high ticks (2–9 kHz), more of them near the drop, at turbulence peaks and right after splashes, in loose bursts rather than a steady crackle.
+- **Shared state**: the three places (flow, rock wake, drop) each have their own energy, turbulence and air. They follow the knobs with some inertia (0.1–0.35 s) and drift on their own, so surges feel connected without everything pulsing at once.
+- The noise **wash** (flow bed) is in the code but switched off for now.
 
 ## Browser emulator and offline renders
 - **Emulator**: `python3 web/serve.py 8766`, then open http://localhost:8766. Same engine (JS twin of the firmware engine), same panel, same pickup and LED. "Render 30 s WAV" saves what you're hearing.

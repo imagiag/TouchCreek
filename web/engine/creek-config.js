@@ -51,7 +51,7 @@ const CK = {
   RISE_TIME_TAUS: 2.5,      // glide reaches its end after this many tau
 
   // birth rate per zone: lambda = RATE_MAX * w_z * B^RATE_EXP (0 when B ~ 0)
-  RATE_MAX: 120,
+  RATE_MAX: 90,
   RATE_EXP: 0.5,
   ZONE_RATE_W: [0.30, 1.0, 0.75],
   B_MIN: 0.0002,
@@ -65,6 +65,7 @@ const CK = {
   DENSITY_REF: 60,          // headroom: gain / sqrt(1 + rate / ref)
 
   // ---- flow bed (noise layers) ----
+  BED_ON: 0,                // 0 = the noise wash is off (user, 2026-10-25: water only for now)
   BODY_HP_HZ: 90,
   BODY_LP_HZ: [480, 1100],  // cutoff range (low T .. high T)
   BODY_Q: 0.6,
@@ -85,6 +86,46 @@ const CK = {
   CUT_DEPTH: 0.25,          // cutoff modulation depth (fraction, log)
   FLUTTER_MIN_SEC: 0.04, FLUTTER_MAX_SEC: 0.3, // faster turbulent flutter (scaled by T)
   SCALE_TILT: 0.45,         // larger Scale lowers the bed's spectral centre
+
+  // ---- eddies: slow swells in the rock wake (no audio of their own) ----
+  EDDY_SLOTS: 3,            // 2-4 overlapping swells
+  EDDY_DUR_SEC: [0.3, 3.0], // swell length (x Scale time multiplier)
+  EDDY_GAP_SEC: [0.1, 1.5], // pause before a slot swells again
+  EDDY_TIME_MUL: [0.6, 2.0],// Scale: eddy time multiplier
+  EDDY_E: 0.35,             // wake energy boost at a full swell
+  EDDY_RATE: 0.9,           // wake bubble-rate boost
+  EDDY_RADIUS: 0.25,        // wake bubbles up to 25 % larger (lower) in a swell
+  EDDY_DEPTH: [0.35, 1.0],  // swell depth, low .. high roughness
+
+  // ---- small waterfalls at the drop: a soft plop, then bubbly settling ----
+  FALLS_RATE: [0.2, 4.0],   // parent events per second as the drop's energy rises
+  FALLS_RATE_EXP: 0.8,
+  FALLS_PLOP_HZ: [150, 420],// impact tone (divided by the Scale radius multiplier)
+  FALLS_PLOP_GLIDE: -0.3,   // falls in pitch
+  FALLS_ATTACK_SEC: [0.002, 0.008],
+  FALLS_TAU_SEC: [0.012, 0.06],
+  FALLS_PLOP_GAIN: 0.2,
+  FALLS_CHILDREN: [2, 8],   // bubble children when Aeration permits ...
+  FALLS_CHILD_MS: [10, 120],// ... spread over this window
+  FALLS_CHILD_AMP: [0.25, 0.8],
+  FALLS_CHILD_GAIN: 0.45,
+  FALLS_SPLASH_J: 0.25,     // entrainment impulse into the drop zone
+  FALLS_ENERGY_SEC: 0.3,    // overlapping splashes share a bounded energy budget
+  FALLS_ENERGY_K: 1.5,
+  FALLS_VOICES: 4,
+
+  // ---- surface detail: sparse, quiet, short high ticks ----
+  SURF_RATE: [2, 40],       // events per second, low .. high turbulence
+  SURF_HZ: [2000, 9000],
+  SURF_ATTACK_SEC: [0.001, 0.005],
+  SURF_TAU_SEC: [0.002, 0.01],
+  SURF_DB_RANGE: 30,        // weighted toward very low levels
+  SURF_SKEW: 0.45,
+  SURF_GAIN: 0.16,
+  SURF_ZONE_W: [0.2, 0.3, 0.5], // more near the drop
+  SURF_SPLASH: 1.5,         // splashes briefly raise surface activity
+  SURF_BOOST_SEC: 0.4,
+  SURF_VOICES: 10,
 
   // ---- note mode: tuned drops and creek tuning ----
   DROP_GAIN: 0.55,          // drop level at full velocity (x BUBBLE_GAIN)

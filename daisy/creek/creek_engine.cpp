@@ -23,6 +23,9 @@ void CreekEngine::Reset(uint32_t seed) {
     queue_.Reset(); pool_.Reset();
     sched_.Init(sr_, rng_[S_BTIME]);
     bed_.Init(sr_, rng_[S_BED_DRIFT]);
+    eddies_.Init(rng_[S_EDDY]);
+    falls_.Init(sr_, rng_[S_FALLS]);
+    surface_.Init(sr_, rng_[S_SURFACE]);
     mixer_.Init(sr_); out_.Reset();
     applyMacros(true);
     snapNext_ = true;   // the first SetMacros() after a reset jumps instead of gliding
@@ -66,11 +69,20 @@ bool CreekEngine::Trigger(const Event& src) {
 }
 
 void CreekEngine::controlTick() {
+    // eddies first: they shape this tick's wake energy (muting the layer removes them)
+    const float R = flow_.m[1], T1 = flow_.T[1];
+    const float eMul = Lerp(ck::EDDY_TIME_MUL[0], ck::EDDY_TIME_MUL[1], flow_.m[2]);
+    const float depth = Lerp(ck::EDDY_DEPTH[0], ck::EDDY_DEPTH[1], Clamp(0.7f * R + 0.6f * T1, 0.f, 1.f)) * flow_.gate * mixer_.target[L_EDDIES];
+    const float ed = eddies_.Tick(rng_[S_EDDY], flow_.dt, eMul, depth);
+    flow_.eddy = ed;
     flow_.Tick(rng_[S_DRIFT]);
     const uint64_t k = tickIndex_;
     const int next = (int)(((k + 1) * srInt_) / ck::CONTROL_HZ - (k * srInt_) / ck::CONTROL_HZ);
     untilTick_ = next; tickIndex_++;
+    sched_.rateMul[1] = 1.f + ck::EDDY_RATE * ed; sched_.radMul[1] = 1.f + ck::EDDY_RADIUS * ed;
     sched_.Update(flow_, flow_.m[2]);
+    falls_.Update(flow_);
+    surface_.Update(flow_, rng_[S_SURFACE], flow_.dt, ed);
     const float tt = macros_.tune && sched_.nTune > 0 ? 1.f : 0.f;
     sched_.tuneAmt += (tt > sched_.tuneAmt ? kTuneA_ : kTuneR_) * (tt - sched_.tuneAmt);
     bed_.Update(flow_, rng_[S_BED_DRIFT], flow_.dt, next);
@@ -81,7 +93,7 @@ void CreekEngine::Process(float* left, float* right, size_t frames) {
     while (pos < frames) {
         if (untilTick_ == 0) controlTick();
         const int intoMicro = (int)(sample_ % ck::MICRO);
-        if (intoMicro == 0) pool_.Micro();
+        if (intoMicro == 0) { pool_.Micro(); falls_.pool.Micro(); surface_.pool.Micro(); }
         int seg = ck::MICRO - intoMicro;
         if (seg > untilTick_) seg = untilTick_;
         if ((size_t)seg > frames - pos) seg = (int)(frames - pos);
@@ -95,6 +107,8 @@ void CreekEngine::renderSegment(float* L, float* R, int n) {
     // events: scheduled births, then queued events due in this segment
     sched_.Run(rng_[S_BTIME], n);
     for (int b = 0; b < sched_.nBorn; b++) sched_.Make(rng_[S_BPARAM], sched_.bornZone[b], pool_, sched_.bornOff[b], nullptr);
+    falls_.Run(rng_[S_FALLS], n, flow_, sched_.ScaleMul(), queue_, sample_, surface_);
+    surface_.Run(rng_[S_SURFACE], n);
     const uint64_t end = sample_ + (uint64_t)n;
     for (int i = 0; i < ck::QUEUE_SIZE; i++) {
         if (!queue_.used[i]) continue;
@@ -107,6 +121,8 @@ void CreekEngine::renderSegment(float* L, float* R, int n) {
     }
     bed_.Render(bufL_[L_FLOW], bufR_[L_FLOW], n, rng_[S_NOISE_C], rng_[S_NOISE_L], rng_[S_NOISE_R]);
     pool_.Render(bufL_[L_BUBBLES], bufR_[L_BUBBLES], n);
+    falls_.pool.Render(bufL_[L_FALLS], bufR_[L_FALLS], n);
+    surface_.pool.Render(bufL_[L_SURFACE], bufR_[L_SURFACE], n);
     mixer_.Mix(pL_, pR_, L, R, n);
     out_.Process(L, R, n);
 }
@@ -139,6 +155,8 @@ void CreekEngine::GetStats(Stats& s) const {
     s.sumLog2F = pool_.sumLog2F;
     s.meanF = pool_.births ? exp2f(pool_.sumLog2F / pool_.births) : 0.f;
     s.rate = sched_.rate[0] + sched_.rate[1] + sched_.rate[2]; s.gate = flow_.gate;
+    s.eddy = flow_.eddy; s.splashes = falls_.count; s.surface = surface_.count;
+    s.splashRate = falls_.rate; s.surfaceRate = surface_.rate;
     for (int z = 0; z < ck::ZONES; z++) { s.E[z] = flow_.E[z]; s.T[z] = flow_.T[z]; s.B[z] = flow_.B[z]; }
 }
 

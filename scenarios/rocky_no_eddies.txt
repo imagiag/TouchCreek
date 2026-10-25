@@ -1,0 +1,5 @@
+# Rocky creek without eddies (compare with rocky.txt)
+seconds 20
+seed 1
+at 0 preset rocky
+at 0 set mask 27

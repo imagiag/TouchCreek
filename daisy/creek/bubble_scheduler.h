@@ -23,6 +23,8 @@ public:
     float tuneLog2[4];
     int nTune = 0;
     float tuneAmt = 0;
+    float rateMul[ck::ZONES] = {1, 1, 1}, radMul[ck::ZONES] = {1, 1, 1};  // eddies (wake)
+    float ScaleMul() const { return scaleMul_; }
 
     float rate[ck::ZONES];
     int nBorn = 0;

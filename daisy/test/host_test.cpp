@@ -158,14 +158,39 @@ static void engineTests() {
         if (!strcmp(k, "sweep_flow")) writeF32("sweep_flow", L1, R1);
     }
 
-    // --- the flow-bed wash only comes in with high Roughness ---
+    // --- the noise wash is switched off (BED_ON = 0) ---
     {
-        auto lo = scenario::parse("seconds 3\nat 0 set flow 0.7 roughness 0.3 scale 0.5 aeration 0.5 mask 1\n", SR);
-        auto hi = scenario::parse("seconds 3\nat 0 set flow 0.7 roughness 1 scale 0.5 aeration 0.5 mask 1\n", SR);
-        render(eng, lo, 48, L1, R1); const double rl = rmsOf(L1, (size_t)SR, L1.size());
+        auto hi = scenario::parse("seconds 3\nat 0 set flow 0.9 roughness 1 scale 0.5 aeration 0.5 mask 1\n", SR);
         render(eng, hi, 48, L1, R1); const double rh = rmsOf(L1, (size_t)SR, L1.size());
-        CHECK(rl < 1e-6, "Roughness 0.3: no wash (rms %g)", rl);
-        CHECK(rh > 0.02, "Roughness 1: wash present (rms %g)", rh);
+        CHECK(rh < 1e-7, "wash off: flow-bed layer silent even at Roughness 1 (rms %g)", rh);
+    }
+
+    // --- Phase 2 layers: eddies, small waterfalls, surface detail ---
+    {
+        auto layerRms = [&](const char* preset, int mask, Stats& st) {
+            char txt[160]; snprintf(txt, sizeof txt, "seconds 20\nat 0 preset %s\nat 0 set mask %d\n", preset, mask);
+            auto sc = scenario::parse(txt, SR);
+            float eMax = 0;
+            scenario::run(sc, eng, SR, 48, L1, R1, [&](long, long) { Stats s; eng.GetStats(s); eMax = fmaxf(eMax, s.eddy); });
+            eng.GetStats(st); st.eddy = eMax;
+            return rmsOf(L1, (size_t)SR, L1.size()) + rmsOf(R1, (size_t)SR, R1.size());
+        };
+        Stats all, bub, falls, surf, noEddy;
+        layerRms("rocky", 31, all);
+        const double rb = layerRms("rocky", 2, bub), rf = layerRms("rocky", 8, falls), rs = layerRms("rocky", 16, surf);
+        layerRms("rocky", 31 & ~4, noEddy);
+        CHECK(all.eddy > 0.2f, "eddies swell in the rock wake (max %.2f)", all.eddy);
+        CHECK(noEddy.eddy == 0.f, "muting eddies removes them");
+        const float spl = all.splashes / 20.f, sfr = all.surface / 20.f;
+        CHECK(spl >= 0.2f && spl <= 4.f, "splashes %.2f/s within 0.2-4/s", spl);
+        CHECK(sfr >= 2.f && sfr <= 40.f, "surface ticks %.1f/s within 2-40/s", sfr);
+        CHECK(rf > 1e-4 && rs > 1e-5, "falls and surface layers are audible (rms %g, %g)", rf, rs);
+        CHECK(rs < 0.2 * rb, "surface detail does not dominate (%.1f dB under the bubbles)", 20 * log10(rb / rs));
+        Stats tr, ca;
+        layerRms("trickle", 31, tr); layerRms("cascade", 31, ca);
+        CHECK(ca.splashes > 2 * tr.splashes && ca.surface > 2 * tr.surface, "more splashes and surface activity as the creek gets livelier");
+        printf("rocky: bubbles %.0f/s, splashes %.1f/s, surface %.1f/s; layer rms bubbles %.1f, falls %.1f, surface %.1f dBFS\n",
+               all.births / 20.f, spl, sfr, 20 * log10(rb / 2), 20 * log10(rf / 2), 20 * log10(rs / 2));
     }
 
     // --- note mode: tuned drop pitch, and held notes tune the creek ---
