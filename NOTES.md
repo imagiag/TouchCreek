@@ -36,3 +36,4 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - LED flicker on loud bubble births.
 - Use S30/S35 for calibration or "bubble glide amount" if listening calls for it.
 - 2026-10-25, user: stress test on hardware (v5 + monitor) stays under 25 % CPU worst block: timing criterion passes.
+- 2026-10-25 (user): Free flow (S30, Notes only; 0 = still, holding notes pours), Variety (S35, bipolar: one note .. default .. across the scale), Decay (S34, bipolar 1/4x..4x), Width -> P10 + S34. Scales stay exactly as TouchPulsar. Emulator knobs always show name, S-number, P10 layer and value.

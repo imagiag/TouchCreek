@@ -47,9 +47,9 @@ void Falls::Init(float sr, Rng& rng) {
     kE_ = expf(-1.f / (ck::CONTROL_HZ * ck::FALLS_ENERGY_SEC));
 }
 
-void Falls::Update(const FlowState& fs) {
+void Falls::Update(const FlowState& fs, float activity) {
     const float E = fs.E[2];
-    const float lam = E > 0.002f ? Lerp(ck::FALLS_RATE[0], ck::FALLS_RATE[1], powf(E, ck::FALLS_RATE_EXP)) * fs.gate : 0.f;
+    const float lam = E > 0.002f ? Lerp(ck::FALLS_RATE[0], ck::FALLS_RATE[1], powf(E, ck::FALLS_RATE_EXP)) * fs.gate * activity : 0.f;
     hz_.SetRate(lam, sr_); rate = lam;
     energy_ *= kE_;
 }
@@ -95,11 +95,11 @@ void Surface::Init(float sr, Rng& rng) {
     lnHz_ = logf(ck::SURF_HZ[1] / ck::SURF_HZ[0]);
 }
 
-void Surface::Update(const FlowState& fs, Rng& rng, float dt, float eddy) {
+void Surface::Update(const FlowState& fs, Rng& rng, float dt, float eddy, float activity) {
     const float d = drift_.Tick(rng, dt, 1.f);
     const float Tm = ck::SURF_ZONE_W[0] * fs.T[0] + ck::SURF_ZONE_W[1] * fs.T[1] + ck::SURF_ZONE_W[2] * fs.T[2];
     const float x = Clamp(1.6f * Tm + 0.3f * eddy + boost, 0.f, 1.f);
-    const float lam = fs.gate > 0.f ? Lerp(ck::SURF_RATE[0], ck::SURF_RATE[1], x) * (0.35f + 0.65f * 0.5f * (d + 1.f)) * fs.gate : 0.f;
+    const float lam = fs.gate > 0.f ? Lerp(ck::SURF_RATE[0], ck::SURF_RATE[1], x) * (0.35f + 0.65f * 0.5f * (d + 1.f)) * fs.gate * activity : 0.f;
     hz_.SetRate(lam, sr_); rate = lam;
     boost *= kB_;
 }

@@ -1,0 +1,16 @@
+# Note mode with Free flow 0: still water, held notes pour. Variety from one note (0) to the whole scale (1). C major pentatonic.
+seconds 16
+seed 9
+at 0 preset rocky
+at 0 set freeflow 0 variety 0 scalemask 661
+at 1 tune 523.25
+at 1 drop hz 523.25 amp 0.8
+at 4 tune
+at 5 set variety 0.5
+at 5 tune 659.26
+at 5 drop hz 659.26 amp 0.7
+at 8 tune
+at 9 set variety 1 decay 0.8
+at 9 tune 523.25 783.99
+at 9 drop hz 783.99 amp 0.8
+at 13 tune

@@ -18,17 +18,18 @@ const PADS = [
   { id: 6, x: 68, y: 80.8 }, { id: 7, x: 89.5, y: 85.6 }, { id: 8, x: 31.7, y: 93.6 }, { id: 9, x: 68, y: 94.2 },
   { id: 10, x: 38.7, y: 5, small: 1 }, { id: 11, x: 62.2, y: 5, small: 1 },
 ];
-// physical control -> macro index (CC.M_*), or -1 = reserved
+// physical controls (p = S30..S37 -> 0..7) -> macro (CC.M_*); alt = macro while P10 is held
 const KNOBS = [
-  { id: 'S30', x: 21.2, y: 49.5, m: -1 }, { id: 'S31', x: 21.2, y: 35.5, m: CC.M_SCALE }, { id: 'S32', x: 40.8, y: 35.5, m: CC.M_AER },
-  { id: 'S33', x: 60.3, y: 35.5, m: CC.M_FLOW }, { id: 'S34', x: 79.2, y: 35.5, m: CC.M_WIDTH }, { id: 'S35', x: 79.2, y: 49.5, m: -1 },
+  { id: 'S30', p: 0, x: 21.2, y: 49.5, m: CC.M_FREE }, { id: 'S31', p: 1, x: 21.2, y: 35.5, m: CC.M_SCALE },
+  { id: 'S32', p: 2, x: 40.8, y: 35.5, m: CC.M_AER }, { id: 'S33', p: 3, x: 60.3, y: 35.5, m: CC.M_FLOW },
+  { id: 'S34', p: 4, x: 79.2, y: 35.5, m: CC.M_DECAY, alt: CC.M_WIDTH }, { id: 'S35', p: 5, x: 79.2, y: 49.5, m: CC.M_VARIETY },
 ];
-const FADERS = [{ id: 'S36', x: 6.5, y: 42, m: CC.M_LEVEL }, { id: 'S37', x: 93.5, y: 42, m: CC.M_ROUGH }];
+const FADERS = [{ id: 'S36', p: 6, x: 6.5, y: 42, m: CC.M_LEVEL }, { id: 'S37', p: 7, x: 93.5, y: 42, m: CC.M_ROUGH }];
 const SWITCHES = [ // pos 0 = up, 1 = centre, 2 = down
   { k: 'mode', id: 'S09/10', x: 37.8, y: 66, names: ['PRESETS', 'NOTES', 'DIAG'] },
   { k: 'hold', id: 'S07/08', x: 53.5, y: 72.5, names: ['LIVE', 'LIVE', 'HOLD'] },
 ];
-const MACRO_NAMES = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width'];
+const MACRO_NAMES = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width', 'Free flow', 'Variety', 'Decay'];
 
 // ------------------------------------------------------------------ hardware glue (as creek_ui.cpp)
 // Soft pickup: after a preset recall a macro knob only writes again once it
@@ -38,14 +39,23 @@ class Takeover {
   process(v) { if (!this.tracking && Math.abs(v - this.init) < 0.03) return this.value; this.tracking = true; this.value = v; return v; }
   hold(value, knobNow) { this.value = value; this.init = knobNow; this.tracking = false; }
 }
-const phys = Float32Array.from(ctl.value);            // where each knob / fader physically sits
+const CONTROLS = KNOBS.concat(FADERS);
+const PHYS_OF = [];                                    // macro -> physical control
+for (const c of CONTROLS) { PHYS_OF[c.m] = c.p; if (c.alt !== undefined) PHYS_OF[c.alt] = c.p; }
+const altHeld = () => !!ctl.touched[CC.P_ROOT];        // P10 held: second layer (S34 = Width)
+function macroFor(c) { return c.alt !== undefined && altHeld() ? c.alt : c.m; }
+const physPos = new Float32Array(8);                   // where each knob / fader physically sits
+for (const c of CONTROLS) physPos[c.p] = ctl.value[c.m];
 const take = MACRO_NAMES.map((_, i) => { const t = new Takeover(); t.value = ctl.value[i]; return t; });
-const sw = { mode: 0, hold: 0 };
+take[CC.M_WIDTH].hold(ctl.value[CC.M_WIDTH], physPos[4]);   // Width (P10 layer) starts natural and waits
+let altWas = false;
+const sw = { mode: 0, hold: 0 };                       // switch positions: 0 up, 1 centre, 2 down
 
-function moveKnob(m, v) {
-  phys[m] = clamp(v, 0, 1);
+function moveKnob(c, v) {
+  physPos[c.p] = clamp(v, 0, 1);
+  const m = macroFor(c);
   if (ctl.gliding() && m < 4 && !take[m].tracking) return;  // preset glide owns the macro
-  const out = take[m].process(phys[m]);
+  const out = take[m].process(physPos[c.p]);
   if (take[m].tracking) ctl.setKnob(m, out);
 }
 
@@ -54,7 +64,7 @@ const led = { left: 0, on: 0, off: 0, lit: false, end: 0, flickerUntil: 0 };
 function blink(count, onMs, offMs) { led.left = count; led.on = onMs; led.off = offMs; led.lit = count > 0; led.end = performance.now() + onMs; }
 function handleEvents() {
   for (const e of ctl.events) {
-    if (e.type === CC.EV_PRESET) { for (let i = 0; i < 4; i++) take[i].hold(ctl.value[i], phys[i]); blink(e.arg + 1, 70, 90); }
+    if (e.type === CC.EV_PRESET) { for (let i = 0; i < 4; i++) take[i].hold(ctl.value[i], physPos[PHYS_OF[i]]); blink(e.arg + 1, 70, 90); }
     else if (e.type === CC.EV_LAYER) blink(e.arg ? 2 : 1, 60, 80);
     else if (e.type === CC.EV_ALL) blink(3, 40, 40);
     else if (e.type === CC.EV_MODE) blink(e.arg + 1, 150, 100);
@@ -82,6 +92,9 @@ const t0 = performance.now();
 setInterval(() => {
   ctl.tick((performance.now() - t0) / 1000);
   ctl.setMode(sw.mode);                    // 0 presets, 1 notes, 2 diagnostics
+  if (altHeld() !== altWas) {              // layer switch: the newly active control waits until the knob moves
+    altWas = altHeld(); const m = altWas ? CC.M_WIDTH : CC.M_DECAY; take[m].hold(ctl.value[m], physPos[4]);
+  }
   ctl.hold = sw.hold === 2;
   for (const d of ctl.drops) if (node) node.port.postMessage({ type: 'trigger', ev: { type: 2, radiusMm: 3000 / d.hz, amp: 0.25 + 0.75 * d.vel } });
   ctl.drops.length = 0;
@@ -120,24 +133,26 @@ function buildBoard() {
     padEls[p.id] = e;
   }
   for (const k of KNOBS) {
-    const e = el('div', 'knob' + (k.m < 0 ? ' idle' : ''), board);
+    const e = el('div', 'knob', board);
     e.style.left = k.x + '%'; e.style.top = k.y + '%';
     e.innerHTML = `<svg viewBox="-50 -50 100 100"><circle r="40" fill="#161b1c" stroke="#333" stroke-width="2"/>
       <path class="trk" fill="none" stroke="#263033" stroke-width="6" stroke-linecap="round"/>
       <path class="val" fill="none" stroke="var(--gold)" stroke-width="6" stroke-linecap="round"/>
       <line class="ptr" x1="0" y1="0" x2="0" y2="-30" stroke="#eee" stroke-width="5" stroke-linecap="round"/></svg>
-      <span class="name"><b>${k.m < 0 ? '—' : MACRO_NAMES[k.m]}</b><span>${k.id}</span></span>`;
+      <span class="name"><b></b><i class="kid"></i><span class="kv"></span></span>`;
     e.querySelector('.trk').setAttribute('d', arc(-135, 135, 46));
-    e._val = e.querySelector('.val'); e._ptr = e.querySelector('.ptr'); e._s = e.querySelector('.name span'); e._m = k.m; e._id = k.id;
-    if (k.m >= 0) bindDrag(e, k.m);
+    e._val = e.querySelector('.val'); e._ptr = e.querySelector('.ptr');
+    e._b = e.querySelector('.name b'); e._id = e.querySelector('.kid'); e._s = e.querySelector('.kv'); e._c = k;
+    bindDrag(e, k);
     knobEls.push(e);
   }
   for (const f of FADERS) {
     const e = el('div', 'fader', board);
     e.style.left = f.x + '%'; e.style.top = f.y + '%';
-    e.innerHTML = `<div class="track"></div><div class="fill"></div><div class="cap"></div><span class="name"><b>${MACRO_NAMES[f.m]}</b><span>${f.id}</span></span>`;
-    e._fill = e.querySelector('.fill'); e._cap = e.querySelector('.cap'); e._s = e.querySelector('.name span'); e._m = f.m; e._id = f.id;
-    bindFader(e, f.m);
+    e.innerHTML = `<div class="track"></div><div class="fill"></div><div class="cap"></div><span class="name"><b></b><i class="kid"></i><span class="kv"></span></span>`;
+    e._fill = e.querySelector('.fill'); e._cap = e.querySelector('.cap');
+    e._b = e.querySelector('.name b'); e._id = e.querySelector('.kid'); e._s = e.querySelector('.kv'); e._c = f;
+    bindFader(e, f);
     faderEls.push(e);
   }
   for (const s of SWITCHES) {
@@ -155,16 +170,16 @@ function buildBoard() {
     e._s = s; swEls[s.k] = e;
   }
 }
-function bindDrag(e, m) {
+function bindDrag(e, c) {
   let startY = 0, startV = 0, id = null;
-  e.addEventListener('pointerdown', (ev) => { id = ev.pointerId; e.setPointerCapture(id); startY = ev.clientY; startV = phys[m]; ev.preventDefault(); });
-  e.addEventListener('pointermove', (ev) => { if (ev.pointerId === id) moveKnob(m, startV + (startY - ev.clientY) * 0.005 * (ev.altKey ? 0.2 : 1)); });
+  e.addEventListener('pointerdown', (ev) => { id = ev.pointerId; e.setPointerCapture(id); startY = ev.clientY; startV = physPos[c.p]; ev.preventDefault(); });
+  e.addEventListener('pointermove', (ev) => { if (ev.pointerId === id) moveKnob(c, startV + (startY - ev.clientY) * 0.005 * (ev.altKey ? 0.2 : 1)); });
   const end = (ev) => { if (ev.pointerId === id) id = null; };
   e.addEventListener('pointerup', end); e.addEventListener('pointercancel', end);
 }
-function bindFader(e, m) {
+function bindFader(e, c) {
   let id = null;
-  const set = (ev) => { const r = e.getBoundingClientRect(); moveKnob(m, 1 - (ev.clientY - r.top) / r.height); };
+  const set = (ev) => { const r = e.getBoundingClientRect(); moveKnob(c, 1 - (ev.clientY - r.top) / r.height); };
   e.addEventListener('pointerdown', (ev) => { id = ev.pointerId; e.setPointerCapture(id); set(ev); ev.preventDefault(); });
   e.addEventListener('pointermove', (ev) => { if (ev.pointerId === id) set(ev); });
   const end = (ev) => { if (ev.pointerId === id) id = null; };
@@ -174,26 +189,25 @@ function bindFader(e, m) {
 function fmt(m, v) {
   if (m === CC.M_LEVEL) { const g = ccLevel(v); return g < 1e-4 ? 'off' : (20 * Math.log10(g)).toFixed(1).replace(/^-0\.0$/, '0.0') + ' dB'; }
   if (m === CC.M_WIDTH) return ccWidth(v).toFixed(2) + '×';
-  if (m === CC.M_SCALE) return (CK.SCALE_MUL_MIN * Math.pow(CK.SCALE_MUL_MAX / CK.SCALE_MUL_MIN, v)).toFixed(2) + '× size';
+  if (m === CC.M_SCALE) return (CK.SCALE_MUL_MIN * Math.pow(CK.SCALE_MUL_MAX / CK.SCALE_MUL_MIN, v)).toFixed(2) + '×';
+  if (m === CC.M_DECAY) return '×' + Math.pow(2, CK.DECAY_OCT * (2 * v - 1)).toFixed(2);
+  if (m === CC.M_VARIETY) return Math.abs(v - 0.5) < 0.02 ? 'default' : v < 0.5 ? `one note ${Math.round((0.5 - v) * 200)}%` : `scale ${Math.round((v - 0.5) * 200)}%`;
+  if (m === CC.M_FREE) return (v < 0.005 ? 'still' : Math.round(v * 100) + '%') + (ctl.mode === CC.MODE_NOTES ? '' : ' (Notes)');
   return Math.round(v * 100) + '%';
 }
 
 function drawBoard() {
-  for (const e of knobEls) {
-    if (e._m < 0) { e._val.setAttribute('d', ''); e._ptr.setAttribute('transform', 'rotate(-135)'); continue; }
-    const v = ctl.value[e._m], p = phys[e._m];
-    e._val.setAttribute('d', v > 0.002 ? arc(-135, -135 + 270 * v, 46) : '');
-    e._ptr.setAttribute('transform', `rotate(${-135 + 270 * p})`);
-    const waiting = !take[e._m].tracking;
+  for (const e of knobEls.concat(faderEls)) {
+    const c = e._c, m = macroFor(c), v = ctl.value[m], p = physPos[c.p];
+    if (e._val) { e._val.setAttribute('d', v > 0.002 ? arc(-135, -135 + 270 * v, 46) : ''); e._ptr.setAttribute('transform', `rotate(${-135 + 270 * p})`); }
+    else { e._fill.style.height = (v * 100) + '%'; e._cap.style.bottom = (p * 100) + '%'; }
+    const waiting = !take[m].tracking;
     e.classList.toggle('waiting', waiting);
-    e._s.textContent = waiting ? 'pick up ↕' : fmt(e._m, v);
-  }
-  for (const e of faderEls) {
-    const v = ctl.value[e._m], p = phys[e._m];
-    e._fill.style.height = (v * 100) + '%'; e._cap.style.bottom = (p * 100) + '%';
-    const waiting = !take[e._m].tracking;
-    e.classList.toggle('waiting', waiting);
-    e._s.textContent = waiting ? 'pick up ↕' : fmt(e._m, v);
+    e.classList.toggle('altl', m !== c.m);
+    if (e._b.textContent !== MACRO_NAMES[m]) e._b.textContent = MACRO_NAMES[m];
+    const idTxt = c.alt !== undefined ? (m === c.m ? `${c.id} · P10: ${MACRO_NAMES[c.alt]}` : `P10 + ${c.id}`) : c.id;
+    if (e._id.textContent !== idTxt) e._id.textContent = idTxt;
+    e._s.textContent = waiting ? 'pick up ↕' : fmt(m, v);
   }
   for (const k in swEls) {
     const e = swEls[k], pos = sw[k];

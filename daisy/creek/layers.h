@@ -58,7 +58,7 @@ class Surface;
 class Falls {
 public:
     void Init(float sr, Rng& rng);
-    void Update(const FlowState& fs);                       // control tick
+    void Update(const FlowState& fs, float activity);       // control tick
     void Run(Rng& rng, int n, FlowState& fs, float scaleMul, EventQueue& q, uint64_t sample, Surface& surf);
     BubblePool pool;
     float rate = 0;
@@ -73,7 +73,7 @@ private:
 class Surface {
 public:
     void Init(float sr, Rng& rng);
-    void Update(const FlowState& fs, Rng& rng, float dt, float eddy);  // control tick
+    void Update(const FlowState& fs, Rng& rng, float dt, float eddy, float activity);  // control tick
     void Run(Rng& rng, int n);
     BubblePool pool;
     float rate = 0, boost = 0;

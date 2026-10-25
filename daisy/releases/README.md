@@ -5,6 +5,7 @@ Flash these with https://flash.daisy.audio/ (hold BOOT while plugging in, or BOO
 
 | File | Date | Changes |
 |---|---|---|
+| `CreekTouch-v6-pour.bin` | 2026-10-25 | **Free flow** (S30, Notes): how much the creek plays by itself, fully left = still; holding a note now **pours** water onto it. **Variety** (S35): left = one note, noon = default, right = across the active scale. **Decay** (S34): ¼× … 4×, noon = default. **Width moved to P10 + S34.** |
 | `CreekTouch-v5-monitor-fix.bin` | 2026-10-25 | Fixes the USB report for `web/monitor.html` (lines were too long for libDaisy's logger and got cut off). Sound unchanged from v4. |
 | `CreekTouch-v4-monitor.bin` | 2026-10-25 | Sound as v3 (large bubbles slightly less loud, for headroom). Reports CPU, voices and stack over USB once a second for `web/monitor.html`. **Diagnostics P09 = stress test** (worst case, LED blinks fast). USB shows up as "Creek". |
 | `CreekTouch-v3-layers.bin` | 2026-10-25 | **Phase 2 layers**: eddies (slow swells that make the rock wake surge), small waterfalls (a soft low plop at the drop, then bubbly settling), surface detail (sparse quiet high ticks). **Noise wash off** completely. Controls unchanged from v2. Diagnostics P05–P07 now mute eddies / falls / surface. |

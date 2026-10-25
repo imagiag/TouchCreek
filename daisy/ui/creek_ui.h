@@ -55,7 +55,6 @@ private:
     void blink(uint8_t count, uint32_t onMs, uint32_t offMs);
     void post();
     void pushTrigger(const creek::Event& e);
-    void knobsPhys(daisy::AnalogControl** out);
 
     Touch& touch_;
     creek::CreekEngine& engine_;
@@ -63,7 +62,7 @@ private:
     creek::Macros macros_;
 
     Takeover knob_[creek::M_COUNT];
-    bool firstRun_ = true;
+    bool firstRun_ = true, altPrev_ = false;
 
     // mailbox (main loop writes the slot the audio side is not reading)
     creek::Macros mailbox_[2];

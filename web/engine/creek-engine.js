@@ -174,7 +174,7 @@ class CrBubblePool {
   // budget = voices sounding at once; slots = budget + room for 2 ms steal fades
   constructor(budget, slots, log) {
     const N = slots || CK.VOICE_SLOTS;
-    this.n = N; this.budget = budget || CK.VOICES; this.log = log !== false;
+    this.n = N; this.budget = budget || CK.VOICES; this.log = log !== false; this.tauMul = 1;
     this.on = new Uint8Array(N); this.fading = new Uint8Array(N);
     this.zr = new Float64Array(N); this.zi = new Float64Array(N);
     this.c = new Float32Array(N); this.s = new Float32Array(N); this.damp = new Float32Array(N);
@@ -217,6 +217,7 @@ class CrBubblePool {
     let v = -1;
     for (let i = 0; i < N; i++) if (!this.on[i]) { v = i; break; }
     if (v < 0) { this.drops++; return false; }
+    tau *= this.tauMul;                 // Decay knob
     const w = Math.min(CR_TWO_PI * f0 / sr, this.wMax / (1 + Math.max(0, rise)));
     const r = Math.exp(-1 / (tau * sr));
     this.on[v] = 1; this.fading[v] = 0; this.fade[v] = 1; this.fadeStep[v] = 0;
@@ -277,6 +278,16 @@ class CrBubblePool {
 // Bubble parameters come from their own stream, so timing and timbre are
 // reproducible independently.
 // =============================================================================
+// Move d steps through a scale (12-bit pitch-class mask, bit 0 = C) from MIDI note n.
+function crStepScale(n, d, mask) {
+  const dir = d > 0 ? 1 : -1;
+  for (let k = 0; k < Math.abs(d); k++) {
+    let g = 0;
+    do { n += dir; g++; } while (!((mask >> (((n % 12) + 12) % 12)) & 1) && g < 12);
+  }
+  return n;
+}
+
 class CrBubbleScheduler {
   constructor() {
     this.acc = new Float32Array(3); this.thr = new Float32Array(3); this.inc = new Float32Array(3);
@@ -287,6 +298,8 @@ class CrBubbleScheduler {
     this.lnTauSpan = Math.log(CK.TAU_MAX / CK.TAU_MIN);
     this.ampScale = 0; this.scaleMul = 1;
     this.tuneLog2 = new Float32Array(4); this.nTune = 0; this.tuneAmt = 0;
+    this.tuneMidi = new Float32Array(4);  // held notes as MIDI numbers
+    this.variety = 0.5; this.scaleMask = 0xFFF; this.freeFlow = 1; this.activity = 1;
     this.rateMul = new Float32Array([1, 1, 1]); this.radMul = new Float32Array([1, 1, 1]);   // eddies (wake)
     this.lastZone = 1;
   }
@@ -296,13 +309,30 @@ class CrBubbleScheduler {
     return CK.TAU_MIN * Math.exp(this.lnTauSpan * x);
   }
   // nearest pitch (any octave) of the held notes, in log2 Hz
-  snap(l2) {
-    let best = l2, bd = 1e9;
+  // Pitch for a tuned bubble (MIDI). Default: the held note in the octave
+  // nearest the bubble's own pitch. Variety left of noon pulls it onto the held
+  // note itself (fully left: one note); right of noon moves it up to +-7 steps
+  // through the active scale.
+  tunedMidi(m0, uA, uB) {
+    let best = 0, bd = 1e9, bc = 0;
     for (let k = 0; k < this.nTune; k++) {
-      const t = this.tuneLog2[k], c = t + Math.round(l2 - t), d = Math.abs(c - l2);
-      if (d < bd) { bd = d; best = c; }
+      const t = this.tuneMidi[k], c = t + 12 * Math.round((m0 - t) / 12), d = Math.abs(c - m0);
+      if (d < bd) { bd = d; best = k; bc = c; }
     }
-    return best;
+    const v = this.variety;
+    if (v < 0.5) {
+      if (uA < (0.5 - v) * 2) bc = this.tuneMidi[best];
+    } else if (v > 0.5) {
+      const r = (v - 0.5) * 2;
+      if (uA < r) {
+        const D = 1 + Math.round(r * (CK.VARIETY_STEPS - 1));
+        let d = Math.min(D, Math.floor(uB * (2 * D + 1)) - D);
+        bc = crStepScale(Math.round(bc), d, this.scaleMask);
+      }
+    }
+    while (bc > CK.TUNE_MIDI_RANGE[1]) bc -= 12;
+    while (bc < CK.TUNE_MIDI_RANGE[0]) bc += 12;
+    return bc;
   }
   init(sr, rngT) {
     this.sr = sr;
@@ -314,7 +344,7 @@ class CrBubbleScheduler {
     let total = 0;
     for (let z = 0; z < 3; z++) {
       const B = fs.B[z];
-      const lam = B > CK.B_MIN ? CK.RATE_MAX * CK.ZONE_RATE_W[z] * Math.pow(B, CK.RATE_EXP) * fs.gate * this.rateMul[z] : 0;
+      const lam = B > CK.B_MIN ? CK.RATE_MAX * CK.ZONE_RATE_W[z] * Math.pow(B, CK.RATE_EXP) * fs.gate * this.rateMul[z] * this.activity : 0;
       this.rate[z] = lam; this.inc[z] = lam / this.sr; total += lam;
     }
     this.scaleMul = CK.SCALE_MUL_MIN * Math.pow(CK.SCALE_MUL_MAX / CK.SCALE_MUL_MIN, S);
@@ -342,6 +372,7 @@ class CrBubbleScheduler {
   // draw a bubble for zone z; ev (optional) overrides fields >= 0
   make(rngP, z, pool, off, ev) {
     const u0 = rngP.uni(), u1 = rngP.uni(), u2 = rngP.uni(), u3 = rngP.uni(), u4 = rngP.uni(), u5 = rngP.uni(), u6 = rngP.bip(), u7 = rngP.bip();
+    const u8 = rngP.uni(), u9 = rngP.uni();
     const logr = this.lnRmin + this.lnRspan * Math.pow(u0, CK.R_SKEW);
     let rMm = Math.exp(logr) * this.scaleMul * this.radMul[z];
     if (ev && ev.radiusMm > 0) rMm = ev.radiusMm;
@@ -349,8 +380,14 @@ class CrBubbleScheduler {
     let tau = this.tauFor(rMm) * (1 + CK.TAU_JITTER * u6);
     if (ev && ev.tauSec > 0) tau = ev.tauSec;
     // note mode: held notes gather some of the creek's own bubbles onto their pitches
-    const tuned = !ev && this.nTune > 0 && u5 < this.tuneAmt * CK.TUNE_MAX;
-    if (tuned) { f0 = Math.max(CK.F_MIN_HZ, Math.pow(2, this.snap(Math.log2(f0)))); tau *= CK.TUNE_TAU_MUL; }
+    // note mode: held notes gather the creek's bubbles onto their pitches; with
+    // Free flow down, every bubble comes from pouring, so all of them are tuned
+    const tuneP = this.tuneAmt > 0.01 ? Math.min(1, this.tuneAmt * CK.TUNE_MAX + (1 - this.freeFlow)) : 0;
+    const tuned = !(ev && ev.radiusMm > 0) && this.nTune > 0 && u5 < tuneP;   // splash bubbles too; tuned drops keep their pitch
+    if (tuned) {
+      const m = this.tunedMidi(69 + 12 * Math.log2(f0 / 440), u8, u9);
+      f0 = Math.max(CK.F_MIN_HZ, 440 * Math.pow(2, (m - 69) / 12)); tau *= CK.TUNE_TAU_MUL;
+    }
     let amp = Math.pow(10, -CK.AMP_DB_RANGE * Math.pow(u1, CK.AMP_SKEW) / 20) *
       Math.min(CK.AMP_R_MAX, Math.pow(rMm, CK.AMP_R_EXP)) * this.ampScale;
     if (ev && ev.amp > 0) amp = ev.amp * CK.BUBBLE_GAIN;
@@ -525,9 +562,9 @@ class CrFalls {
     this.sr = sr; this.hz.init(rng); this.pool.init(sr); this.pool.reset(); this.energy = 0; this.count = 0;
     this.kE = Math.exp(-1 / (CK.CONTROL_HZ * CK.FALLS_ENERGY_SEC));
   }
-  update(fs) {
+  update(fs, activity) {
     const E = fs.E[2];
-    const lam = E > 0.002 ? crLerp(CK.FALLS_RATE[0], CK.FALLS_RATE[1], Math.pow(E, CK.FALLS_RATE_EXP)) * fs.gate : 0;
+    const lam = E > 0.002 ? crLerp(CK.FALLS_RATE[0], CK.FALLS_RATE[1], Math.pow(E, CK.FALLS_RATE_EXP)) * fs.gate * activity : 0;
     this.hz.setRate(lam, this.sr); this.rate = lam;
     this.energy *= this.kE;
   }
@@ -577,11 +614,11 @@ class CrSurface {
     this.kB = Math.exp(-1 / (CK.CONTROL_HZ * CK.SURF_BOOST_SEC));
     this.lnHz = Math.log(CK.SURF_HZ[1] / CK.SURF_HZ[0]);
   }
-  update(fs, rng, dt, eddy) {
+  update(fs, rng, dt, eddy, activity) {
     const d = this.drift.tick(rng, dt, 1);
     const Tm = CK.SURF_ZONE_W[0] * fs.T[0] + CK.SURF_ZONE_W[1] * fs.T[1] + CK.SURF_ZONE_W[2] * fs.T[2];
     const x = crClamp(1.6 * Tm + 0.3 * eddy + this.boost, 0, 1);
-    const lam = fs.gate > 0 ? crLerp(CK.SURF_RATE[0], CK.SURF_RATE[1], x) * (0.35 + 0.65 * 0.5 * (d + 1)) * fs.gate : 0;
+    const lam = fs.gate > 0 ? crLerp(CK.SURF_RATE[0], CK.SURF_RATE[1], x) * (0.35 + 0.65 * 0.5 * (d + 1)) * fs.gate * activity : 0;
     this.hz.setRate(lam, this.sr); this.rate = lam;
     this.boost *= this.kB;
   }
@@ -678,6 +715,10 @@ class CreekMacros {
     this.gain = 1; this.width = 1; this.mask = 0x1F; this.hold = false;
     this.tuneHz = [0, 0, 0, 0];   // note mode: held note pitches (0 = none)
     this.tune = 0;                // 1 while notes are held
+    this.freeFlow = 1;            // note mode: how much the creek plays by itself (0 = still)
+    this.variety = 0.5;           // tuned pitches: 0 one note .. 0.5 default .. 1 across the scale
+    this.decay = 0.5;             // decay times: 0 = 1/4 .. 0.5 = 1x .. 1 = 4x
+    this.scaleMask = 0xFFF;       // active scale as pitch classes (bit 0 = C)
   }
 }
 
@@ -708,6 +749,7 @@ class CreekEngine {
     this.flow.init(this.sr, this.rng[CR_S_DRIFT]);
     this.queue.reset(); this.pool.reset();
     this.sched.init(this.sr, this.rng[CR_S_BTIME]); this.sched.tuneAmt = 0;
+    this.freeS = 1; this.activity = 1;
     if (CK.BED_ON) this.bed.init(this.sr, this.rng[CR_S_BED_DRIFT]);
     this.eddies.init(this.rng[CR_S_EDDY]);
     this.falls.init(this.sr, this.rng[CR_S_FALLS]);
@@ -728,6 +770,8 @@ class CreekEngine {
     if (v.hold !== undefined) m.hold = !!v.hold;
     if (v.tuneHz) for (let k = 0; k < 4; k++) { const h = v.tuneHz[k]; m.tuneHz[k] = typeof h === 'number' && isFinite(h) && h > 20 && h < 20000 ? h : 0; }
     if (v.tune !== undefined) m.tune = v.tune ? 1 : 0;
+    m.freeFlow = fin(v.freeFlow, 0, 1, m.freeFlow); m.variety = fin(v.variety, 0, 1, m.variety); m.decay = fin(v.decay, 0, 1, m.decay);
+    if (v.scaleMask !== undefined) m.scaleMask = (v.scaleMask & 0xFFF) || 0xFFF;
     this.applyMacros(this.snapNext);
     this.snapNext = false;
   }
@@ -740,7 +784,11 @@ class CreekEngine {
     if (snap) { this.mixer.w = m.width; this.out.g = m.gain; this.mixer.g.set(this.mixer.target); }
     const sc = this.sched;
     sc.nTune = 0;
-    for (let k = 0; k < 4; k++) if (m.tuneHz[k] > 0) sc.tuneLog2[sc.nTune++] = Math.log2(m.tuneHz[k]);
+    for (let k = 0; k < 4; k++) if (m.tuneHz[k] > 0) { sc.tuneLog2[sc.nTune] = Math.log2(m.tuneHz[k]); sc.tuneMidi[sc.nTune++] = 69 + 12 * Math.log2(m.tuneHz[k] / 440); }
+    sc.variety = m.variety; sc.scaleMask = m.scaleMask;
+    const tm = Math.pow(2, CK.DECAY_OCT * (2 * m.decay - 1));
+    this.pool.tauMul = tm; this.falls.pool.tauMul = tm; this.surface.pool.tauMul = tm;
+    if (snap) this.freeS = m.freeFlow;
   }
   // ev: CrEvent-like {type, zone, radiusMm, amp, tauSec, rise, pan, delaySec}; unset (<0 / 0) fields are drawn randomly
   trigger(ev) {
@@ -764,11 +812,16 @@ class CreekEngine {
     const next = Math.floor((k + 1) * this.sr / CK.CONTROL_HZ) - Math.floor(k * this.sr / CK.CONTROL_HZ);
     this.untilTick = next; this.tickIndex++;
     this.sched.rateMul[1] = 1 + CK.EDDY_RATE * ed; this.sched.radMul[1] = 1 + CK.EDDY_RADIUS * ed;
+    this.sched.activity = this.activity;
     this.sched.update(this.flow, this.flow.m[2]);
-    this.falls.update(this.flow);
-    this.surface.update(this.flow, this.rng[CR_S_SURFACE], this.flow.dt, ed);
+    this.falls.update(this.flow, this.activity);
+    this.surface.update(this.flow, this.rng[CR_S_SURFACE], this.flow.dt, ed, this.activity);
     const tt = this.macros.tune && this.sched.nTune > 0 ? 1 : 0;
     this.sched.tuneAmt += (tt > this.sched.tuneAmt ? this.kTuneA : this.kTuneR) * (tt - this.sched.tuneAmt);
+    // Free flow: the creek plays by itself only this much; holding notes pours
+    this.freeS += this.flow.kM * (this.macros.freeFlow - this.freeS);
+    this.sched.freeFlow = this.freeS;
+    this.activity = Math.max(this.freeS, this.sched.tuneAmt);
     if (CK.BED_ON) this.bed.update(this.flow, this.rng[CR_S_BED_DRIFT], this.flow.dt, next);
   }
   process(L, R, n) {

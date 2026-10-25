@@ -3,7 +3,8 @@
 // ui/creek_ui.*, not here.
 //
 //   left fader S36 = Level, right fader S37 = Roughness,
-//   S31 = Scale, S32 = Aeration, S33 = Flow, S34 = Width (S30, S35 reserved)
+//   S31 = Scale, S32 = Aeration, S33 = Flow, S34 = Decay (P10 + S34 = Width),
+//   S30 = Free flow (Notes mode), S35 = Variety
 //   left switch  (S09/S10): up = Presets, centre = Notes, down = Diagnostics
 //   right switch (S07/S08): down = Hold slow state
 //   Presets:     P03..P06 recall the four presets (250 ms glide)
@@ -26,7 +27,7 @@ constexpr int kNumScales = 7;
 struct Scale { const char* name; int8_t semis[7]; };
 extern const Scale kScales[kNumScales];
 
-enum MacroIndex { M_FLOW = 0, M_ROUGH, M_SCALE, M_AER, M_LEVEL, M_WIDTH, M_COUNT };
+enum MacroIndex { M_FLOW = 0, M_ROUGH, M_SCALE, M_AER, M_LEVEL, M_WIDTH, M_FREE, M_VARIETY, M_DECAY, M_COUNT };
 enum Mode { MODE_PRESETS = 0, MODE_NOTES, MODE_DIAG };
 enum ControlEvent : uint8_t { CE_NONE = 0, CE_PRESET, CE_LAYER, CE_ALL, CE_MODE, CE_SCALE, CE_OCT, CE_ROOT, CE_NOTE, CE_STRESS };
 
@@ -56,6 +57,7 @@ public:
     bool PopEvent(ControlEvent& type, int8_t& arg);
     bool PopDrop(Drop& d);
     int PadMidi(int pad) const;
+    uint32_t ScaleMask() const;
 
     float value[M_COUNT];
     int preset = 0;

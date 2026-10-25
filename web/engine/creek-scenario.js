@@ -14,7 +14,7 @@
 //   at 2 tune 523.25 659.26        held notes tuning the creek (up to 4 Hz values; 'at 3 tune' = off)
 // Times in seconds; '#' starts a comment.
 
-const CS_KEYS = ['flow', 'roughness', 'scale', 'aeration', 'gain', 'width', 'mask', 'hold'];
+const CS_KEYS = ['flow', 'roughness', 'scale', 'aeration', 'gain', 'width', 'mask', 'hold', 'freeflow', 'variety', 'decay', 'scalemask'];
 const CS_BUBBLE_KEYS = ['zone', 'radius', 'amp', 'tau', 'rise', 'pan'];
 const CS_RAMP_STEP = 48;
 
@@ -62,7 +62,8 @@ function csParse(text, sr) {
 // result is independent of `block`.
 function csRun(sc, eng, sr, block, presets, onBlock) {
   const n = Math.floor(sc.seconds * sr), L = new Float32Array(n), R = new Float32Array(n);
-  const m = { flow: 0.2, roughness: 0.25, scale: 0.2, aeration: 0.3, gain: 1, width: 1, mask: 31, hold: 0, tuneHz: [0, 0, 0, 0] };
+  const m = { flow: 0.2, roughness: 0.25, scale: 0.2, aeration: 0.3, gain: 1, width: 1, mask: 31, hold: 0, tuneHz: [0, 0, 0, 0],
+    freeflow: 1, variety: 0.5, decay: 0.5, scalemask: 4095 };
   eng.reset(sc.seed);
   let pi = 0, pos = 0;
   const bl = new Float32Array(block), br = new Float32Array(bl.length);
@@ -81,7 +82,8 @@ function csRun(sc, eng, sr, block, presets, onBlock) {
       const x = Math.min(1, (pos - r.s0) / Math.max(1, r.s1 - r.s0)); m[r.key] = r.v0 + (r.v1 - r.v0) * x; changed = true;
     }
     if (changed) eng.setMacros({ flow: m.flow, roughness: m.roughness, scale: m.scale, aeration: m.aeration, gain: m.gain, width: m.width, mask: m.mask | 0, hold: !!m.hold,
-      tuneHz: m.tuneHz.slice(), tune: m.tuneHz.some((h) => h > 0) ? 1 : 0 });
+      tuneHz: m.tuneHz.slice(), tune: m.tuneHz.some((h) => h > 0) ? 1 : 0,
+      freeFlow: m.freeflow, variety: m.variety, decay: m.decay, scaleMask: m.scalemask | 0 });
     const rampOn = sc.ramps.some((r) => pos <= r.s1 + CS_RAMP_STEP);
     let next = rampOn ? Math.min(n, (Math.floor(pos / CS_RAMP_STEP) + 1) * CS_RAMP_STEP) : n;
     if (pi < sc.points.length && sc.points[pi].s < next) next = sc.points[pi].s;

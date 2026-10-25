@@ -139,6 +139,9 @@ const CK = {
   TUNE_RELEASE_SEC: 0.6,    // ... and lets go after release
   TUNE_MAX: 0.9,            // share of creek bubbles tuned when fully gathered
   TUNE_TAU_MUL: 1.3,        // tuned bubbles ring a bit longer
+  TUNE_MIDI_RANGE: [51, 123], // tuned bubbles fold by octaves into ~156 Hz .. 9.9 kHz
+  VARIETY_STEPS: 7,         // Variety fully right: up to +- this many scale steps from the held note
+  DECAY_OCT: 2,             // Decay knob: decay times x 2^(+-2) = 0.25x .. 4x, noon = 1x
 
   // ---- output ----
   DC_HZ: 25,

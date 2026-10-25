@@ -26,6 +26,7 @@ public:
     // stats
     uint32_t births = 0, drops = 0, steals = 0;
     int maxActive = 0;
+    float tauMul = 1.f;      // Decay knob
     float sumLog2F = 0;
     // birth log
     float logF[kLog], logA[kLog], logP[kLog];

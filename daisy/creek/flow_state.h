@@ -15,6 +15,7 @@ public:
     bool hold = false;
     float eddy = 0;      // eddy swell in the wake (0..1), set by Eddies
     float dt = 0;
+    float KM() const { return kM_; }
     Drift eta0, etaZ[ck::ZONES];
 
     void Init(Rng& rng);

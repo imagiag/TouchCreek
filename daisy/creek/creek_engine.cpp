@@ -22,6 +22,7 @@ void CreekEngine::Reset(uint32_t seed) {
     flow_.Init(rng_[S_DRIFT]);
     queue_.Reset(); pool_.Reset();
     sched_.Init(sr_, rng_[S_BTIME]);
+    freeS_ = 1.f; activity_ = 1.f;
     if (ck::BED_ON) bed_.Init(sr_, rng_[S_BED_DRIFT]);   // wash off: not even compiled in (flash)
     eddies_.Init(rng_[S_EDDY]);
     falls_.Init(sr_, rng_[S_FALLS]);
@@ -41,6 +42,8 @@ void CreekEngine::SetMacros(const Macros& v) {
     m.mask = v.mask & 0x1Fu; m.hold = v.hold;
     for (int k = 0; k < 4; k++) { const float h = v.tuneHz[k]; m.tuneHz[k] = isfinite(h) && h > 20.f && h < 20000.f ? h : 0.f; }
     m.tune = v.tune;
+    m.freeFlow = fin(v.freeFlow, 0.f, 1.f, m.freeFlow); m.variety = fin(v.variety, 0.f, 1.f, m.variety); m.decay = fin(v.decay, 0.f, 1.f, m.decay);
+    m.scaleMask = (v.scaleMask & 0xFFFu) ? (v.scaleMask & 0xFFFu) : 0xFFFu;
     applyMacros(snapNext_);
     snapNext_ = false;
 }
@@ -53,7 +56,14 @@ void CreekEngine::applyMacros(bool snap) {
     out_.gTarget = m.gain;
     if (snap) { mixer_.w = m.width; out_.g = m.gain; for (int l = 0; l < ck::LAYERS; l++) mixer_.g[l] = mixer_.target[l]; }
     sched_.nTune = 0;
-    for (int k = 0; k < 4; k++) if (m.tuneHz[k] > 0) sched_.tuneLog2[sched_.nTune++] = log2f(m.tuneHz[k]);
+    for (int k = 0; k < 4; k++) if (m.tuneHz[k] > 0) {
+        sched_.tuneLog2[sched_.nTune] = log2f(m.tuneHz[k]);
+        sched_.tuneMidi[sched_.nTune++] = 69.f + 12.f * log2f(m.tuneHz[k] / 440.f);
+    }
+    sched_.variety = m.variety; sched_.scaleMask = m.scaleMask;
+    const float tm = exp2f(ck::DECAY_OCT * (2.f * m.decay - 1.f));
+    pool_.tauMul = tm; falls_.pool.tauMul = tm; surface_.pool.tauMul = tm;
+    if (snap) freeS_ = m.freeFlow;
 }
 
 bool CreekEngine::Trigger(const Event& src) {
@@ -80,11 +90,16 @@ void CreekEngine::controlTick() {
     const int next = (int)(((k + 1) * srInt_) / ck::CONTROL_HZ - (k * srInt_) / ck::CONTROL_HZ);
     untilTick_ = next; tickIndex_++;
     sched_.rateMul[1] = 1.f + ck::EDDY_RATE * ed; sched_.radMul[1] = 1.f + ck::EDDY_RADIUS * ed;
+    sched_.activity = activity_;
     sched_.Update(flow_, flow_.m[2]);
-    falls_.Update(flow_);
-    surface_.Update(flow_, rng_[S_SURFACE], flow_.dt, ed);
+    falls_.Update(flow_, activity_);
+    surface_.Update(flow_, rng_[S_SURFACE], flow_.dt, ed, activity_);
     const float tt = macros_.tune && sched_.nTune > 0 ? 1.f : 0.f;
     sched_.tuneAmt += (tt > sched_.tuneAmt ? kTuneA_ : kTuneR_) * (tt - sched_.tuneAmt);
+    // Free flow: the creek plays by itself only this much; holding notes pours
+    freeS_ += flow_.KM() * (macros_.freeFlow - freeS_);
+    sched_.freeFlow = freeS_;
+    activity_ = fmaxf(freeS_, sched_.tuneAmt);
     if (ck::BED_ON) bed_.Update(flow_, rng_[S_BED_DRIFT], flow_.dt, next);
 }
 

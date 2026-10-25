@@ -20,7 +20,9 @@ public:
     float TauFor(float rMm) const;     // decay time of a bubble of this radius
 
     // note mode: held notes gather some creek bubbles onto their pitches
-    float tuneLog2[4];
+    float tuneLog2[4], tuneMidi[4];
+    float variety = 0.5f, freeFlow = 1.f, activity = 1.f;
+    uint32_t scaleMask = 0xFFF;
     int nTune = 0;
     float tuneAmt = 0;
     float rateMul[ck::ZONES] = {1, 1, 1}, radMul[ck::ZONES] = {1, 1, 1};  // eddies (wake)
@@ -32,7 +34,7 @@ public:
     uint32_t over = 0;
 
 private:
-    float snap(float l2) const;
+    float tunedMidi(float m0, float uA, float uB) const;
     float sr_ = 48000;
     float acc_[ck::ZONES], thr_[ck::ZONES], inc_[ck::ZONES];
     float lnRmin_ = 0, lnRspan_ = 1, lnTauSpan_ = 1;

@@ -29,6 +29,7 @@ Controls::Controls() {
     const Preset& p = kPresets[0];
     value[M_FLOW] = p.flow; value[M_ROUGH] = p.roughness; value[M_SCALE] = p.scale; value[M_AER] = p.aeration;
     value[M_LEVEL] = 0.7071f; value[M_WIDTH] = 0.5f;
+    value[M_FREE] = 1.f; value[M_VARIETY] = 0.5f; value[M_DECAY] = 0.5f;
     for (int k = 0; k < 4; k++) glideFrom_[k] = glideTo_[k] = 0;
     for (int i = 0; i < 12; i++) touched[i] = false;
 }
@@ -72,6 +73,14 @@ void Controls::SetMode(Mode m) {
 
 int Controls::PadMidi(int pad) const {
     return kBaseMidi + root + kScales[scale].semis[pad - kPadNote0] + oct * (chromatic() ? 7 : 12);
+}
+
+// active scale as a 12-bit pitch-class mask (bit 0 = C); Chromatic = all 12
+uint32_t Controls::ScaleMask() const {
+    if (chromatic()) return 0xFFFu;
+    uint32_t m = 0;
+    for (int i = 0; i < 7; i++) m |= 1u << ((root + kScales[scale].semis[i]) % 12);
+    return m;
 }
 
 void Controls::setScale(int s) {
@@ -172,6 +181,9 @@ void Controls::Compute(Macros& m) const {
     m.hold = hold;
     for (int k = 0; k < 4; k++) m.tuneHz[k] = k < nHeld ? MidiToHz(PadMidi(held[k])) : 0.f;
     m.tune = mode == MODE_NOTES && nHeld > 0;
+    m.freeFlow = mode == MODE_NOTES ? value[M_FREE] : 1.f;   // presets / diagnostics always flow
+    m.variety = value[M_VARIETY]; m.decay = value[M_DECAY];
+    m.scaleMask = ScaleMask();
 }
 
 } // namespace creek

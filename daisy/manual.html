@@ -109,8 +109,10 @@
   <tr><td class="id">S31</td><td><b>Scale</b>: fine shallow trickle → larger stream body. Bubbles get 0.6× to 1.8× bigger, so their typical pitch falls (about 3.2 kHz → 1.3 kHz); splashes plop lower and eddies get slower.</td></tr>
   <tr><td class="id">S32</td><td><b>Aeration</b>: sparse bubbling → bubbly white water. Fully left = no bubbles at all.</td></tr>
   <tr><td class="id">S33</td><td><b>Flow</b>: still → trickle → lively creek. More bubbles, more splashes at the drop (0.2 → 4 per second). Fully left: the creek fades to silence within about 1.5 s.</td></tr>
-  <tr><td class="id">S34</td><td><b>Width</b>: mono fully left, natural stereo at noon, wider fully right.</td></tr>
-  <tr><td class="id">S30, S35</td><td class="muted">Not used yet.</td></tr>
+  <tr><td class="id">S34</td><td><b>Decay</b>: how long every bubble, drop, plop and tick rings. Noon = default; left shorter (down to ¼), right longer (up to 4×).</td></tr>
+  <tr><td class="id">P10 + S34</td><td><b>Width</b>: mono fully left, natural stereo at noon, wider fully right. Picks up once moved.</td></tr>
+  <tr><td class="id">S30</td><td><b>Free flow</b> (Notes): how much the creek plays by itself. Fully left = still water, only your notes sound. Presets and Diagnostics always flow.</td></tr>
+  <tr><td class="id">S35</td><td><b>Variety</b> (Notes): noon = default (the held note, in the octave nearest each bubble's size). Left: more and more exactly the held note (fully left = one note). Right: more and more other notes of the active scale, up to an octave around the held note.</td></tr>
 </table>
 <p><b>Soft pickup</b>: after a preset, the four sound knobs (Flow, Roughness, Scale, Aeration) do nothing until you move them a little, then take over from where they are. Recalling a preset never jumps back to the knob positions.</p>
 
@@ -135,7 +137,7 @@
 <p>Play the creek as an instrument; the creek keeps running underneath.</p>
 <table>
   <tr><th>Pad</th><th>Function</th></tr>
-  <tr><td class="id">P03 … P09</td><td>Notes of the scale (default C major pentatonic, from C5).<br><b>Tap</b>: a tuned <b>drop</b>, a bubble at that note with a short bubbly tail (1–3 quieter bubbles at the same note or an octave up). Hit harder for a louder drop.<br><b>Hold</b>: the creek's own bubbles gather onto the held note over about a quarter second, so the whole stream sings it. Hold several pads (up to 4) for a chord. They drift free again about half a second after you let go.</td></tr>
+  <tr><td class="id">P03 … P09</td><td>Notes of the scale (default C major pentatonic, from C5).<br><b>Tap</b>: a tuned <b>drop</b>, a bubble at that note with a short bubbly tail (1–3 quieter bubbles at the same note or an octave up). Hit harder for a louder drop.<br><b>Hold</b>: the water <b>pours</b> onto the held note: bubbles in the rhythm of Flow, Roughness and Aeration, pitched by Variety, rising in about a quarter second and settling about half a second after release. Hold several pads (up to 4) for a chord. With Free flow up, the creek's own bubbles gather onto the notes too.</td></tr>
   <tr><td class="id">P00 / P02</td><td>Octave down / up (−1 to +2; in Chromatic, pages of 7 semitones)</td></tr>
   <tr><td class="id">P11 + P00 / P02</td><td>Previous / next scale</td></tr>
   <tr><td class="id">P11 + P03 … P09</td><td>Choose a scale: Chromatic, Major, Natural Minor, Minor Pentatonic, Major Pentatonic, Dorian, Harmonic Minor (the same seven as TouchPulsar)</td></tr>

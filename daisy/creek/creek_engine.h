@@ -35,6 +35,10 @@ struct Macros {
     bool hold = false;     // hold the slow state (events keep going)
     float tuneHz[4] = {0, 0, 0, 0}; // note mode: held note pitches (0 = none)
     bool tune = false;     // true while notes are held
+    float freeFlow = 1.f;  // note mode: how much the creek plays by itself (0 = still; holding notes pours)
+    float variety = 0.5f;  // tuned pitches: 0 one note .. 0.5 default .. 1 across the scale
+    float decay = 0.5f;    // decay times: 0 = 1/4 .. 0.5 = 1x .. 1 = 4x
+    uint32_t scaleMask = 0xFFF; // active scale as pitch classes (bit 0 = C)
 };
 
 struct Stats {
@@ -63,7 +67,7 @@ private:
     void controlTick();
     void renderSegment(float* L, float* R, int n);
     void drop(const Event& e, int off);
-    float kTuneA_ = 0, kTuneR_ = 0;
+    float kTuneA_ = 0, kTuneR_ = 0, freeS_ = 1, activity_ = 1;
 
     float sr_ = 48000;
     uint32_t srInt_ = 48000;

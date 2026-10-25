@@ -4,7 +4,8 @@
 //
 // Panel:
 //   left fader S36 = Level, right fader S37 = Roughness,
-//   S31 = Scale, S32 = Aeration, S33 = Flow, S34 = Width (S30, S35 reserved)
+//   S31 = Scale, S32 = Aeration, S33 = Flow, S34 = Decay (P10 + S34 = Width),
+//   S30 = Free flow (Notes mode), S35 = Variety
 //   left switch  (S09/S10): up = Presets, centre = Notes, down = Diagnostics
 //   right switch (S07/S08): down = Hold slow state
 //   Presets:     P03..P06 recall the four presets (250 ms glide)
@@ -21,7 +22,7 @@ const CREEK_PRESETS = [
   { key: 'deeper',  name: 'Deeper run',    flow: 0.65, roughness: 0.35, scale: 0.80, aeration: 0.40 },
 ];
 const CC = {
-  M_FLOW: 0, M_ROUGH: 1, M_SCALE: 2, M_AER: 3, M_LEVEL: 4, M_WIDTH: 5, M_COUNT: 6,
+  M_FLOW: 0, M_ROUGH: 1, M_SCALE: 2, M_AER: 3, M_LEVEL: 4, M_WIDTH: 5, M_FREE: 6, M_VARIETY: 7, M_DECAY: 8, M_COUNT: 9,
   MODE_PRESETS: 0, MODE_NOTES: 1, MODE_DIAG: 2,
   P_OCT_DN: 0, P_OCT_UP: 2, P_ROOT: 10, P_SCALE: 11,
   PAD_PRESET0: 3,           // P03..P06
@@ -61,6 +62,7 @@ class CreekControls {
     this.value[CC.M_FLOW] = p.flow; this.value[CC.M_ROUGH] = p.roughness;
     this.value[CC.M_SCALE] = p.scale; this.value[CC.M_AER] = p.aeration;
     this.value[CC.M_LEVEL] = 0.7071; this.value[CC.M_WIDTH] = 0.5;
+    this.value[CC.M_FREE] = 1; this.value[CC.M_VARIETY] = 0.5; this.value[CC.M_DECAY] = 0.5;
     this.glideFrom = new Float32Array(4); this.glideTo = new Float32Array(4);
     this.glideT = -1;            // < 0: no glide running
     this.preset = 0;
@@ -170,6 +172,13 @@ class CreekControls {
   }
   gliding() { return this.glideT >= 0; }
   scaleName() { return CC.NOTE_NAMES[this.root] + ' ' + CC.SCALES[this.scale][0]; }
+  // active scale as a 12-bit pitch-class mask (bit 0 = C); Chromatic = all 12
+  scaleMask() {
+    if (this.chromatic()) return 0xFFF;
+    let m = 0;
+    for (const s of CC.SCALES[this.scale][1]) m |= 1 << ((this.root + s) % 12);
+    return m;
+  }
   compute(m) {
     m.flow = this.value[CC.M_FLOW]; m.roughness = this.value[CC.M_ROUGH];
     m.scale = this.value[CC.M_SCALE]; m.aeration = this.value[CC.M_AER];
@@ -180,6 +189,9 @@ class CreekControls {
     if (!m.tuneHz) m.tuneHz = [0, 0, 0, 0];
     for (let k = 0; k < 4; k++) m.tuneHz[k] = k < this.held.length ? ccHz(this.padMidi(this.held[k])) : 0;
     m.tune = this.mode === CC.MODE_NOTES && this.held.length > 0 ? 1 : 0;
+    m.freeFlow = this.mode === CC.MODE_NOTES ? this.value[CC.M_FREE] : 1;   // presets / diagnostics always flow
+    m.variety = this.value[CC.M_VARIETY]; m.decay = this.value[CC.M_DECAY];
+    m.scaleMask = this.scaleMask();
     return m;
   }
 }

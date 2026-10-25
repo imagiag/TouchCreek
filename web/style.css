@@ -50,6 +50,9 @@ main { display: grid; grid-template-columns: auto minmax(300px, 1fr); gap: 20px;
   font-size: 11px; color: var(--muted); text-align: center; line-height: 1.15; pointer-events: none; }
 .knob .name b, .fader .name b { color: var(--text); font-weight: 600; display: block; }
 .knob.waiting .name b, .fader.waiting .name b { color: var(--gold); }
+.name .kid { display: block; font-style: normal; font-size: 9.5px; color: #6c7c79; letter-spacing: .02em; }
+.name .kv { display: block; font-size: 10.5px; }
+.knob.altl .name b, .fader.altl .name b { color: var(--water); }
 .fader { position: absolute; transform: translate(-50%, -50%); width: 7%; height: 26%; touch-action: none; cursor: ns-resize; }
 .fader .track { position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; transform: translateX(-50%); background: #263033; border-radius: 2px; }
 .fader .fill { position: absolute; left: 50%; bottom: 0; width: 4px; transform: translateX(-50%); background: var(--gold); border-radius: 2px; }

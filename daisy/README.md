@@ -25,8 +25,10 @@ The browser emulator (`web/`, see below) has the same layout and behaves like th
 - S31 **Scale** | Fine shallow trickle → larger stream body. Bubbles get 0.6× to 1.8× bigger, so their typical pitch falls (about 3.2 kHz → 1.3 kHz); splashes plop lower and eddies get slower.
 - S32 **Aeration** | Sparse bubbling → bubbly white water. Fully left = no bubbles at all.
 - S33 **Flow** | Still → trickle → lively creek. More bubbles, more splashes at the drop (0.2 → 4 per second). Fully left: the creek fades to silence within about 1.5 s.
-- S34 **Width** | Mono fully left, natural stereo at noon, wider fully right. The low body of the creek is always centred, so it holds up in mono.
-- S30, S35 | Not used yet.
+- S34 **Decay** | How long every bubble, drop, plop and tick rings. Noon = default; left shorter (down to ¼), right longer (up to 4×).
+- P10 + S34 **Width** | Mono fully left, natural stereo at noon, wider fully right. Hold P10 and turn S34; it picks up once moved.
+- S30 **Free flow** (Notes) | How much the creek plays by itself. Fully left = still water: only your notes sound. In Presets and Diagnostics the creek always flows.
+- S35 **Variety** (Notes) | How the tuned bubbles spread. Noon = default (the held note, in the octave nearest each bubble's own size). Left: more and more exactly the held note; fully left = one note. Right: more and more other notes of the active scale, up to an octave around the held note.
 
 ### Switches
 - **Left switch** (S09/S10) | Up: **Presets**. Centre: **Notes**. Down: **Diagnostics**. It sets what the pads do.
@@ -44,7 +46,7 @@ Presets glide over 250 ms. After a preset, the four sound knobs (Flow, Roughness
 **Notes** (left switch centre) - play the creek as an instrument; the creek keeps running underneath
 - **P03...P09** - Notes of the scale (default C major pentatonic, from C5)
   - **Tap**: a tuned **drop**, a bubble at that note with a short bubbly tail (1–3 quieter bubbles at the same note or an octave up). Hit harder for a louder drop.
-  - **Hold**: the creek's own bubbles gather onto the held note over about a quarter second, so the whole stream sings it; hold several pads (up to 4) for a chord. They drift free again over about half a second after you let go.
+  - **Hold**: the water **pours** onto the held note: bubbles in the rhythm set by Flow, Roughness and Aeration, pitched by Variety, rising in about a quarter second and settling about half a second after you let go. Hold several pads (up to 4) for a chord. With Free flow up, the creek's own bubbles gather onto the held notes too.
 - **P00** - Octave down | **P02** - Octave up (−1 to +2 octaves; in Chromatic, pages of 7 semitones)
 - **P11 + P00 / P02** - Previous / next scale | **P11 + P03...P09** - Choose a scale: Chromatic, Major, Natural Minor, Minor Pentatonic, Major Pentatonic, Dorian, Harmonic Minor (the same seven as TouchPulsar)
 - **P10 + P03...P09** - Set the root key to that pad's note

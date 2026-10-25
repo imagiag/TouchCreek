@@ -40,6 +40,7 @@ bool BubblePool::Spawn(float f0, float amp, float tau, float attack, float rise,
     int v = -1;
     for (int i = 0; i < n_; i++) if (!on_[i]) { v = i; break; }
     if (v < 0) { drops++; return false; }
+    tau *= tauMul;                         // Decay knob
     const float w = fminf(kTwoPi * f0 / sr_, wMax_ / (1.f + fmaxf(0.f, rise)));
     const float r = expf(-1.f / (tau * sr_));
     on_[v] = 1; fading_[v] = 0; fade_[v] = 1.f; fadeStep_[v] = 0;

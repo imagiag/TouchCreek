@@ -71,7 +71,10 @@ static void controlsTests() {
     n.PadDown(kPadRoot, .7f); n.PadDown(7, .7f); n.PadUp(7); n.PadUp(kPadRoot);
     CHECK(n.root == 7, "P10 + P07 (G) sets root G (%d)", n.root);
     n.PadDown(3, .7f); n.PopDrop(d); n.PadUp(3); CHECK(fabsf(d.hz - MidiToHz(84 + 7)) < 0.01f, "G major, octave +1: P03 = G6");
+    n.Compute(m); CHECK(m.scaleMask == ((1u << 7) | (1u << 9) | (1u << 11) | (1u << 0) | (1u << 2) | (1u << 4) | (1u << 6)), "G major scale mask (%x)", m.scaleMask);
+    n.value[M_FREE] = 0.2f; n.Compute(m); CHECK(m.freeFlow == 0.2f, "Free flow knob acts in Notes");
     n.SetMode(MODE_PRESETS); n.Compute(m); CHECK(!m.tune, "leaving notes clears tuning");
+    CHECK(m.freeFlow == 1.f, "Presets mode always flows");
 
     // stress test (diagnostics P09)
     Controls st; st.SetMode(MODE_DIAG); st.Tick(10.0);
@@ -239,6 +242,42 @@ static void engineTests() {
         CHECK(tot > 50 && on > 0.75f * tot, "holding a note tunes most creek bubbles (%d of %d)", on, tot);
     }
 
+    // --- note mode: Free flow, pouring, Variety, Decay ---
+    {
+        // births' pitches in a time window, as MIDI notes
+        auto births = [&](const char* txt, float from, std::vector<float>& midi) {
+            auto sc = scenario::parse(txt, SR);
+            uint32_t last = 0; midi.clear();
+            scenario::run(sc, eng, SR, 48, L1, R1, [&](long pos, long n) {
+                const BubblePool& p = eng.Pool();
+                for (; last != p.logW; last++)
+                    if ((pos + n) / SR >= from) midi.push_back(69.f + 12.f * log2f(p.logF[last & (kLog - 1)] / 440.f));
+            });
+        };
+        std::vector<float> mid;
+        births("seconds 4\nat 0 preset rocky\nat 0 set freeflow 0\n", 1.f, mid);
+        CHECK(mid.empty() && rmsOf(L1, (size_t)(2 * SR), L1.size()) < 1e-5, "Free flow 0, no notes: still water (%zu bubbles)", mid.size());
+        // C major pentatonic = C D E G A
+        const char* pour = "seconds 6\nat 0 preset rocky\nat 0 set freeflow 0 variety 0 scalemask 661\nat 1 tune 523.25\n";
+        births(pour, 2.f, mid);
+        int exact = 0; for (float m : mid) if (fabsf(m - 72.f) < 0.05f) exact++;
+        CHECK(mid.size() > 50 && exact == (int)mid.size(), "holding a note pours; Variety 0 = all on the note (%d of %zu)", exact, mid.size());
+        const char* wide = "seconds 6\nat 0 preset rocky\nat 0 set freeflow 0 variety 1 scalemask 661\nat 1 tune 523.25\n";
+        births(wide, 2.f, mid);
+        int inScale = 0, pcs = 0; bool seen[12] = {false};
+        for (float m : mid) { const int n = (int)lroundf(m); if (fabsf(m - n) < 0.05f && ((661 >> (n % 12)) & 1)) inScale++; if (!seen[n % 12]) { seen[n % 12] = true; pcs++; } }
+        if (inScale != (int)mid.size()) for (float m : mid) { const int n = (int)lroundf(m); if (!(fabsf(m - n) < 0.05f && ((661 >> (n % 12)) & 1))) printf("  off-scale bubble: midi %.2f\n", m); }
+        CHECK(inScale == (int)mid.size() && pcs >= 5, "Variety 1: all notes in the scale, %d pitch classes", pcs);
+        // Decay: same bubble, longer tail
+        auto tail = [&](float dec) {
+            char txt[200]; snprintf(txt, sizeof txt, "seconds 1\nat 0 set flow 0.2 aeration 0 mask 2 decay %g\nat 0.1 bubble zone 0 radius 2 amp 1 rise 0 pan 0\n", dec);
+            auto sc = scenario::parse(txt, SR); render(eng, sc, 48, L1, R1);
+            return rmsOf(L1, (size_t)(0.15 * SR), (size_t)(0.25 * SR));
+        };
+        const double t0 = tail(0.f), t5 = tail(0.5f), t1 = tail(1.f);
+        CHECK(t0 < t5 && t5 < t1 && t1 > 3 * t5, "Decay knob shortens / lengthens tails (%.2g < %.2g < %.2g)", t0, t5, t1);
+    }
+
     // --- stress: finite, protected peaks, DC ---
     {
         auto st = load("stress");
@@ -259,8 +298,8 @@ static void engineTests() {
         writeF32("stress", L1, R1);
     }
     // --- reference renders for the JS comparison ---
-    for (const char* k : {"trickle", "rocky", "cascade", "deeper", "single_bubble", "presets_walk", "notes"}) {
-        auto sc = load(k, strcmp(k, "presets_walk") && strcmp(k, "single_bubble") && strcmp(k, "notes") ? 10.f : -1.f);
+    for (const char* k : {"trickle", "rocky", "cascade", "deeper", "single_bubble", "presets_walk", "notes", "notes_pour"}) {
+        auto sc = load(k, strcmp(k, "presets_walk") && strcmp(k, "single_bubble") && strcmp(k, "notes") && strcmp(k, "notes_pour") ? 10.f : -1.f);
         render(eng, sc, 48, L1, R1);
         writeF32(k, L1, R1);
     }
