@@ -30,6 +30,7 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - JS and C++ match sample by sample for the first ~10 s (correlation > 0.996); in longer runs a rare 1-ulp float/double difference moves one bubble by a sample and later random draws reshuffle. Levels stay equal. Documented float-tolerance difference, as the brief allows.
 
 ## Parked ideas
+- Right switch: up and centre both = live, so one position is free for a future mode (ideas: notes + presets together, a second knob layer, Hold + Latch together). User: keep as is for now (2026-10-25).
 - Revisit the flow noise / wash (user wants it figured out later): e.g. noise only as very soft, heavily modulated gurgle at high Roughness, or a noise splash transient.
 - Collective low modes during dense bubble clusters (brief, after baseline passes).
 - Optional subtle ambience (disabled for evaluation).
