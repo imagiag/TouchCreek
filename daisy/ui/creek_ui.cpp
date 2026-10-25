@@ -50,11 +50,11 @@ double CreekUI::now() {
 // while P10 is held, while P11 is held (-1 = same as normal).
 struct KnobLayers { int8_t main, p10, p11; };
 static constexpr KnobLayers kLayers[8] = {
-    {M_FREE, -1, -1},          // S30 Free flow
-    {M_SCALE, -1, -1},         // S31 Scale
+    {M_FREE, M_WIDTH, -1},     // S30 Free flow | P10: Width (as TouchPulsar)
+    {M_SCALE, M_TONE, -1},     // S31 Scale | P10: Tone
     {M_AER, -1, -1},           // S32 Aeration
-    {M_FLOW, -1, -1},          // S33 Flow
-    {M_DECAY, M_WIDTH, -1},    // S34 Decay | P10: Width
+    {M_FLOW, -1, M_ATTACK},    // S33 Flow | P11: Attack (as TouchPulsar)
+    {M_DECAY, M_RELEASE, -1},  // S34 Decay | P10: Release (as TouchPulsar)
     {M_VARIETY, -1, -1},       // S35 Variety
     {M_LEVEL, -1, M_RES},      // S36 Level | P11: Resonance
     {M_ROUGH, -1, M_CUTOFF},   // S37 Roughness | P11: Cutoff

@@ -3,9 +3,9 @@
 // ui/creek_ui.*, not here.
 //
 //   left fader S36 = Level, right fader S37 = Roughness,
-//   S31 = Scale, S32 = Aeration, S33 = Flow, S34 = Decay (P10 + S34 = Width),
-//   S30 = Free flow (Notes mode), S35 = Variety,
-//   P11 + S37 = filter cutoff, P11 + S36 = resonance (as TouchPulsar)
+//   S31 = Scale (P10 + S31 = Tone), S32 = Aeration, S33 = Flow (P11 + S33 = Attack),
+//   S34 = Decay (P10 + S34 = Release), S30 = Free flow (P10 + S30 = Width), S35 = Variety,
+//   P11 + S37 = filter cutoff, P11 + S36 = resonance (layers as TouchPulsar)
 //   left switch  (S09/S10): up = Presets, centre = Notes, down = Diagnostics
 //   right switch (S07/S08): down = Hold slow state; in Notes = Latch (touched notes keep pouring,
 //                tap a latched note again to release it)
@@ -32,7 +32,7 @@ constexpr int kNumScales = 7;
 struct Scale { const char* name; int8_t semis[7]; };
 extern const Scale kScales[kNumScales];
 
-enum MacroIndex { M_FLOW = 0, M_ROUGH, M_SCALE, M_AER, M_LEVEL, M_WIDTH, M_FREE, M_VARIETY, M_DECAY, M_CUTOFF, M_RES, M_COUNT };
+enum MacroIndex { M_FLOW = 0, M_ROUGH, M_SCALE, M_AER, M_LEVEL, M_WIDTH, M_FREE, M_VARIETY, M_DECAY, M_CUTOFF, M_RES, M_TONE, M_ATTACK, M_RELEASE, M_COUNT };
 enum Mode { MODE_PRESETS = 0, MODE_NOTES, MODE_DIAG };
 enum ControlEvent : uint8_t { CE_NONE = 0, CE_PRESET, CE_LAYER, CE_ALL, CE_MODE, CE_SCALE, CE_OCT, CE_ROOT, CE_NOTE, CE_STRESS, CE_CC };
 constexpr int kMidiKey = 128;        // held keys: pads 0..11, MIDI notes 128 + note
@@ -48,6 +48,8 @@ constexpr float kPresetGlideSec = 0.25f;
 float LevelToGain(float v);          // 2 v^2, as TouchPulsar
 float KnobToWidth(float v);
 float MidiToHz(int midi);
+float KnobToSec(float v, const float* range);     // exponential (Attack / Release)
+float SecToKnob(float s, const float* range);
 
 struct Drop { float hz, vel; };
 

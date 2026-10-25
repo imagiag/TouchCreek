@@ -38,15 +38,16 @@ const CK = {
 
   // radius -> pitch: f0 = 3 / r  (r in metres) [van den Doel]
   R_MIN_MM: 0.4, R_MAX_MM: 6.0,
-  R_SKEW: 1.15,             // >1 favours small radii (u^skew in log-radius)
+  R_SKEW: 1.15,             // >1 favours small radii (u^skew in log-radius); Tone knob scales it ...
+  TONE_SKEW_RANGE: 2.6,     // ... by 2.6^(-1..+1): left = more big, low bubbles (dark), right = more small, high ones (bright)
   SCALE_MUL_MIN: 0.6, SCALE_MUL_MAX: 1.8,
-  SCALE_MUL_TOP: 4.0,       // ... bending up near the top of the knob to 4x for bass (presets unchanged)
-  SCALE_TOP_EXP: 8,         // how late the bend starts (S^8: +14 % at 0.8, x2.2 at 1)
+  SCALE_MUL_TOP: 8.0,       // ... bending up near the top of the knob to 8x for bass (presets unchanged)
+  SCALE_TOP_EXP: 8,         // how late the bend starts (S^8: +27 % at 0.8, x4.4 at 1)
   F_MAX_RATIO: 0.4,         // every voice, incl. glide, stays below 0.4 Fs
-  F_MIN_HZ: 60,
+  F_MIN_HZ: 35,
 
   TAU_MIN: 0.008, TAU_MAX: 0.080,     // decay, longer for larger bubbles (at R_MAX_MM) ...
-  TAU_X_MAX: 1.5,                     // ... and still longer above it: up to ~0.25 s for the deepest bubbles
+  TAU_X_MAX: 1.8,                     // ... and still longer above it: up to ~0.5 s for the deepest bubbles
   TAU_JITTER: 0.30,                   // +- relative
   ATTACK_MIN: 0.0005, ATTACK_MAX: 0.002,
   RISE_PROB: 0.30,          // minority of voices glide upward ...
@@ -138,11 +139,13 @@ const CK = {
   DROP_CHILD_MS: [12, 90],  // ... after this delay ...
   DROP_CHILD_AMP: [0.15, 0.4], // ... at this level relative to the drop
   DROP_PAN: 0.35,           // drops spread +- this around the centre
-  TUNE_ATTACK_SEC: 0.25,    // holding a note gathers the creek's bubbles onto it ...
-  TUNE_RELEASE_SEC: 0.6,    // ... and lets go after release
+  TUNE_ATTACK_SEC: 0.25,    // holding a note gathers / pours the bubbles onto it (default; P11 + S33 = Attack) ...
+  TUNE_RELEASE_SEC: 0.6,    // ... and lets go after release (default; P10 + S34 = Release)
+  ATTACK_RANGE_SEC: [0.004, 3.0],   // Attack knob (exponential), as TouchPulsar
+  RELEASE_RANGE_SEC: [0.02, 4.0],   // Release knob (exponential), as TouchPulsar
   TUNE_MAX: 0.9,            // share of creek bubbles tuned when fully gathered
   TUNE_TAU_MUL: 1.3,        // tuned bubbles ring a bit longer
-  TUNE_MIDI_RANGE: [36, 123], // tuned bubbles fold by octaves into C2 (65 Hz) .. 9.9 kHz
+  TUNE_MIDI_RANGE: [28, 123], // tuned bubbles fold by octaves into E1 (41 Hz) .. 9.9 kHz
   VARIETY_STEPS: 7,         // Variety fully right: up to +- this many scale steps from the held note
   DECAY_OCT: 2,             // Decay knob: decay times x 2^(+-2) = 0.25x .. 4x, noon = 1x
 

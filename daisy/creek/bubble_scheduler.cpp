@@ -90,7 +90,7 @@ bool BubbleScheduler::Make(Rng& rngP, int z, BubblePool& pool, int off, const Ev
     const float u0 = rngP.Uni(), u1 = rngP.Uni(), u2 = rngP.Uni(), u3 = rngP.Uni(), u4 = rngP.Uni(), u5 = rngP.Uni();
     const float u6 = rngP.Bip(), u7 = rngP.Bip();
     const float u8 = rngP.Uni(), u9 = rngP.Uni();
-    const float logr = lnRmin_ + lnRspan_ * powf(u0, ck::R_SKEW);
+    const float logr = lnRmin_ + lnRspan_ * powf(u0, rSkew);
     float rMm = expf(logr) * scaleMul_ * radMul[z];
     if (ev && ev->radiusMm > 0) rMm = ev->radiusMm;
     float f0 = fmaxf(ck::F_MIN_HZ, 3000.f / rMm);                       // f0 = 3 / r

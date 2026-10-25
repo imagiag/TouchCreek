@@ -39,6 +39,9 @@ struct Macros {
     float variety = 0.5f;  // tuned pitches: 0 one note .. 0.5 default .. 1 across the scale
     float decay = 0.5f;    // decay times: 0 = 1/4 .. 0.5 = 1x .. 1 = 4x
     uint32_t scaleMask = 0xFFF; // active scale as pitch classes (bit 0 = C)
+    float tone = 0.5f;     // 0 dark (more big bubbles) .. 0.5 default .. 1 bright (more small ones)
+    float attack = ck::TUNE_ATTACK_SEC;   // note pour swell-in time (s)
+    float release = ck::TUNE_RELEASE_SEC; // note pour tail (s)
     float cutoff = 1.f;    // low-pass: 0 = 30 Hz .. 1 = 18 kHz (open)
     float resonance = 0.f; // 0 = Q 0.7 .. 1 = Q 20
 };

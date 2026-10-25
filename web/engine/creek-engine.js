@@ -305,6 +305,7 @@ class CrBubbleScheduler {
     this.tuneLog2 = new Float32Array(4); this.nTune = 0; this.tuneAmt = 0;
     this.tuneMidi = new Float32Array(4);  // held notes as MIDI numbers
     this.variety = 0.5; this.scaleMask = 0xFFF; this.freeFlow = 1; this.activity = 1;
+    this.rSkew = CK.R_SKEW;               // Tone: radius distribution skew
     this.rateMul = new Float32Array([1, 1, 1]); this.radMul = new Float32Array([1, 1, 1]);   // eddies (wake)
     this.lastZone = 1;
   }
@@ -378,7 +379,7 @@ class CrBubbleScheduler {
   make(rngP, z, pool, off, ev) {
     const u0 = rngP.uni(), u1 = rngP.uni(), u2 = rngP.uni(), u3 = rngP.uni(), u4 = rngP.uni(), u5 = rngP.uni(), u6 = rngP.bip(), u7 = rngP.bip();
     const u8 = rngP.uni(), u9 = rngP.uni();
-    const logr = this.lnRmin + this.lnRspan * Math.pow(u0, CK.R_SKEW);
+    const logr = this.lnRmin + this.lnRspan * Math.pow(u0, this.rSkew);
     let rMm = Math.exp(logr) * this.scaleMul * this.radMul[z];
     if (ev && ev.radiusMm > 0) rMm = ev.radiusMm;
     let f0 = Math.max(CK.F_MIN_HZ, 3000 / rMm);                   // f0 = 3 / r
@@ -751,6 +752,9 @@ class CreekMacros {
     this.variety = 0.5;           // tuned pitches: 0 one note .. 0.5 default .. 1 across the scale
     this.decay = 0.5;             // decay times: 0 = 1/4 .. 0.5 = 1x .. 1 = 4x
     this.scaleMask = 0xFFF;       // active scale as pitch classes (bit 0 = C)
+    this.tone = 0.5;              // 0 dark (more big bubbles) .. 0.5 default .. 1 bright (more small ones)
+    this.attack = CK.TUNE_ATTACK_SEC;   // note pour swell-in time (s)
+    this.release = CK.TUNE_RELEASE_SEC; // note pour tail (s)
     this.cutoff = 1;              // low-pass: 0 = 30 Hz .. 1 = 18 kHz (open)
     this.resonance = 0;           // 0 = Q 0.7 .. 1 = Q 20
   }
@@ -782,7 +786,7 @@ class CreekEngine {
     this.sample = 0; this.tickIndex = 0; this.untilTick = 0;
     this.flow.init(this.sr, this.rng[CR_S_DRIFT]);
     this.queue.reset(); this.pool.reset();
-    this.sched.init(this.sr, this.rng[CR_S_BTIME]); this.sched.tuneAmt = 0;
+    this.sched.init(this.sr, this.rng[CR_S_BTIME]); this.sched.tuneAmt = 0; this.sched.nTune = 0;
     this.freeS = 1; this.activity = 1;
     if (CK.BED_ON) this.bed.init(this.sr, this.rng[CR_S_BED_DRIFT]);
     this.eddies.init(this.rng[CR_S_EDDY]);
@@ -805,6 +809,8 @@ class CreekEngine {
     if (v.tuneHz) for (let k = 0; k < 4; k++) { const h = v.tuneHz[k]; m.tuneHz[k] = typeof h === 'number' && isFinite(h) && h > 20 && h < 20000 ? h : 0; }
     if (v.tune !== undefined) m.tune = v.tune ? 1 : 0;
     m.freeFlow = fin(v.freeFlow, 0, 1, m.freeFlow); m.variety = fin(v.variety, 0, 1, m.variety); m.decay = fin(v.decay, 0, 1, m.decay);
+    m.tone = fin(v.tone, 0, 1, m.tone);
+    m.attack = fin(v.attack, 0.001, 10, m.attack); m.release = fin(v.release, 0.005, 20, m.release);
     m.cutoff = fin(v.cutoff, 0, 1, m.cutoff); m.resonance = fin(v.resonance, 0, 1, m.resonance);
     if (v.scaleMask !== undefined) m.scaleMask = (v.scaleMask & 0xFFF) || 0xFFF;
     this.applyMacros(this.snapNext);
@@ -820,9 +826,15 @@ class CreekEngine {
     if (snap) { this.out.fcLog = this.out.fcT; this.out.micro(); }
     if (snap) { this.mixer.w = m.width; this.out.g = m.gain; this.mixer.g.set(this.mixer.target); }
     const sc = this.sched;
-    sc.nTune = 0;
-    for (let k = 0; k < 4; k++) if (m.tuneHz[k] > 0) { sc.tuneLog2[sc.nTune] = Math.log2(m.tuneHz[k]); sc.tuneMidi[sc.nTune++] = 69 + 12 * Math.log2(m.tuneHz[k] / 440); }
+    // held notes; after release the last ones stay, so the release tail keeps their pitches
+    if (m.tune && m.tuneHz.some((h) => h > 0)) {
+      sc.nTune = 0;
+      for (let k = 0; k < 4; k++) if (m.tuneHz[k] > 0) { sc.tuneLog2[sc.nTune] = Math.log2(m.tuneHz[k]); sc.tuneMidi[sc.nTune++] = 69 + 12 * Math.log2(m.tuneHz[k] / 440); }
+    }
+    this.kTuneA = 1 - Math.exp(-1 / (CK.CONTROL_HZ * m.attack));
+    this.kTuneR = 1 - Math.exp(-1 / (CK.CONTROL_HZ * m.release));
     sc.variety = m.variety; sc.scaleMask = m.scaleMask;
+    sc.rSkew = CK.R_SKEW * Math.pow(CK.TONE_SKEW_RANGE, 2 * m.tone - 1);
     const tm = Math.pow(2, CK.DECAY_OCT * (2 * m.decay - 1));
     this.pool.tauMul = tm; this.falls.pool.tauMul = tm; this.surface.pool.tauMul = tm;
     if (snap) this.freeS = m.freeFlow;
@@ -853,7 +865,7 @@ class CreekEngine {
     this.sched.update(this.flow, this.flow.m[2]);
     this.falls.update(this.flow, this.activity);
     this.surface.update(this.flow, this.rng[CR_S_SURFACE], this.flow.dt, ed, this.activity);
-    const tt = this.macros.tune && this.sched.nTune > 0 ? 1 : 0;
+    const tt = this.macros.tune ? 1 : 0;
     this.sched.tuneAmt += (tt > this.sched.tuneAmt ? this.kTuneA : this.kTuneR) * (tt - this.sched.tuneAmt);
     // Free flow: the creek plays by itself only this much; holding notes pours
     this.freeS += this.flow.kM * (this.macros.freeFlow - this.freeS);

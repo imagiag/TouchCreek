@@ -20,16 +20,16 @@ const PADS = [
 ];
 // physical controls (p = S30..S37 -> 0..7) -> macro (CC.M_*); alt = macro while P10 is held
 const KNOBS = [
-  { id: 'S30', p: 0, x: 21.2, y: 49.5, m: CC.M_FREE }, { id: 'S31', p: 1, x: 21.2, y: 35.5, m: CC.M_SCALE },
-  { id: 'S32', p: 2, x: 40.8, y: 35.5, m: CC.M_AER }, { id: 'S33', p: 3, x: 60.3, y: 35.5, m: CC.M_FLOW },
-  { id: 'S34', p: 4, x: 79.2, y: 35.5, m: CC.M_DECAY, alt: CC.M_WIDTH }, { id: 'S35', p: 5, x: 79.2, y: 49.5, m: CC.M_VARIETY },
+  { id: 'S30', p: 0, x: 21.2, y: 49.5, m: CC.M_FREE, alt: CC.M_WIDTH }, { id: 'S31', p: 1, x: 21.2, y: 35.5, m: CC.M_SCALE, alt: CC.M_TONE },
+  { id: 'S32', p: 2, x: 40.8, y: 35.5, m: CC.M_AER }, { id: 'S33', p: 3, x: 60.3, y: 35.5, m: CC.M_FLOW, alt11: CC.M_ATTACK },
+  { id: 'S34', p: 4, x: 79.2, y: 35.5, m: CC.M_DECAY, alt: CC.M_RELEASE }, { id: 'S35', p: 5, x: 79.2, y: 49.5, m: CC.M_VARIETY },
 ];
 const FADERS = [{ id: 'S36', p: 6, x: 6.5, y: 42, m: CC.M_LEVEL, alt11: CC.M_RES }, { id: 'S37', p: 7, x: 93.5, y: 42, m: CC.M_ROUGH, alt11: CC.M_CUTOFF }];
 const SWITCHES = [ // pos 0 = up, 1 = centre, 2 = down
   { k: 'mode', id: 'S09/10', x: 37.8, y: 66, names: ['PRESETS', 'NOTES', 'DIAG'] },
   { k: 'hold', id: 'S07/08', x: 53.5, y: 72.5, names: ['LIVE', 'LIVE', 'HOLD'], notesNames: ['LIVE', 'LIVE', 'LATCH'] },
 ];
-const MACRO_NAMES = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width', 'Free flow', 'Variety', 'Decay', 'Cutoff', 'Resonance'];
+const MACRO_NAMES = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width', 'Free flow', 'Variety', 'Decay', 'Cutoff', 'Resonance', 'Tone', 'Attack', 'Release'];
 
 // ------------------------------------------------------------------ hardware glue (as creek_ui.cpp)
 // Soft pickup: after a preset recall a macro knob only writes again once it
@@ -51,9 +51,7 @@ function macroFor(c) {
 const physPos = new Float32Array(8);                   // where each knob / fader physically sits
 for (const c of CONTROLS) physPos[c.p] = ctl.value[c.m];
 const take = MACRO_NAMES.map((_, i) => { const t = new Takeover(); t.value = ctl.value[i]; return t; });
-take[CC.M_WIDTH].hold(ctl.value[CC.M_WIDTH], physPos[4]);   // layers start at their defaults and wait
-take[CC.M_CUTOFF].hold(ctl.value[CC.M_CUTOFF], physPos[7]);
-take[CC.M_RES].hold(ctl.value[CC.M_RES], physPos[6]);
+for (const c of CONTROLS) for (const a of [c.alt, c.alt11]) if (a !== undefined) take[a].hold(ctl.value[a], physPos[c.p]);   // layers start at defaults and wait
 const activeWas = CONTROLS.map((c) => c.m);
 const sw = { mode: 0, hold: 0 };                       // switch positions: 0 up, 1 centre, 2 down
 
@@ -200,6 +198,8 @@ function fmt(m, v) {
   if (m === CC.M_SCALE) return crScaleMul(v).toFixed(2) + '×';
   if (m === CC.M_CUTOFF) { const hz = CK.FILTER_HZ[0] * Math.pow(CK.FILTER_HZ[1] / CK.FILTER_HZ[0], v); return v > 0.995 ? 'open' : hz >= 1000 ? (hz / 1000).toFixed(1) + ' kHz' : Math.round(hz) + ' Hz'; }
   if (m === CC.M_RES) return 'Q ' + (CK.FILTER_Q[0] + v * v * (CK.FILTER_Q[1] - CK.FILTER_Q[0])).toFixed(1);
+  if (m === CC.M_TONE) return Math.abs(v - 0.5) < 0.02 ? 'default' : v < 0.5 ? `dark ${Math.round((0.5 - v) * 200)}%` : `bright ${Math.round((v - 0.5) * 200)}%`;
+  if (m === CC.M_ATTACK || m === CC.M_RELEASE) { const s = ccSec(v, m === CC.M_ATTACK ? CK.ATTACK_RANGE_SEC : CK.RELEASE_RANGE_SEC); return s < 1 ? Math.round(s * 1000) + ' ms' : s.toFixed(2) + ' s'; }
   if (m === CC.M_DECAY) return '×' + Math.pow(2, CK.DECAY_OCT * (2 * v - 1)).toFixed(2);
   if (m === CC.M_VARIETY) return Math.abs(v - 0.5) < 0.02 ? 'default' : v < 0.5 ? `one note ${Math.round((0.5 - v) * 200)}%` : `scale ${Math.round((v - 0.5) * 200)}%`;
   if (m === CC.M_FREE) return (v < 0.005 ? 'still' : Math.round(v * 100) + '%') + (ctl.mode === CC.MODE_NOTES ? '' : ' (Notes)');

@@ -4,9 +4,9 @@
 //
 // Panel:
 //   left fader S36 = Level, right fader S37 = Roughness,
-//   S31 = Scale, S32 = Aeration, S33 = Flow, S34 = Decay (P10 + S34 = Width),
-//   S30 = Free flow (Notes mode), S35 = Variety,
-//   P11 + S37 = filter cutoff, P11 + S36 = resonance (as TouchPulsar)
+//   S31 = Scale (P10 + S31 = Tone), S32 = Aeration, S33 = Flow (P11 + S33 = Attack),
+//   S34 = Decay (P10 + S34 = Release), S30 = Free flow (P10 + S30 = Width), S35 = Variety,
+//   P11 + S37 = filter cutoff, P11 + S36 = resonance (layers as TouchPulsar)
 //   left switch  (S09/S10): up = Presets, centre = Notes, down = Diagnostics
 //   right switch (S07/S08): down = Hold slow state; in Notes = Latch (touched notes keep pouring,
 //                tap a latched note again to release it)
@@ -27,7 +27,7 @@ const CREEK_PRESETS = [
   { key: 'deeper',  name: 'Deeper run',    flow: 0.65, roughness: 0.35, scale: 0.80, aeration: 0.40 },
 ];
 const CC = {
-  M_FLOW: 0, M_ROUGH: 1, M_SCALE: 2, M_AER: 3, M_LEVEL: 4, M_WIDTH: 5, M_FREE: 6, M_VARIETY: 7, M_DECAY: 8, M_CUTOFF: 9, M_RES: 10, M_COUNT: 11,
+  M_FLOW: 0, M_ROUGH: 1, M_SCALE: 2, M_AER: 3, M_LEVEL: 4, M_WIDTH: 5, M_FREE: 6, M_VARIETY: 7, M_DECAY: 8, M_CUTOFF: 9, M_RES: 10, M_TONE: 11, M_ATTACK: 12, M_RELEASE: 13, M_COUNT: 14,
   MODE_PRESETS: 0, MODE_NOTES: 1, MODE_DIAG: 2,
   P_OCT_DN: 0, P_OCT_UP: 2, P_ROOT: 10, P_SCALE: 11,
   PAD_PRESET0: 3,           // P03..P06
@@ -41,7 +41,7 @@ const CC = {
   EV_NONE: 0, EV_PRESET: 1, EV_LAYER: 2, EV_ALL: 3, EV_MODE: 4, EV_SCALE: 5, EV_OCT: 6, EV_ROOT: 7, EV_NOTE: 8, EV_STRESS: 9, EV_CC: 10,
   MIDI_KEY: 128,            // held keys: pads 0..11, MIDI notes 128 + note
   // CC -> macro (CC 1 / channel pressure = Surge, 64 sustain, 14 scale, 15 root, 120/123 all notes off)
-  CC_MAP: { 7: 4, 20: 0, 21: 1, 22: 2, 23: 3, 24: 6, 25: 7, 26: 8, 27: 5, 102: 9, 103: 10 },   // 102/103 as TouchPulsar
+  CC_MAP: { 7: 4, 20: 0, 21: 1, 22: 2, 23: 3, 24: 6, 25: 7, 26: 8, 27: 5, 28: 11, 102: 9, 103: 10, 107: 12, 72: 13 },   // 102/103/107/72 as TouchPulsar
   BEND_SEMIS: 2,
   // same scales as TouchPulsar (semitones above the root for P03..P09)
   SCALES: [
@@ -62,6 +62,9 @@ const CC_MODE_NAMES = ['PRESETS', 'NOTES', 'DIAG'];
 function ccLevel(v) { return 2 * v * v; }
 // knob 0..1 -> width: 0 = mono, noon = 1 (natural), fully up = WIDTH_MAX
 function ccWidth(v) { return v < 0.5 ? v * 2 : 1 + (CK.WIDTH_MAX - 1) * ((v - 0.5) / 0.5); }
+// exponential knob <-> seconds (Attack 4 ms .. 3 s, Release 20 ms .. 4 s, as TouchPulsar)
+function ccSec(v, r) { return r[0] * Math.pow(r[1] / r[0], v); }
+function ccFromSec(s, r) { return Math.log(s / r[0]) / Math.log(r[1] / r[0]); }
 function ccHz(midi) { return 440 * Math.pow(2, (midi - 69) / 12); }
 
 class CreekControls {
@@ -73,6 +76,9 @@ class CreekControls {
     this.value[CC.M_LEVEL] = 0.7071; this.value[CC.M_WIDTH] = 0.5;
     this.value[CC.M_FREE] = 1; this.value[CC.M_VARIETY] = 0.5; this.value[CC.M_DECAY] = 0.5;
     this.value[CC.M_CUTOFF] = 1; this.value[CC.M_RES] = 0;   // filter open at power-up
+    this.value[CC.M_TONE] = 0.5;
+    this.value[CC.M_ATTACK] = ccFromSec(CK.TUNE_ATTACK_SEC, CK.ATTACK_RANGE_SEC);     // default pour feel
+    this.value[CC.M_RELEASE] = ccFromSec(CK.TUNE_RELEASE_SEC, CK.RELEASE_RANGE_SEC);
     this.glideFrom = new Float32Array(4); this.glideTo = new Float32Array(4);
     this.glideT = -1;            // < 0: no glide running
     this.preset = 0;
@@ -259,8 +265,10 @@ class CreekControls {
     m.variety = this.value[CC.M_VARIETY]; m.decay = this.value[CC.M_DECAY];
     m.scaleMask = this.scaleMask();
     m.cutoff = this.value[CC.M_CUTOFF]; m.resonance = this.value[CC.M_RES];
+    m.tone = this.value[CC.M_TONE];
+    m.attack = ccSec(this.value[CC.M_ATTACK], CK.ATTACK_RANGE_SEC); m.release = ccSec(this.value[CC.M_RELEASE], CK.RELEASE_RANGE_SEC);
     return m;
   }
 }
 
-if (typeof module !== 'undefined') module.exports = { CREEK_PRESETS, CC, CC_LAYER_NAMES, CC_MODE_NAMES, CreekControls, ccLevel, ccWidth, ccHz };
+if (typeof module !== 'undefined') module.exports = { CREEK_PRESETS, CC, CC_LAYER_NAMES, CC_MODE_NAMES, CreekControls, ccLevel, ccWidth, ccHz, ccSec, ccFromSec };

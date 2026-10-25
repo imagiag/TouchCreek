@@ -21,7 +21,7 @@ void CreekEngine::Reset(uint32_t seed) {
     sample_ = 0; tickIndex_ = 0; untilTick_ = 0;
     flow_.Init(rng_[S_DRIFT]);
     queue_.Reset(); pool_.Reset();
-    sched_.Init(sr_, rng_[S_BTIME]);
+    sched_.Init(sr_, rng_[S_BTIME]);   // (clears the held notes too)
     freeS_ = 1.f; activity_ = 1.f;
     if (ck::BED_ON) bed_.Init(sr_, rng_[S_BED_DRIFT]);   // wash off: not even compiled in (flash)
     eddies_.Init(rng_[S_EDDY]);
@@ -43,6 +43,8 @@ void CreekEngine::SetMacros(const Macros& v) {
     for (int k = 0; k < 4; k++) { const float h = v.tuneHz[k]; m.tuneHz[k] = isfinite(h) && h > 20.f && h < 20000.f ? h : 0.f; }
     m.tune = v.tune;
     m.freeFlow = fin(v.freeFlow, 0.f, 1.f, m.freeFlow); m.variety = fin(v.variety, 0.f, 1.f, m.variety); m.decay = fin(v.decay, 0.f, 1.f, m.decay);
+    m.tone = fin(v.tone, 0.f, 1.f, m.tone);
+    m.attack = fin(v.attack, 0.001f, 10.f, m.attack); m.release = fin(v.release, 0.005f, 20.f, m.release);
     m.cutoff = fin(v.cutoff, 0.f, 1.f, m.cutoff); m.resonance = fin(v.resonance, 0.f, 1.f, m.resonance);
     m.scaleMask = (v.scaleMask & 0xFFFu) ? (v.scaleMask & 0xFFFu) : 0xFFFu;
     applyMacros(snapNext_);
@@ -58,12 +60,20 @@ void CreekEngine::applyMacros(bool snap) {
     out_.SetFilter(m.cutoff, m.resonance);
     if (snap) out_.SnapFilter();
     if (snap) { mixer_.w = m.width; out_.g = m.gain; for (int l = 0; l < ck::LAYERS; l++) mixer_.g[l] = mixer_.target[l]; }
-    sched_.nTune = 0;
-    for (int k = 0; k < 4; k++) if (m.tuneHz[k] > 0) {
-        sched_.tuneLog2[sched_.nTune] = log2f(m.tuneHz[k]);
-        sched_.tuneMidi[sched_.nTune++] = 69.f + 12.f * log2f(m.tuneHz[k] / 440.f);
+    // held notes; after release the last ones stay, so the release tail keeps their pitches
+    bool anyNote = false;
+    for (int k = 0; k < 4; k++) if (m.tuneHz[k] > 0) anyNote = true;
+    if (m.tune && anyNote) {
+        sched_.nTune = 0;
+        for (int k = 0; k < 4; k++) if (m.tuneHz[k] > 0) {
+            sched_.tuneLog2[sched_.nTune] = log2f(m.tuneHz[k]);
+            sched_.tuneMidi[sched_.nTune++] = 69.f + 12.f * log2f(m.tuneHz[k] / 440.f);
+        }
     }
+    kTuneA_ = 1.f - expf(-1.f / (ck::CONTROL_HZ * m.attack));
+    kTuneR_ = 1.f - expf(-1.f / (ck::CONTROL_HZ * m.release));
     sched_.variety = m.variety; sched_.scaleMask = m.scaleMask;
+    sched_.rSkew = ck::R_SKEW * powf(ck::TONE_SKEW_RANGE, 2.f * m.tone - 1.f);
     const float tm = exp2f(ck::DECAY_OCT * (2.f * m.decay - 1.f));
     pool_.tauMul = tm; falls_.pool.tauMul = tm; surface_.pool.tauMul = tm;
     if (snap) freeS_ = m.freeFlow;
@@ -97,7 +107,7 @@ void CreekEngine::controlTick() {
     sched_.Update(flow_, flow_.m[2]);
     falls_.Update(flow_, activity_);
     surface_.Update(flow_, rng_[S_SURFACE], flow_.dt, ed, activity_);
-    const float tt = macros_.tune && sched_.nTune > 0 ? 1.f : 0.f;
+    const float tt = macros_.tune ? 1.f : 0.f;
     sched_.tuneAmt += (tt > sched_.tuneAmt ? kTuneA_ : kTuneR_) * (tt - sched_.tuneAmt);
     // Free flow: the creek plays by itself only this much; holding notes pours
     freeS_ += flow_.KM() * (macros_.freeFlow - freeS_);

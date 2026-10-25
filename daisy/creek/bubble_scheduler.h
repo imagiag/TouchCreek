@@ -23,6 +23,7 @@ public:
     float tuneLog2[4], tuneMidi[4];
     float variety = 0.5f, freeFlow = 1.f, activity = 1.f;
     uint32_t scaleMask = 0xFFF;
+    float rSkew = ck::R_SKEW;   // Tone: radius distribution skew
     int nTune = 0;
     float tuneAmt = 0;
     float rateMul[ck::ZONES] = {1, 1, 1}, radMul[ck::ZONES] = {1, 1, 1};  // eddies (wake)

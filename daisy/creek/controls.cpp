@@ -25,12 +25,17 @@ float LevelToGain(float v) { return 2.f * v * v; }
 float KnobToWidth(float v) { return v < 0.5f ? v * 2.f : 1.f + (ck::WIDTH_MAX - 1.f) * ((v - 0.5f) / 0.5f); }
 float MidiToHz(int midi) { return 440.f * powf(2.f, (midi - 69) / 12.f); }
 
+float KnobToSec(float v, const float* r) { return r[0] * powf(r[1] / r[0], v); }
+float SecToKnob(float s, const float* r) { return logf(s / r[0]) / logf(r[1] / r[0]); }
+
 int CcToMacro(int cc) {
     switch (cc) {
         case 7: return M_LEVEL;  case 20: return M_FLOW;    case 21: return M_ROUGH;
         case 22: return M_SCALE; case 23: return M_AER;     case 24: return M_FREE;
         case 25: return M_VARIETY; case 26: return M_DECAY; case 27: return M_WIDTH;
+        case 28: return M_TONE;
         case 102: return M_CUTOFF; case 103: return M_RES;   // as TouchPulsar
+        case 107: return M_ATTACK; case 72: return M_RELEASE; // as TouchPulsar
         default: return -1;
     }
 }
@@ -41,6 +46,9 @@ Controls::Controls() {
     value[M_LEVEL] = 0.7071f; value[M_WIDTH] = 0.5f;
     value[M_FREE] = 1.f; value[M_VARIETY] = 0.5f; value[M_DECAY] = 0.5f;
     value[M_CUTOFF] = 1.f; value[M_RES] = 0.f;   // filter open at power-up
+    value[M_TONE] = 0.5f;
+    value[M_ATTACK] = SecToKnob(ck::TUNE_ATTACK_SEC, ck::ATTACK_RANGE_SEC);    // default pour feel
+    value[M_RELEASE] = SecToKnob(ck::TUNE_RELEASE_SEC, ck::RELEASE_RANGE_SEC);
     for (int k = 0; k < 4; k++) glideFrom_[k] = glideTo_[k] = 0;
     for (int i = 0; i < 12; i++) touched[i] = false;
     for (int i = 0; i < 128; i++) midiDown[i] = false;
@@ -267,6 +275,8 @@ void Controls::Compute(Macros& m) const {
     m.variety = value[M_VARIETY]; m.decay = value[M_DECAY];
     m.scaleMask = ScaleMask();
     m.cutoff = value[M_CUTOFF]; m.resonance = value[M_RES];
+    m.tone = value[M_TONE];
+    m.attack = KnobToSec(value[M_ATTACK], ck::ATTACK_RANGE_SEC); m.release = KnobToSec(value[M_RELEASE], ck::RELEASE_RANGE_SEC);
 }
 
 } // namespace creek

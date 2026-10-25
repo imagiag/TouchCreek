@@ -341,6 +341,47 @@ static void engineTests() {
         CHECK(fm.cutoff == 0.f && fc.value[M_RES] == 0.f, "CC 102 = cutoff");
     }
 
+    // --- Tone, Attack / Release, tuned release tails ---
+    {
+        auto meanF = [&](float tone) {
+            eng.Init(SR, 1); Macros tm; tm.flow = 0.6f; tm.roughness = 0.5f; tm.scale = 0.5f; tm.aeration = 0.6f; tm.tone = tone;
+            eng.SetMacros(tm); std::vector<float> a(48), b(48);
+            for (int i = 0; i < 10000; i++) eng.Process(a.data(), b.data(), 48);
+            Stats st; eng.GetStats(st); return st.meanF;
+        };
+        const float fd = meanF(0.f), fn = meanF(0.5f), fb = meanF(1.f);
+        CHECK(fd < 0.75f * fn && fb > 1.3f * fn, "Tone: dark %.0f < default %.0f < bright %.0f Hz", fd, fn, fb);
+        // pouring with Free flow 0: births in the first 100 ms after the note, and after release
+        auto pour = [&](float att, float rel, uint32_t& onset, uint32_t& tail, int& tailTuned) {
+            eng.Init(SR, 1); Macros pm; pm.flow = 0.6f; pm.roughness = 0.6f; pm.scale = 0.5f; pm.aeration = 0.7f;
+            pm.freeFlow = 0.f; pm.attack = att; pm.release = rel; pm.variety = 0.f; eng.SetMacros(pm);
+            std::vector<float> a(48), b(48);
+            for (int i = 0; i < 500; i++) eng.Process(a.data(), b.data(), 48);           // 0.5 s settle
+            pm.tune = true; pm.tuneHz[0] = 440.f; eng.SetMacros(pm);
+            Stats s0; eng.GetStats(s0);
+            for (int i = 0; i < 100; i++) eng.Process(a.data(), b.data(), 48);           // 100 ms
+            Stats s1; eng.GetStats(s1); onset = s1.births - s0.births;
+            for (int i = 0; i < 1900; i++) eng.Process(a.data(), b.data(), 48);          // hold ~2 s
+            pm.tune = false; pm.tuneHz[0] = 0; eng.SetMacros(pm);
+            Stats s2; eng.GetStats(s2); uint32_t last = eng.Pool().logW; tailTuned = 0;
+            for (int i = 0; i < 1500; i++) {
+                eng.Process(a.data(), b.data(), 48);
+                for (; last != eng.Pool().logW; last++) if (fabsf(eng.Pool().logF[last & (kLog - 1)] - 440.f) < 1.f) tailTuned++;
+            }
+            Stats s3; eng.GetStats(s3); tail = s3.births - s2.births;
+        };
+        uint32_t onF, tailS, onS, tailL; int ttS, ttL;
+        pour(0.004f, 0.02f, onF, tailS, ttS);
+        pour(3.f, 4.f, onS, tailL, ttL);
+        CHECK(onF > 2 * onS + 1, "Attack: a fast attack pours sooner (%u vs %u births in 100 ms)", onF, onS);
+        CHECK(tailL > 3 * tailS + 3, "Release: a long release keeps pouring (%u vs %u births after release)", tailL, tailS);
+        CHECK(tailL > 0 && ttL == (int)tailL, "release tail stays on the played note (%d of %u)", ttL, tailL);
+        Controls ac; ac.Midi(0xB0, 107, 0); ac.Midi(0xB0, 72, 127); Macros am; ac.Compute(am);
+        CHECK(fabsf(am.attack - 0.004f) < 1e-4f && fabsf(am.release - 4.f) < 1e-3f, "CC 107 / 72 = Attack / Release");
+        Controls dc; dc.Compute(am);
+        CHECK(fabsf(am.attack - ck::TUNE_ATTACK_SEC) < 1e-3f && fabsf(am.release - ck::TUNE_RELEASE_SEC) < 1e-3f, "Attack / Release default to the old pour feel");
+    }
+
     // --- stress: finite, protected peaks, DC ---
     {
         auto st = load("stress");
