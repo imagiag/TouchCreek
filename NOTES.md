@@ -29,13 +29,7 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - C++ renders are bit-exact across runs, `Reset(seed)` and block sizes (1, 37, 48, 1000).
 - JS and C++ match sample by sample for the first ~10 s (correlation > 0.996); in longer runs a rare 1-ulp float/double difference moves one bubble by a sample and later random draws reshuffle. Levels stay equal. Documented float-tolerance difference, as the brief allows.
 
-## Parked ideas
-- Right switch: up and centre both = live, so one position is free for a future mode (ideas: notes + presets together, a second knob layer, Hold + Latch together). User: keep as is for now (2026-10-25).
-- Revisit the flow noise / wash (user wants it figured out later): e.g. noise only as very soft, heavily modulated gurgle at high Roughness, or a noise splash transient.
-- Collective low modes during dense bubble clusters (brief, after baseline passes).
-- Optional subtle ambience (disabled for evaluation).
-- LED flicker on loud bubble births.
-- Use S30/S35 for calibration or "bubble glide amount" if listening calls for it.
+## Decision log (continued)
 - 2026-10-25, user: stress test on hardware (v5 + monitor) stays under 25 % CPU worst block: timing criterion passes.
 - 2026-10-25 (user): Free flow (S30, Notes only; 0 = still, holding notes pours), Variety (S35, bipolar: one note .. default .. across the scale), Decay (S34, bipolar 1/4x..4x), Width -> P10 + S34. Scales stay exactly as TouchPulsar. Emulator knobs always show name, S-number, P10 layer and value.
 - 2026-10-25 (user agreed): keep the USB monitor + P09 stress test in releases for now (~14 KB flash; v6 = 120/128 KB). When a feature no longer fits, make it a build option (normal releases without, a separate -monitor build with).
@@ -49,3 +43,13 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - 2026-10-25 (user): Attack and Release on the same modifier: P11 + S33 / P11 + S34 (P10 = Width S30, Tone S31).
 - 2026-10-25 (user): release file names always say what changed: CreekTouch-vN-<what>.bin (v12/v13 were plain by mistake; don't rename old ones).
 - 2026-10-25 (user): Tone -> P11 + S31 and much wider (skew range 6, plus radius shift up to 1 oct dark / 0.6 oct bright near the ends, |t|^2). P10 now only Width (S30).
+
+## Parked ideas
+- Right switch: up and centre both = live, so one position is free for a future mode (ideas: notes + presets together, a second knob layer, Hold + Latch together). User: keep as is for now (2026-10-25).
+- Revisit the flow noise / wash (user wants it figured out later): e.g. noise only as very soft, heavily modulated gurgle at high Roughness, or a noise splash transient.
+- Collective low modes during dense bubble clusters (brief, after baseline passes).
+- Optional subtle ambience (disabled for evaluation).
+- Free knob layers: P10 + S31-S35 and P10 + faders; P11 + S30, S32, S35.
+- Before publishing: refresh REPORT.md (still v5-era) and regenerate renders; GitHub repo (MIT, no PDFs); website via Codex (coordinate here).
+- Listener test (brief: 4 of 5 recognise water unprompted); optional 30-min stress run on hardware (monitor build).
+- Flash ~6 KB free (v14 = 121.9/128 KB): next big feature needs LTO / trimming or the Daisy bootloader.
