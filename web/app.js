@@ -222,7 +222,12 @@ function drawBoard() {
       if (k >= 0 && k < CREEK_PRESETS.length) { html += `<small>${CREEK_PRESETS[k].name}</small>`; cls = k === ctl.preset ? 'sel' : ''; }
     } else if (ctl.mode === CC.MODE_NOTES) {
       const sub = noteLabel(p.id);
-      if (sub) { html += `<small>${sub}</small>`; cls = ctl.held.includes(p.id) ? 'sel' : ''; }
+      if (sub) {
+        html += `<small>${sub}</small>`;
+        const isNote = p.id >= CC.PAD_NOTE0 && p.id <= CC.PAD_NOTE0 + 6;
+        cls = ctl.touched[CC.P_SCALE] && isNote ? (p.id - CC.PAD_NOTE0 === ctl.scale ? 'sel' : '')   // current scale
+          : ctl.held.includes(p.id) || ((p.id === CC.P_SCALE || p.id === CC.P_ROOT) && ctl.touched[p.id]) ? 'sel' : '';
+      }
     } else if (p.id === CC.PAD_ALL) { html += '<small>All on</small>'; cls = ''; }
     else if (p.id === CC.PAD_STRESS) { html += '<small>Stress</small>'; cls = ctl.stress ? 'sel' : ''; }
     else {
@@ -244,7 +249,11 @@ function drawBoard() {
 }
 const midiName = (m) => CC.NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
 function noteLabel(id) {
-  if (id >= CC.PAD_NOTE0 && id <= CC.PAD_NOTE0 + 6) return midiName(ctl.padMidi(id));
+  const note = id >= CC.PAD_NOTE0 && id <= CC.PAD_NOTE0 + 6;
+  // P11 held: the note pads show the scales they select; P10 held: the root each pad would set
+  if (ctl.touched[CC.P_SCALE] && note) return CC.SCALES[id - CC.PAD_NOTE0][0];
+  if (ctl.touched[CC.P_ROOT] && note) return 'root ' + CC.NOTE_NAMES[((ctl.padMidi(id) - CC.BASE_MIDI) % 12 + 12) % 12];
+  if (note) return midiName(ctl.padMidi(id));
   if (ctl.touched[CC.P_SCALE] && (id === CC.P_OCT_DN || id === CC.P_OCT_UP)) return id === CC.P_OCT_UP ? 'scale +' : 'scale −';
   return { 0: 'oct −', 2: 'oct +', 10: 'root', 11: 'scale' }[id] || '';
 }
