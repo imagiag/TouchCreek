@@ -5,7 +5,8 @@
 // Panel:
 //   left fader S36 = Level, right fader S37 = Roughness,
 //   S31 = Scale, S32 = Aeration, S33 = Flow, S34 = Decay (P10 + S34 = Width),
-//   S30 = Free flow (Notes mode), S35 = Variety
+//   S30 = Free flow (Notes mode), S35 = Variety,
+//   P11 + S37 = filter cutoff, P11 + S36 = resonance (as TouchPulsar)
 //   left switch  (S09/S10): up = Presets, centre = Notes, down = Diagnostics
 //   right switch (S07/S08): down = Hold slow state; in Notes = Latch (touched notes keep pouring,
 //                tap a latched note again to release it)
@@ -26,7 +27,7 @@ const CREEK_PRESETS = [
   { key: 'deeper',  name: 'Deeper run',    flow: 0.65, roughness: 0.35, scale: 0.80, aeration: 0.40 },
 ];
 const CC = {
-  M_FLOW: 0, M_ROUGH: 1, M_SCALE: 2, M_AER: 3, M_LEVEL: 4, M_WIDTH: 5, M_FREE: 6, M_VARIETY: 7, M_DECAY: 8, M_COUNT: 9,
+  M_FLOW: 0, M_ROUGH: 1, M_SCALE: 2, M_AER: 3, M_LEVEL: 4, M_WIDTH: 5, M_FREE: 6, M_VARIETY: 7, M_DECAY: 8, M_CUTOFF: 9, M_RES: 10, M_COUNT: 11,
   MODE_PRESETS: 0, MODE_NOTES: 1, MODE_DIAG: 2,
   P_OCT_DN: 0, P_OCT_UP: 2, P_ROOT: 10, P_SCALE: 11,
   PAD_PRESET0: 3,           // P03..P06
@@ -40,7 +41,7 @@ const CC = {
   EV_NONE: 0, EV_PRESET: 1, EV_LAYER: 2, EV_ALL: 3, EV_MODE: 4, EV_SCALE: 5, EV_OCT: 6, EV_ROOT: 7, EV_NOTE: 8, EV_STRESS: 9, EV_CC: 10,
   MIDI_KEY: 128,            // held keys: pads 0..11, MIDI notes 128 + note
   // CC -> macro (CC 1 / channel pressure = Surge, 64 sustain, 14 scale, 15 root, 120/123 all notes off)
-  CC_MAP: { 7: 4, 20: 0, 21: 1, 22: 2, 23: 3, 24: 6, 25: 7, 26: 8, 27: 5 },
+  CC_MAP: { 7: 4, 20: 0, 21: 1, 22: 2, 23: 3, 24: 6, 25: 7, 26: 8, 27: 5, 102: 9, 103: 10 },   // 102/103 as TouchPulsar
   BEND_SEMIS: 2,
   // same scales as TouchPulsar (semitones above the root for P03..P09)
   SCALES: [
@@ -71,6 +72,7 @@ class CreekControls {
     this.value[CC.M_SCALE] = p.scale; this.value[CC.M_AER] = p.aeration;
     this.value[CC.M_LEVEL] = 0.7071; this.value[CC.M_WIDTH] = 0.5;
     this.value[CC.M_FREE] = 1; this.value[CC.M_VARIETY] = 0.5; this.value[CC.M_DECAY] = 0.5;
+    this.value[CC.M_CUTOFF] = 1; this.value[CC.M_RES] = 0;   // filter open at power-up
     this.glideFrom = new Float32Array(4); this.glideTo = new Float32Array(4);
     this.glideT = -1;            // < 0: no glide running
     this.preset = 0;
@@ -256,6 +258,7 @@ class CreekControls {
     m.freeFlow = this.mode === CC.MODE_NOTES ? this.value[CC.M_FREE] : 1;   // presets / diagnostics always flow
     m.variety = this.value[CC.M_VARIETY]; m.decay = this.value[CC.M_DECAY];
     m.scaleMask = this.scaleMask();
+    m.cutoff = this.value[CC.M_CUTOFF]; m.resonance = this.value[CC.M_RES];
     return m;
   }
 }

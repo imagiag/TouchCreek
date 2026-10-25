@@ -146,6 +146,11 @@ const CK = {
   VARIETY_STEPS: 7,         // Variety fully right: up to +- this many scale steps from the held note
   DECAY_OCT: 2,             // Decay knob: decay times x 2^(+-2) = 0.25x .. 4x, noon = 1x
 
+  // ---- low-pass filter (as TouchPulsar: P11 + faders) ----
+  FILTER_HZ: [30, 18000],   // cutoff range (exponential); fully up = open
+  FILTER_Q: [0.707, 20],    // resonance: Q = 0.707 + r^2 * 19.3
+  FILTER_SMOOTH_SEC: 0.005,
+
   // ---- output ----
   DC_HZ: 25,
   LIMIT_CEIL: 0.891,        // -1 dBFS

@@ -7,6 +7,8 @@ Flash these with https://flash.daisy.audio/ (hold BOOT while plugging in, or BOO
 
 | File | Date | Changes |
 |---|---|---|
+| `CreekTouch-v10-filter.bin` | 2026-10-25 | **Filter** as TouchPulsar: P11 + right fader = low-pass cutoff (30 Hz – 18 kHz, open at power-up), P11 + left fader = resonance (CC 102/103). USB now has its own product ID, so iOS / Audiobus should list it as **Creek** instead of a remembered name. |
+| `CreekTouch-v10-monitor.bin` | 2026-10-25 | Same as v10-filter, USB = CPU report for `web/monitor.html` instead of MIDI. |
 | `CreekTouch-v9-midi.bin` | 2026-10-25 | **USB MIDI**: notes play Creek in every mode (drop + pour, velocity, sustain, bend ±2), **mod wheel / aftertouch = Surge** (the water rushes), CCs for every knob (7 Level, 20–27), CC 14/15 scale/root, Program Change 1–4 = presets. The USB monitor moved to a separate build: |
 | `CreekTouch-v9-monitor.bin` | 2026-10-25 | Same as v9-midi but USB sends the CPU / voices / stack report for `web/monitor.html` instead of MIDI. |
 | `CreekTouch-v8-deep.bin` | 2026-10-25 | **Deeper Scale**: the last quarter of S31 bends up to 4× bubble size (was 1.8×) for bass, deepest bubbles ~125 Hz, ringing longer at matched energy. Notes can tune down to C2. Presets unchanged. |

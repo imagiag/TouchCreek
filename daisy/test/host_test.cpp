@@ -324,6 +324,23 @@ static void engineTests() {
         CHECK(t0 < t5 && t5 < t1 && t1 > 3 * t5, "Decay knob shortens / lengthens tails (%.2g < %.2g < %.2g)", t0, t5, t1);
     }
 
+    // --- filter (as TouchPulsar): low cutoff removes the high bubbles; open is transparent-ish ---
+    {
+        auto rms = [&](float cut, float res) {
+            char txt[160]; snprintf(txt, sizeof txt, "seconds 3\nat 0 preset rocky\n"); auto sc = scenario::parse(txt, SR);
+            eng.Init(SR, 1);
+            Macros fm; fm.flow = 0.5f; fm.roughness = 0.6f; fm.scale = 0.45f; fm.aeration = 0.55f; fm.cutoff = cut; fm.resonance = res;
+            eng.SetMacros(fm);
+            std::vector<float> a(48), b(48); double s2 = 0;
+            for (int i = 0; i < 3000; i++) { eng.Process(a.data(), b.data(), 48); if (i > 1000) for (int j = 0; j < 48; j++) s2 += a[j] * a[j]; }
+            return sqrt(s2 / (2000 * 48));
+        };
+        const double open = rms(1.f, 0.f), mid = rms(0.45f, 0.f), low = rms(0.15f, 0.f);
+        CHECK(low < 0.2 * open && mid < open, "low-pass: cutoff down removes the bubbles (%.1f / %.1f dB)", 20 * log10(mid / open), 20 * log10(low / open));
+        Controls fc; fc.Midi(0xB0, 102, 0); Macros fm; fc.Compute(fm);
+        CHECK(fm.cutoff == 0.f && fc.value[M_RES] == 0.f, "CC 102 = cutoff");
+    }
+
     // --- stress: finite, protected peaks, DC ---
     {
         auto st = load("stress");

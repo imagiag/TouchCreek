@@ -43,6 +43,7 @@ void CreekEngine::SetMacros(const Macros& v) {
     for (int k = 0; k < 4; k++) { const float h = v.tuneHz[k]; m.tuneHz[k] = isfinite(h) && h > 20.f && h < 20000.f ? h : 0.f; }
     m.tune = v.tune;
     m.freeFlow = fin(v.freeFlow, 0.f, 1.f, m.freeFlow); m.variety = fin(v.variety, 0.f, 1.f, m.variety); m.decay = fin(v.decay, 0.f, 1.f, m.decay);
+    m.cutoff = fin(v.cutoff, 0.f, 1.f, m.cutoff); m.resonance = fin(v.resonance, 0.f, 1.f, m.resonance);
     m.scaleMask = (v.scaleMask & 0xFFFu) ? (v.scaleMask & 0xFFFu) : 0xFFFu;
     applyMacros(snapNext_);
     snapNext_ = false;
@@ -54,6 +55,8 @@ void CreekEngine::applyMacros(bool snap) {
     flow_.hold = m.hold;
     mixer_.SetMask(m.mask, m.width);
     out_.gTarget = m.gain;
+    out_.SetFilter(m.cutoff, m.resonance);
+    if (snap) out_.SnapFilter();
     if (snap) { mixer_.w = m.width; out_.g = m.gain; for (int l = 0; l < ck::LAYERS; l++) mixer_.g[l] = mixer_.target[l]; }
     sched_.nTune = 0;
     for (int k = 0; k < 4; k++) if (m.tuneHz[k] > 0) {
@@ -108,7 +111,7 @@ void CreekEngine::Process(float* left, float* right, size_t frames) {
     while (pos < frames) {
         if (untilTick_ == 0) controlTick();
         const int intoMicro = (int)(sample_ % ck::MICRO);
-        if (intoMicro == 0) { pool_.Micro(); falls_.pool.Micro(); surface_.pool.Micro(); }
+        if (intoMicro == 0) { pool_.Micro(); falls_.pool.Micro(); surface_.pool.Micro(); out_.Micro(); }
         int seg = ck::MICRO - intoMicro;
         if (seg > untilTick_) seg = untilTick_;
         if ((size_t)seg > frames - pos) seg = (int)(frames - pos);

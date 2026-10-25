@@ -24,12 +24,12 @@ const KNOBS = [
   { id: 'S32', p: 2, x: 40.8, y: 35.5, m: CC.M_AER }, { id: 'S33', p: 3, x: 60.3, y: 35.5, m: CC.M_FLOW },
   { id: 'S34', p: 4, x: 79.2, y: 35.5, m: CC.M_DECAY, alt: CC.M_WIDTH }, { id: 'S35', p: 5, x: 79.2, y: 49.5, m: CC.M_VARIETY },
 ];
-const FADERS = [{ id: 'S36', p: 6, x: 6.5, y: 42, m: CC.M_LEVEL }, { id: 'S37', p: 7, x: 93.5, y: 42, m: CC.M_ROUGH }];
+const FADERS = [{ id: 'S36', p: 6, x: 6.5, y: 42, m: CC.M_LEVEL, alt11: CC.M_RES }, { id: 'S37', p: 7, x: 93.5, y: 42, m: CC.M_ROUGH, alt11: CC.M_CUTOFF }];
 const SWITCHES = [ // pos 0 = up, 1 = centre, 2 = down
   { k: 'mode', id: 'S09/10', x: 37.8, y: 66, names: ['PRESETS', 'NOTES', 'DIAG'] },
   { k: 'hold', id: 'S07/08', x: 53.5, y: 72.5, names: ['LIVE', 'LIVE', 'HOLD'], notesNames: ['LIVE', 'LIVE', 'LATCH'] },
 ];
-const MACRO_NAMES = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width', 'Free flow', 'Variety', 'Decay'];
+const MACRO_NAMES = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width', 'Free flow', 'Variety', 'Decay', 'Cutoff', 'Resonance'];
 
 // ------------------------------------------------------------------ hardware glue (as creek_ui.cpp)
 // Soft pickup: after a preset recall a macro knob only writes again once it
@@ -41,14 +41,20 @@ class Takeover {
 }
 const CONTROLS = KNOBS.concat(FADERS);
 const PHYS_OF = [];                                    // macro -> physical control
-for (const c of CONTROLS) { PHYS_OF[c.m] = c.p; if (c.alt !== undefined) PHYS_OF[c.alt] = c.p; }
-const altHeld = () => !!ctl.touched[CC.P_ROOT];        // P10 held: second layer (S34 = Width)
-function macroFor(c) { return c.alt !== undefined && altHeld() ? c.alt : c.m; }
+for (const c of CONTROLS) { PHYS_OF[c.m] = c.p; if (c.alt !== undefined) PHYS_OF[c.alt] = c.p; if (c.alt11 !== undefined) PHYS_OF[c.alt11] = c.p; }
+// layers (as the firmware): P11 held = filter on the faders, P10 held = Width on S34
+function macroFor(c) {
+  if (c.alt11 !== undefined && ctl.touched[CC.P_SCALE]) return c.alt11;
+  if (c.alt !== undefined && ctl.touched[CC.P_ROOT]) return c.alt;
+  return c.m;
+}
 const physPos = new Float32Array(8);                   // where each knob / fader physically sits
 for (const c of CONTROLS) physPos[c.p] = ctl.value[c.m];
 const take = MACRO_NAMES.map((_, i) => { const t = new Takeover(); t.value = ctl.value[i]; return t; });
-take[CC.M_WIDTH].hold(ctl.value[CC.M_WIDTH], physPos[4]);   // Width (P10 layer) starts natural and waits
-let altWas = false;
+take[CC.M_WIDTH].hold(ctl.value[CC.M_WIDTH], physPos[4]);   // layers start at their defaults and wait
+take[CC.M_CUTOFF].hold(ctl.value[CC.M_CUTOFF], physPos[7]);
+take[CC.M_RES].hold(ctl.value[CC.M_RES], physPos[6]);
+const activeWas = CONTROLS.map((c) => c.m);
 const sw = { mode: 0, hold: 0 };                       // switch positions: 0 up, 1 centre, 2 down
 
 function moveKnob(c, v) {
@@ -93,9 +99,10 @@ const t0 = performance.now();
 setInterval(() => {
   ctl.tick((performance.now() - t0) / 1000);
   ctl.setMode(sw.mode);                    // 0 presets, 1 notes, 2 diagnostics
-  if (altHeld() !== altWas) {              // layer switch: the newly active control waits until the knob moves
-    altWas = altHeld(); const m = altWas ? CC.M_WIDTH : CC.M_DECAY; take[m].hold(ctl.value[m], physPos[4]);
-  }
+  CONTROLS.forEach((c, i) => {             // layer switch: the newly active control waits until the knob moves
+    const m = macroFor(c);
+    if (m !== activeWas[i]) { activeWas[i] = m; take[m].hold(ctl.value[m], physPos[c.p]); }
+  });
   ctl.setRightSwitch(sw.hold === 2);       // Latch in Notes, Hold elsewhere
   for (const d of ctl.drops) if (node) node.port.postMessage({ type: 'trigger', ev: { type: 2, radiusMm: 3000 / d.hz, amp: 0.25 + 0.75 * d.vel } });
   ctl.drops.length = 0;
@@ -148,7 +155,7 @@ function buildBoard() {
     knobEls.push(e);
   }
   for (const f of FADERS) {
-    const e = el('div', 'fader', board);
+    const e = el('div', 'fader ' + (f.x < 50 ? 'edge-l' : 'edge-r'), board);
     e.style.left = f.x + '%'; e.style.top = f.y + '%';
     e.innerHTML = `<div class="track"></div><div class="fill"></div><div class="cap"></div><span class="name"><b></b><i class="kid"></i><span class="kv"></span></span>`;
     e._fill = e.querySelector('.fill'); e._cap = e.querySelector('.cap');
@@ -191,6 +198,8 @@ function fmt(m, v) {
   if (m === CC.M_LEVEL) { const g = ccLevel(v); return g < 1e-4 ? 'off' : (20 * Math.log10(g)).toFixed(1).replace(/^-0\.0$/, '0.0') + ' dB'; }
   if (m === CC.M_WIDTH) return ccWidth(v).toFixed(2) + '×';
   if (m === CC.M_SCALE) return crScaleMul(v).toFixed(2) + '×';
+  if (m === CC.M_CUTOFF) { const hz = CK.FILTER_HZ[0] * Math.pow(CK.FILTER_HZ[1] / CK.FILTER_HZ[0], v); return v > 0.995 ? 'open' : hz >= 1000 ? (hz / 1000).toFixed(1) + ' kHz' : Math.round(hz) + ' Hz'; }
+  if (m === CC.M_RES) return 'Q ' + (CK.FILTER_Q[0] + v * v * (CK.FILTER_Q[1] - CK.FILTER_Q[0])).toFixed(1);
   if (m === CC.M_DECAY) return '×' + Math.pow(2, CK.DECAY_OCT * (2 * v - 1)).toFixed(2);
   if (m === CC.M_VARIETY) return Math.abs(v - 0.5) < 0.02 ? 'default' : v < 0.5 ? `one note ${Math.round((0.5 - v) * 200)}%` : `scale ${Math.round((v - 0.5) * 200)}%`;
   if (m === CC.M_FREE) return (v < 0.005 ? 'still' : Math.round(v * 100) + '%') + (ctl.mode === CC.MODE_NOTES ? '' : ' (Notes)');
@@ -206,7 +215,8 @@ function drawBoard() {
     e.classList.toggle('waiting', waiting);
     e.classList.toggle('altl', m !== c.m);
     if (e._b.textContent !== MACRO_NAMES[m]) e._b.textContent = MACRO_NAMES[m];
-    const idTxt = c.alt !== undefined ? (m === c.m ? `${c.id} · P10: ${MACRO_NAMES[c.alt]}` : `P10 + ${c.id}`) : c.id;
+    const layer = c.alt !== undefined ? ['P10', c.alt] : c.alt11 !== undefined ? ['P11', c.alt11] : null;
+    const idTxt = !layer ? c.id : m === c.m ? `${c.id} · ${layer[0]}: ${MACRO_NAMES[layer[1]]}` : `${layer[0]} + ${c.id}`;
     if (e._id.textContent !== idTxt) e._id.textContent = idTxt;
     e._s.textContent = waiting ? 'pick up ↕' : fmt(m, v);
   }

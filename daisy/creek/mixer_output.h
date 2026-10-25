@@ -47,8 +47,9 @@ private:
     float kMute_ = 0, kW_ = 0;
 };
 
-// OutputStage: DC blocker (~25 Hz), smoothed gain, linked peak limiter with
-// instant attack and smooth release; output never exceeds LIMIT_CEIL.
+// OutputStage: smoothed gain, DC blocker (~25 Hz), low-pass filter (TPT SVF as
+// TouchPulsar, cutoff gliding ~5 ms), linked peak limiter with instant attack
+// and smooth release; output never exceeds LIMIT_CEIL.
 class OutputStage {
 public:
     float g = 1, gTarget = 1;
@@ -56,12 +57,29 @@ public:
     float peak = 0;
 
     void Init(float sr) {
+        sr_ = sr;
+        kF_ = fminf(1.f, ck::MICRO / (ck::FILTER_SMOOTH_SEC * sr));
         rDc_ = expf(-kTwoPi * ck::DC_HZ / sr);
         kG_ = 1.f - expf(-1.f / (ck::UTIL_SMOOTH_SEC * sr));
         rel_ = expf(-1.f / (ck::LIMIT_RELEASE_SEC * sr));
         Reset();
     }
-    void Reset() { xl_ = xr_ = yl_ = yr_ = 0; env_ = 0; g = gTarget; limited = 0; peak = 0; }
+    void Reset() {
+        xl_ = xr_ = yl_ = yr_ = 0; env_ = 0; g = gTarget; limited = 0; peak = 0;
+        f1l_ = f2l_ = f1r_ = f2r_ = 0; fcLog_ = fcT_; Micro();
+    }
+    // cutoff / resonance 0..1 (cutoff 1 = open)
+    void SetFilter(float cut, float res) {
+        fcT_ = logf(Clamp(ck::FILTER_HZ[0] * powf(ck::FILTER_HZ[1] / ck::FILTER_HZ[0], cut), 20.f, 0.45f * sr_));
+        fk_ = 1.f / (ck::FILTER_Q[0] + res * res * (ck::FILTER_Q[1] - ck::FILTER_Q[0]));
+    }
+    void SnapFilter() { fcLog_ = fcT_; Micro(); }
+    // micro tick: cutoff glides, coefficients follow (tan via sin/cos, as TouchPulsar)
+    void Micro() {
+        fcLog_ += (fcT_ - fcLog_) * kF_;
+        const float w = kPi * expf(fcLog_) / sr_, gg = sinf(w) / cosf(w);
+        a1_ = 1.f / (1.f + gg * (gg + fk_)); a2_ = gg * a1_; a3_ = gg * a2_;
+    }
     void Process(float* L, float* R, int n) {
         const float ceil = ck::LIMIT_CEIL;
         float xl = xl_, xr = xr_, yl = yl_, yr = yr_, gg = g, env = env_;
@@ -70,18 +88,25 @@ public:
             const float a = L[i] * gg, b = R[i] * gg;
             yl = a - xl + rDc_ * yl; xl = a;
             yr = b - xr + rDc_ * yr; xr = b;
-            const float p = fmaxf(fabsf(yl), fabsf(yr));
+            // low-pass
+            float v3 = yl - f2l_, v1 = a1_ * f1l_ + a2_ * v3, v2 = f2l_ + a2_ * f1l_ + a3_ * v3;
+            f1l_ = 2.f * v1 - f1l_; f2l_ = 2.f * v2 - f2l_; const float ol = v2;
+            v3 = yr - f2r_; v1 = a1_ * f1r_ + a2_ * v3; v2 = f2r_ + a2_ * f1r_ + a3_ * v3;
+            f1r_ = 2.f * v1 - f1r_; f2r_ = 2.f * v2 - f2r_; const float orr = v2;
+            const float p = fmaxf(fabsf(ol), fabsf(orr));
             env = p > env ? p : env * rel_ + p * (1.f - rel_);
             float k = 1.f;
             if (env > ceil) { k = ceil / env; limited++; }
-            L[i] = yl * k; R[i] = yr * k;
+            L[i] = ol * k; R[i] = orr * k;
             if (p * k > peak) peak = p * k;
         }
         xl_ = xl; xr_ = xr; yl_ = yl; yr_ = yr; g = gg; env_ = env;
     }
 
 private:
-    float rDc_ = 0, kG_ = 0, rel_ = 0;
+    float rDc_ = 0, kG_ = 0, rel_ = 0, sr_ = 48000, kF_ = 1;
+    float fcT_ = 0, fcLog_ = 0, fk_ = 1.414f, a1_ = 0, a2_ = 0, a3_ = 0;
+    float f1l_ = 0, f2l_ = 0, f1r_ = 0, f2r_ = 0;
     float xl_ = 0, xr_ = 0, yl_ = 0, yr_ = 0, env_ = 0;
 };
 

@@ -46,37 +46,48 @@ double CreekUI::now() {
 }
 
 // ---------------------------------------------------------------------------
-// Physical control (S30..S37 = 0..7) per macro (M_*). S34 has two layers:
-// Decay normally, Width while P10 is held.
-static constexpr int kPhys[M_COUNT] = {
-    3, /* M_FLOW     S33 */  7, /* M_ROUGH    S37 */  1, /* M_SCALE    S31 */
-    2, /* M_AER      S32 */  6, /* M_LEVEL    S36 */  4, /* M_WIDTH    P10 + S34 */
-    0, /* M_FREE     S30 */  5, /* M_VARIETY  S35 */  4, /* M_DECAY    S34 */
+// Physical controls S30..S37 (0..7) and their macro per layer: normal,
+// while P10 is held, while P11 is held (-1 = same as normal).
+struct KnobLayers { int8_t main, p10, p11; };
+static constexpr KnobLayers kLayers[8] = {
+    {M_FREE, -1, -1},          // S30 Free flow
+    {M_SCALE, -1, -1},         // S31 Scale
+    {M_AER, -1, -1},           // S32 Aeration
+    {M_FLOW, -1, -1},          // S33 Flow
+    {M_DECAY, M_WIDTH, -1},    // S34 Decay | P10: Width
+    {M_VARIETY, -1, -1},       // S35 Variety
+    {M_LEVEL, -1, M_RES},      // S36 Level | P11: Resonance
+    {M_ROUGH, -1, M_CUTOFF},   // S37 Roughness | P11: Cutoff
 };
+// physical control of each macro (for pickup after presets / MIDI CCs)
+static int physOf(int m) {
+    for (int p = 0; p < 8; p++) if (kLayers[p].main == m || kLayers[p].p10 == m || kLayers[p].p11 == m) return p;
+    return 0;
+}
+
+int CreekUI::activeMacro(int p) const {
+    if (ctl_.touched[kPadScale] && kLayers[p].p11 >= 0) return kLayers[p].p11;
+    if (ctl_.touched[kPadRoot] && kLayers[p].p10 >= 0) return kLayers[p].p10;
+    return kLayers[p].main;
+}
 
 void CreekUI::readKnobs() {
     Knobs& k = touch_.knobs();
     AnalogControl* phys[8] = {&k.s30(), &k.s31(), &k.s32(), &k.s33(), &k.s34(), &k.s35(), &k.s36(), &k.s37()};
-    float pv[8];
-    for (int i = 0; i < 8; i++) pv[i] = phys[i]->Process();   // each knob read once per tick
-    const bool alt = ctl_.touched[kPadRoot];                   // P10 held: S34 = Width
-    if (!firstRun_ && alt != altPrev_) {
-        // layer switch: the newly active control waits until the knob moves
-        const int m = alt ? M_WIDTH : M_DECAY;
-        knob_[m].Hold(ctl_.value[m], pv[kPhys[m]]);
-    }
-    altPrev_ = alt;
-    for (int i = 0; i < M_COUNT; i++) {
-        const float v = pv[kPhys[i]];
+    for (int p = 0; p < 8; p++) {
+        const float v = phys[p]->Process();                   // each knob read once per tick
+        const int m = activeMacro(p);
         if (firstRun_) {                                       // power-up: the panel is the state ...
-            if (i == M_WIDTH) knob_[i].Hold(ctl_.value[i], v); // ... except Width (P10 layer), which starts natural
-            else { knob_[i].Track(v); ctl_.SetKnob(i, v); }
+            knob_[kLayers[p].main].Track(v); ctl_.SetKnob(kLayers[p].main, v);
+            if (kLayers[p].p10 >= 0) knob_[kLayers[p].p10].Hold(ctl_.value[kLayers[p].p10], v);   // ... layers start at defaults
+            if (kLayers[p].p11 >= 0) knob_[kLayers[p].p11].Hold(ctl_.value[kLayers[p].p11], v);
+            active_[p] = m;
             continue;
         }
-        if ((i == M_WIDTH && !alt) || (i == M_DECAY && alt)) continue;   // inactive layer
-        if (ctl_.Gliding() && i < 4 && !knob_[i].Tracking()) continue;   // preset glide owns the macro
-        const float out = knob_[i].Process(v);
-        if (knob_[i].Tracking() && out != ctl_.value[i]) ctl_.SetKnob(i, out);
+        if (m != active_[p]) { knob_[m].Hold(ctl_.value[m], v); active_[p] = m; }   // layer switch: wait for movement
+        if (ctl_.Gliding() && m < 4 && !knob_[m].Tracking()) continue;            // preset glide owns the macro
+        const float out = knob_[m].Process(v);
+        if (knob_[m].Tracking() && out != ctl_.value[m]) ctl_.SetKnob(m, out);
     }
     firstRun_ = false;
 }
@@ -140,7 +151,7 @@ void CreekUI::handleEvents() {
         switch (type) {
             case CE_PRESET:
                 // soft pickup: the four macro knobs wait until they are moved
-                for (int i = 0; i < 4; i++) knob_[i].Hold(ctl_.value[i], phys[kPhys[i]]->Value());
+                for (int i = 0; i < 4; i++) knob_[i].Hold(ctl_.value[i], phys[physOf(i)]->Value());
                 blink((uint8_t)(arg + 1), 70, 90);      // 1..4 blinks = preset number
                 break;
             case CE_LAYER: blink(arg ? 2 : 1, 60, 80); break; // 2 = layer on, 1 = muted
@@ -152,7 +163,7 @@ void CreekUI::handleEvents() {
             case CE_NOTE:  flickerUntil_ = now() + 0.04; break;
             case CE_STRESS: blink(arg ? 4 : 1, 40, 40); break;
             case CE_CC:    // a MIDI CC moved this value: its knob waits until it's moved (as TouchPulsar)
-                if (arg >= 0 && arg < M_COUNT) knob_[arg].Hold(ctl_.value[arg], phys[kPhys[arg]]->Value());
+                if (arg >= 0 && arg < M_COUNT) knob_[arg].Hold(ctl_.value[arg], phys[physOf(arg)]->Value());
                 break;
             default: break;
         }

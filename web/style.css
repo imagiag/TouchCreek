@@ -90,3 +90,7 @@ canvas { display: block; width: 100%; background: #070a0b; border-radius: 8px; }
 kbd { font: 11px ui-monospace, Menlo, monospace; background: #1d2426; border: 1px solid #333; border-radius: 4px; padding: 1px 4px; }
 @media (max-width: 520px) { .zones { grid-template-columns: 1fr; } }
 button.on { border-color: var(--water); color: var(--water); }
+/* fader labels sit against the board edges: align them inward */
+.fader.edge-l .name { left: 0; transform: none; text-align: left; }
+.fader.edge-r .name { left: auto; right: 0; transform: none; text-align: right; }
+.fader .name { top: auto; bottom: 104%; }   /* labels above the faders, clear of the knob labels */

@@ -66,6 +66,7 @@
   <a class="sub" href="#presets">Presets</a>
   <a class="sub" href="#notes">Notes</a>
   <a class="sub" href="#diagnostics">Diagnostics</a>
+  <a class="sub" href="#filter">Filter</a>
   <a class="sub" href="#midi">MIDI</a>
   <a href="#led">LED</a>
   <a href="#sound">What you hear</a>
@@ -158,6 +159,14 @@
 </table>
 <p>Muting is smooth (20 ms) and doesn't change what the other layers do. In Presets and Notes all layers always play; the mutes are remembered for next time.</p>
 
+<h3 id="filter">Filter (as TouchPulsar)</h3>
+<table>
+  <tr><th>Control</th><th>Function</th></tr>
+  <tr><td class="id">P11 + S37 (right fader)</td><td>Low-pass <b>cutoff</b>, 30 Hz – 18 kHz (fully up = open)</td></tr>
+  <tr><td class="id">P11 + S36 (left fader)</td><td><b>Resonance</b> (Q 0.7 – 20)</td></tr>
+</table>
+<p>A smooth 12 dB/oct low-pass on everything, before the output limiter; fully open at power-up. The faders pick up when you press or let go of P11. In Notes mode P11 + pads still picks the scale. MIDI: CC 102 / 103.</p>
+
 <h3 id="midi">MIDI</h3>
 <p>Connect the Touch 2's USB to a computer (DAW, or a keyboard through the computer) or to a USB-MIDI host box. A keyboard plugged straight into the Touch 2 won't work: both are USB devices. Any channel.</p>
 <table>
@@ -166,7 +175,7 @@
   <tr><td class="id">Mod wheel, aftertouch</td><td><b>Surge</b>: the water rushes, raising Flow, Roughness and a little Aeration on top of the knobs; back at zero it changes nothing.</td></tr>
   <tr><td class="id">Sustain (CC 64)</td><td>Holds notes. Pitch bend ±2 semitones. CC 123 / 120 = all notes off.</td></tr>
   <tr><td class="id">Program Change 1–4</td><td>The four presets</td></tr>
-  <tr><td class="id">CC</td><td>7 Level · 20 Flow · 21 Roughness · 22 Scale · 23 Aeration · 24 Free flow · 25 Variety · 26 Decay · 27 Width · 14 scale select · 15 root. A CC moves the value; the knob then waits until you move it.</td></tr>
+  <tr><td class="id">CC</td><td>7 Level · 20 Flow · 21 Roughness · 22 Scale · 23 Aeration · 24 Free flow · 25 Variety · 26 Decay · 27 Width · 102 Cutoff · 103 Resonance · 14 scale select · 15 root. A CC moves the value; the knob then waits until you move it.</td></tr>
 </table>
 
 <h2 id="led">LED</h2>

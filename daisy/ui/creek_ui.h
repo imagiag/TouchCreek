@@ -66,7 +66,9 @@ private:
 #endif
 
     Takeover knob_[creek::M_COUNT];
-    bool firstRun_ = true, altPrev_ = false;
+    bool firstRun_ = true;
+    int active_[8] = {0, 0, 0, 0, 0, 0, 0, 0};   // macro each physical control drives right now
+    int activeMacro(int physical) const;
 
     // mailbox (main loop writes the slot the audio side is not reading)
     creek::Macros mailbox_[2];

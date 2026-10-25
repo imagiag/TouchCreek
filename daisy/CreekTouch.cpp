@@ -12,6 +12,24 @@ const char* USBD_MANUFACTURER_STRING = "Synthux";
 const char* USBD_PRODUCT_STRING_HS = "Creek";
 const char* USBD_PRODUCT_STRING_FS = "Creek";
 
+#if !CREEK_MONITOR
+// USB identity: libDaisy uses one product ID for every Daisy firmware, so iOS / Audiobus
+// kept showing Creek under a name remembered from another firmware (PulsarTouch). Creek's
+// MIDI build patches its own product ID and release number into the descriptor before
+// USB starts, so hosts see a new device and read the name "Creek".
+extern "C" uint8_t USBD_FS_DeviceDesc[];
+extern "C" uint8_t USBD_HS_DeviceDesc[];
+static constexpr uint16_t kCreekPid = 0x5743;   // Daisy default 0x5740
+static constexpr uint16_t kCreekBcd = 0x0110;   // "1.10"
+static void PatchUsbIdentity() {
+    uint8_t* d[2] = {USBD_FS_DeviceDesc, USBD_HS_DeviceDesc};
+    for (uint8_t* p : d) {
+        p[10] = (uint8_t)(kCreekPid & 0xFF); p[11] = (uint8_t)(kCreekPid >> 8);
+        p[12] = (uint8_t)(kCreekBcd & 0xFF); p[13] = (uint8_t)(kCreekBcd >> 8);
+    }
+}
+#endif
+
 using namespace daisy;
 using namespace synthux;
 
@@ -73,6 +91,9 @@ int main(void) {
     for (int i = 0; i < 40; i++) { touch.Process(); System::Delay(3); } // let MPR121 baselines settle
 
     engine.Init(hw.AudioSampleRate(), kSeed);
+#if !CREEK_MONITOR
+    PatchUsbIdentity();                // before USB MIDI starts in ui.Init
+#endif
     ui.Init(hw);
     ui.Process(hw);                    // read the panel once before sound starts
     hw.StartAudio(AudioCallback);

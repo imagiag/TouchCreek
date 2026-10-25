@@ -46,6 +46,7 @@
       <table>
         <tr><th>Control</th><th>Function</th></tr>
         <tr><td>Left fader S36</td><td><b>Level</b>: silent at the bottom, 0 dB at about 70 %, +6 dB at the top (as TouchPulsar).</td></tr>
+        <tr><td>P11 + faders</td><td><b>Filter</b> (as TouchPulsar): P11 + right fader = low-pass <b>cutoff</b> (30 Hz – 18 kHz, fully up = open), P11 + left fader = <b>resonance</b>. A smooth 12 dB/oct low-pass on everything; fully open at power-up. CC 102 / 103.</td></tr>
         <tr><td>Right fader S37</td><td><b>Roughness</b>: smooth channel → rocky interruptions: more turbulence, deeper eddies, more uneven splashes, more surface ticks.</td></tr>
         <tr><td>S31</td><td><b>Scale</b>: fine shallow trickle → larger stream body (bubble size 0.6–1.8×, bending up to 4× in the last quarter for bass, down to ~125 Hz).</td></tr>
         <tr><td>S32</td><td><b>Aeration</b>: sparse bubbling → bubbly white water. Fully left = no bubbles.</td></tr>
@@ -62,7 +63,7 @@
         <tr><td>LED</td><td>Mode change: 1 / 2 / 3 blinks (presets / notes / diagnostics). Preset number 1–4; scale number 1–7; octave; 2 = layer on, 1 = muted. Otherwise flickers with notes and louder bubbles.</td></tr>
       </table>
       <p class="muted"><b>MIDI</b> (any channel; on the Touch 2 over USB from a computer or USB-MIDI host, here with Enable MIDI): notes play like note pads in every mode (drop on press, pour while held, chromatic), velocity = drop level, sustain pedal holds, pitch bend ±2. <b>Mod wheel / aftertouch = Surge</b>: the water rushes (Flow, Roughness and some Aeration up, on top of the knobs). Program Change 1–4 = presets.
-        CC: 7 Level · 20 Flow · 21 Roughness · 22 Scale · 23 Aeration · 24 Free flow · 25 Variety · 26 Decay · 27 Width · 14 scale select · 15 root · 64 sustain · 123 all notes off. A CC moves the value; the knob picks up once moved.</p>
+        CC: 7 Level · 20 Flow · 21 Roughness · 22 Scale · 23 Aeration · 24 Free flow · 25 Variety · 26 Decay · 27 Width · 102 Cutoff · 103 Resonance · 14 scale select · 15 root · 64 sustain · 123 all notes off. A CC moves the value; the knob picks up once moved.</p>
       <p class="muted"><b>Soft pickup</b>: after a preset, the four sound knobs (Flow, Roughness, Scale, Aeration) keep their place but no longer match the sound. The gold arc shows the value in use, the white pointer where the knob is. A knob takes over again once you move it a little.</p>
       <p class="muted"><b>Layers</b>: <b>bubbles</b> (the main voice), <b>eddies</b> (slow swells that make the rock wake surge: no sound of their own), <b>falls</b> (a soft low plop at the drop, then bubbly settling), <b>surface</b> (sparse quiet high ticks). The noise wash is off for now.</p>
       <p class="muted">Mouse: drag knobs up/down (Alt = fine), drag faders, click switches (top / middle / bottom), click higher on a pad for a harder hit. Keys: <kbd>D</kbd> left switch, <kbd>H</kbd> right switch, <kbd>Space</kbd> audio; presets <kbd>1</kbd>–<kbd>4</kbd>; notes <kbd>1</kbd>–<kbd>7</kbd>, <kbd>Z</kbd>/<kbd>X</kbd> octave; diagnostics <kbd>1</kbd>–<kbd>5</kbd>, <kbd>6</kbd> all.</p>

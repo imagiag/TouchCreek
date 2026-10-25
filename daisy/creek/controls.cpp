@@ -30,6 +30,7 @@ int CcToMacro(int cc) {
         case 7: return M_LEVEL;  case 20: return M_FLOW;    case 21: return M_ROUGH;
         case 22: return M_SCALE; case 23: return M_AER;     case 24: return M_FREE;
         case 25: return M_VARIETY; case 26: return M_DECAY; case 27: return M_WIDTH;
+        case 102: return M_CUTOFF; case 103: return M_RES;   // as TouchPulsar
         default: return -1;
     }
 }
@@ -39,6 +40,7 @@ Controls::Controls() {
     value[M_FLOW] = p.flow; value[M_ROUGH] = p.roughness; value[M_SCALE] = p.scale; value[M_AER] = p.aeration;
     value[M_LEVEL] = 0.7071f; value[M_WIDTH] = 0.5f;
     value[M_FREE] = 1.f; value[M_VARIETY] = 0.5f; value[M_DECAY] = 0.5f;
+    value[M_CUTOFF] = 1.f; value[M_RES] = 0.f;   // filter open at power-up
     for (int k = 0; k < 4; k++) glideFrom_[k] = glideTo_[k] = 0;
     for (int i = 0; i < 12; i++) touched[i] = false;
     for (int i = 0; i < 128; i++) midiDown[i] = false;
@@ -264,6 +266,7 @@ void Controls::Compute(Macros& m) const {
     m.freeFlow = mode == MODE_NOTES ? value[M_FREE] : 1.f;   // presets / diagnostics always flow
     m.variety = value[M_VARIETY]; m.decay = value[M_DECAY];
     m.scaleMask = ScaleMask();
+    m.cutoff = value[M_CUTOFF]; m.resonance = value[M_RES];
 }
 
 } // namespace creek

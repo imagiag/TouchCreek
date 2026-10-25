@@ -62,13 +62,19 @@ Presets glide over 250 ms. After a preset, the four sound knobs (Flow, Roughness
 
 Muting is smooth (20 ms) and doesn't change what the other layers do. In Presets and Notes all layers always play; the diagnostic mutes are remembered for next time.
 
+### Filter (as TouchPulsar)
+- **P11 + right fader (S37)** - low-pass **cutoff**, 30 Hz – 18 kHz (fully up = open)
+- **P11 + left fader (S36)** - **resonance** (Q 0.7 – 20)
+
+A smooth 12 dB/oct low-pass on everything, after the creek and before the output limiter; fully open at power-up. The faders pick up when you press or let go of P11, so switching layers never jumps a value. In Notes mode P11 + pads still picks the scale. MIDI: CC 102 cutoff, CC 103 resonance.
+
 ### MIDI
 Connect the Touch 2's USB to a computer (DAW, or a keyboard through the computer) or to a USB-MIDI host box; a keyboard plugged straight into the Touch 2 won't work, as both are USB devices. Any channel.
 - **Notes** play like the note pads, in every mode: a tuned drop on press, the water pours onto the note while held (chromatic, any pitch). Velocity = drop level. In Notes mode Free flow and Latch apply.
 - **Sustain pedal** (CC 64) holds notes; **pitch bend** ±2 semitones; **CC 123 / 120** all notes off.
 - **Mod wheel** (CC 1) and **channel aftertouch** = **Surge**: the water rushes, raising Flow, Roughness and a little Aeration on top of the knobs; back at zero it changes nothing.
 - **Program Change** 1–4 = the four presets.
-- **CCs**: 7 Level · 20 Flow · 21 Roughness · 22 Scale · 23 Aeration · 24 Free flow · 25 Variety · 26 Decay · 27 Width · 14 scale select (0–127 over the 7 scales) · 15 root (0–127 over C … B). A CC moves the value; the physical knob then waits until you move it (soft pickup).
+- **CCs**: 7 Level · 20 Flow · 21 Roughness · 22 Scale · 23 Aeration · 24 Free flow · 25 Variety · 26 Decay · 27 Width · 102 Cutoff · 103 Resonance · 14 scale select (0–127 over the 7 scales) · 15 root (0–127 over C … B). A CC moves the value; the physical knob then waits until you move it (soft pickup).
 
 ### LED
 - Switching mode: 1 blink = Presets, 2 = Notes, 3 = Diagnostics

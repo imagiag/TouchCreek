@@ -685,28 +685,53 @@ class CrSpatialMixer {
 // instant attack and smooth release; output never exceeds LIMIT_CEIL.
 // =============================================================================
 class CrOutputStage {
-  constructor() { this.x1 = new Float64Array(2); this.y1 = new Float64Array(2); this.g = 1; this.gTarget = 1; this.env = 0; }
+  constructor() {
+    this.x1 = new Float64Array(2); this.y1 = new Float64Array(2); this.g = 1; this.gTarget = 1; this.env = 0;
+    this.f1 = new Float64Array(2); this.f2 = new Float64Array(2);   // low-pass state (TPT SVF, as TouchPulsar)
+    this.fcT = 0; this.fcLog = 0; this.fk = 1.414; this.a1 = 0; this.a2 = 0; this.a3 = 0;
+  }
   init(sr) {
+    this.sr = sr;
+    this.kF = Math.min(1, CK.MICRO / (CK.FILTER_SMOOTH_SEC * sr));
     this.rDc = Math.exp(-CR_TWO_PI * CK.DC_HZ / sr);
     this.kG = 1 - Math.exp(-1 / (CK.UTIL_SMOOTH_SEC * sr));
     this.rel = Math.exp(-1 / (CK.LIMIT_RELEASE_SEC * sr));
     this.reset();
   }
-  reset() { this.x1.fill(0); this.y1.fill(0); this.env = 0; this.g = this.gTarget; this.limited = 0; this.peak = 0; }
+  reset() {
+    this.x1.fill(0); this.y1.fill(0); this.env = 0; this.g = this.gTarget; this.limited = 0; this.peak = 0;
+    this.f1.fill(0); this.f2.fill(0); this.fcLog = this.fcT; this.micro();
+  }
+  // cutoff / resonance 0..1 (cutoff 1 = open)
+  setFilter(cut, res) {
+    this.fcT = Math.log(crClamp(CK.FILTER_HZ[0] * Math.pow(CK.FILTER_HZ[1] / CK.FILTER_HZ[0], cut), 20, 0.45 * this.sr));
+    this.fk = 1 / (CK.FILTER_Q[0] + res * res * (CK.FILTER_Q[1] - CK.FILTER_Q[0]));
+  }
+  // micro tick: cutoff glides (~5 ms), coefficients follow
+  micro() {
+    this.fcLog += (this.fcT - this.fcLog) * this.kF;
+    const w = Math.PI * Math.exp(this.fcLog) / this.sr, g = Math.sin(w) / Math.cos(w);
+    this.a1 = 1 / (1 + g * (g + this.fk)); this.a2 = g * this.a1; this.a3 = g * this.a2;
+  }
   setGain(g) { this.gTarget = g; }
   process(L, R, off, n) {
-    const rDc = this.rDc, rel = this.rel, ceil = CK.LIMIT_CEIL, kG = this.kG, gt = this.gTarget;
+    const rDc = this.rDc, rel = this.rel, ceil = CK.LIMIT_CEIL, kG = this.kG, gt = this.gTarget, a1 = this.a1, a2 = this.a2, a3 = this.a3;
     let xl = this.x1[0], xr = this.x1[1], yl = this.y1[0], yr = this.y1[1], g = this.g, env = this.env;
     for (let i = off; i < off + n; i++) {
       g += kG * (gt - g);
       const a = L[i] * g, b = R[i] * g;
       yl = a - xl + rDc * yl; xl = a;
       yr = b - xr + rDc * yr; xr = b;
-      const p = Math.max(Math.abs(yl), Math.abs(yr));
+      // low-pass
+      let v3 = yl - this.f2[0], v1 = a1 * this.f1[0] + a2 * v3, v2 = this.f2[0] + a2 * this.f1[0] + a3 * v3;
+      this.f1[0] = 2 * v1 - this.f1[0]; this.f2[0] = 2 * v2 - this.f2[0]; const ol = v2;
+      v3 = yr - this.f2[1]; v1 = a1 * this.f1[1] + a2 * v3; v2 = this.f2[1] + a2 * this.f1[1] + a3 * v3;
+      this.f1[1] = 2 * v1 - this.f1[1]; this.f2[1] = 2 * v2 - this.f2[1]; const or = v2;
+      const p = Math.max(Math.abs(ol), Math.abs(or));
       env = p > env ? p : env * rel + p * (1 - rel);
       let k = 1;
       if (env > ceil) { k = ceil / env; this.limited++; }
-      L[i] = yl * k; R[i] = yr * k;
+      L[i] = ol * k; R[i] = or * k;
       if (p * k > this.peak) this.peak = p * k;
     }
     this.x1[0] = xl; this.x1[1] = xr; this.y1[0] = yl; this.y1[1] = yr; this.g = g; this.env = env;
@@ -726,6 +751,8 @@ class CreekMacros {
     this.variety = 0.5;           // tuned pitches: 0 one note .. 0.5 default .. 1 across the scale
     this.decay = 0.5;             // decay times: 0 = 1/4 .. 0.5 = 1x .. 1 = 4x
     this.scaleMask = 0xFFF;       // active scale as pitch classes (bit 0 = C)
+    this.cutoff = 1;              // low-pass: 0 = 30 Hz .. 1 = 18 kHz (open)
+    this.resonance = 0;           // 0 = Q 0.7 .. 1 = Q 20
   }
 }
 
@@ -778,6 +805,7 @@ class CreekEngine {
     if (v.tuneHz) for (let k = 0; k < 4; k++) { const h = v.tuneHz[k]; m.tuneHz[k] = typeof h === 'number' && isFinite(h) && h > 20 && h < 20000 ? h : 0; }
     if (v.tune !== undefined) m.tune = v.tune ? 1 : 0;
     m.freeFlow = fin(v.freeFlow, 0, 1, m.freeFlow); m.variety = fin(v.variety, 0, 1, m.variety); m.decay = fin(v.decay, 0, 1, m.decay);
+    m.cutoff = fin(v.cutoff, 0, 1, m.cutoff); m.resonance = fin(v.resonance, 0, 1, m.resonance);
     if (v.scaleMask !== undefined) m.scaleMask = (v.scaleMask & 0xFFF) || 0xFFF;
     this.applyMacros(this.snapNext);
     this.snapNext = false;
@@ -788,6 +816,8 @@ class CreekEngine {
     this.flow.hold = m.hold;
     this.mixer.setMask(m.mask, m.width);
     this.out.setGain(m.gain);
+    this.out.setFilter(m.cutoff, m.resonance);
+    if (snap) { this.out.fcLog = this.out.fcT; this.out.micro(); }
     if (snap) { this.mixer.w = m.width; this.out.g = m.gain; this.mixer.g.set(this.mixer.target); }
     const sc = this.sched;
     sc.nTune = 0;
@@ -836,7 +866,7 @@ class CreekEngine {
     while (pos < n) {
       if (this.untilTick === 0) this.controlTick();
       const intoMicro = this.sample % CK.MICRO;
-      if (intoMicro === 0) { this.pool.micro(); this.falls.pool.micro(); this.surface.pool.micro(); }
+      if (intoMicro === 0) { this.pool.micro(); this.falls.pool.micro(); this.surface.pool.micro(); this.out.micro(); }
       let seg = CK.MICRO - intoMicro;
       if (seg > this.untilTick) seg = this.untilTick;
       if (seg > n - pos) seg = n - pos;
