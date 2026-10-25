@@ -1,0 +1,4 @@
+# Preset 'trickle', full mix
+seconds 30
+seed 1
+at 0 preset trickle

@@ -1,0 +1,5 @@
+# Sweep roughness 0 -> 1 over 20 s, others at 0.5
+seconds 20
+seed 1
+at 0 set flow 0.5 roughness 0.5 scale 0.5 aeration 0.5
+ramp 0 20 roughness 0 1

@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# build outputs
+daisy/build/
+daisy/test/host_test
+daisy/test/creek_render
+daisy/test/out/
+web/test/out/
+
+# renders are regenerated with `make -C daisy/test renders` (large WAVs)
+renders/
+
+# copyrighted reference papers and the brief (never commit PDFs)
+*.pdf
+
+# local tool settings
+.claude/

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Creek</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Creek <span class="sub">procedural creek · audition</span></h1>
+  <div class="top">
+    <button id="start" class="primary">Start</button>
+    <label>Seed <input id="seed" type="number" value="1" min="0" max="4294967295"></label>
+    <button id="reseed" title="New random seed and reset the engine">New seed</button>
+    <button id="render" title="Render 30 s offline with the current settings and seed">Render 30 s WAV</button>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="fader">
+      <input id="k0" type="range" min="0" max="1" step="0.001" orient="vertical">
+      <div class="lbl">Flow<small>S36</small></div><div class="val" id="v0"></div>
+    </div>
+
+    <div class="mid">
+      <div class="trims">
+        <div class="trim"><input id="k2" type="range" min="0" max="1" step="0.001"><div class="lbl">Scale<small>S31</small></div><div class="val" id="v2"></div></div>
+        <div class="trim"><input id="k3" type="range" min="0" max="1" step="0.001"><div class="lbl">Aeration<small>S32</small></div><div class="val" id="v3"></div></div>
+        <div class="trim"><input id="k4" type="range" min="0" max="1" step="0.001"><div class="lbl">Gain<small>S33</small></div><div class="val" id="v4"></div></div>
+        <div class="trim"><input id="k5" type="range" min="0" max="1" step="0.001"><div class="lbl">Width<small>S34</small></div><div class="val" id="v5"></div></div>
+      </div>
+
+      <div class="switches">
+        <div class="sw"><span>Mode <small>left switch</small></span>
+          <button id="swMode" class="toggle">Performance</button></div>
+        <div class="sw"><span>Slow state <small>right switch</small></span>
+          <button id="swHold" class="toggle">Live</button></div>
+      </div>
+
+      <div class="pads" id="pads"></div>
+      <p class="hint" id="hint"></p>
+    </div>
+
+    <div class="fader">
+      <input id="k1" type="range" min="0" max="1" step="0.001" orient="vertical">
+      <div class="lbl">Roughness<small>S37</small></div><div class="val" id="v1"></div>
+    </div>
+  </section>
+
+  <section class="scope">
+    <canvas id="bubbles" width="900" height="220"></canvas>
+    <div class="legend"><span>bubble births · height = pitch (log, 200 Hz – 10 kHz) · size = level · colour = pan (wake left, drop right)</span></div>
+    <div class="zones" id="zones"></div>
+    <div class="stats" id="stats">stopped</div>
+  </section>
+</main>
+
+<footer>
+  Keys: <b>1–4</b> presets · <b>D</b> diagnostics · <b>H</b> hold · in diagnostics <b>1–5</b> toggle layers, <b>6</b> all · <b>Space</b> start/stop.
+  Same engine as the Touch 2 firmware (C++ port, compared sample by sample).
+</footer>
+
+<script src="engine/creek-config.js"></script>
+<script src="engine/creek-engine.js"></script>
+<script src="engine/creek-controls.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

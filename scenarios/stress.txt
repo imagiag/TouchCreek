@@ -1,0 +1,17 @@
+# Stress: maximum activity, corner settings, rapid control changes and layer toggles.
+seconds 60
+seed 3
+at 0 set flow 1 roughness 1 scale 0 aeration 1 gain 1 width 1.6
+ramp 10 10.05 scale 0 1
+ramp 10.05 10.1 scale 1 0
+ramp 12 12.02 flow 1 0
+ramp 12.02 12.04 flow 0 1
+at 15 set mask 2
+at 15.01 set mask 31
+at 15.02 set hold 1
+at 20 set hold 0 scale 1
+ramp 25 35 aeration 1 0
+ramp 35 36 aeration 0 1
+at 40 set flow 1 roughness 1 scale 1 aeration 1
+every 41 50 0.01 bubble zone 2 amp 4 radius 6 rise 1
+at 55 set gain 4

@@ -1,0 +1,4 @@
+# Preset 'cascade', full mix
+seconds 20
+seed 1
+at 0 preset cascade

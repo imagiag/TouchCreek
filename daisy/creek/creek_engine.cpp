@@ -1,0 +1,115 @@
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC optimize("O3")
+#endif
+#include "creek_engine.h"
+
+namespace creek {
+
+void CreekEngine::Init(float sampleRate, uint32_t seed) {
+    sr_ = sampleRate;
+    srInt_ = (uint32_t)lroundf(sampleRate);
+    for (int l = 0; l < ck::LAYERS; l++) { pL_[l] = bufL_[l]; pR_[l] = bufR_[l]; }
+    pool_.Init(sr_); mixer_.Init(sr_); out_.Init(sr_);
+    Reset(seed);
+}
+
+void CreekEngine::Reset(uint32_t seed) {
+    seed_ = seed;
+    for (int i = 0; i < S_COUNT; i++) rng_[i].Seed(StreamSeed(seed, (uint32_t)i));
+    sample_ = 0; tickIndex_ = 0; untilTick_ = 0;
+    flow_.Init(rng_[S_DRIFT]);
+    queue_.Reset(); pool_.Reset();
+    sched_.Init(sr_, rng_[S_BTIME]);
+    bed_.Init(sr_, rng_[S_BED_DRIFT]);
+    mixer_.Init(sr_); out_.Reset();
+    applyMacros(true);
+    snapNext_ = true;   // the first SetMacros() after a reset jumps instead of gliding
+}
+
+static inline float fin(float x, float lo, float hi, float d) { return isfinite(x) ? Clamp(x, lo, hi) : d; }
+
+void CreekEngine::SetMacros(const Macros& v) {
+    Macros& m = macros_;
+    m.flow = fin(v.flow, 0.f, 1.f, m.flow); m.roughness = fin(v.roughness, 0.f, 1.f, m.roughness);
+    m.scale = fin(v.scale, 0.f, 1.f, m.scale); m.aeration = fin(v.aeration, 0.f, 1.f, m.aeration);
+    m.gain = fin(v.gain, 0.f, 4.f, m.gain); m.width = fin(v.width, 0.f, ck::WIDTH_MAX, m.width);
+    m.mask = v.mask & 0x1Fu; m.hold = v.hold;
+    applyMacros(snapNext_);
+    snapNext_ = false;
+}
+
+void CreekEngine::applyMacros(bool snap) {
+    const Macros& m = macros_;
+    flow_.SetMacros(m.flow, m.roughness, m.scale, m.aeration, snap);
+    flow_.hold = m.hold;
+    mixer_.SetMask(m.mask, m.width);
+    out_.gTarget = m.gain;
+    if (snap) { mixer_.w = m.width; out_.g = m.gain; for (int l = 0; l < ck::LAYERS; l++) mixer_.g[l] = mixer_.target[l]; }
+}
+
+bool CreekEngine::Trigger(const Event& src) {
+    Event e;
+    e.type = src.type; e.zone = src.zone > 2 ? 2 : src.zone;
+    e.radiusMm = src.radiusMm > 0 ? Clamp(src.radiusMm, 0.05f, 50.f) : 0.f;
+    e.amp = src.amp > 0 ? fminf(src.amp, 4.f) : 0.f;
+    e.tauSec = src.tauSec > 0 ? Clamp(src.tauSec, 0.002f, 1.f) : 0.f;
+    e.rise = src.rise >= 0 ? fminf(src.rise, 1.f) : -1.f;
+    e.pan = src.pan >= -1 ? fminf(src.pan, 1.f) : -2.f;
+    const float d = src.delaySec > 0 && isfinite(src.delaySec) ? src.delaySec : 0.f;
+    return queue_.Push(e, sample_ + (uint64_t)lroundf(d * sr_));
+}
+
+void CreekEngine::controlTick() {
+    flow_.Tick(rng_[S_DRIFT]);
+    const uint64_t k = tickIndex_;
+    const int next = (int)(((k + 1) * srInt_) / ck::CONTROL_HZ - (k * srInt_) / ck::CONTROL_HZ);
+    untilTick_ = next; tickIndex_++;
+    sched_.Update(flow_, flow_.m[2]);
+    bed_.Update(flow_, rng_[S_BED_DRIFT], flow_.dt, next);
+}
+
+void CreekEngine::Process(float* left, float* right, size_t frames) {
+    size_t pos = 0;
+    while (pos < frames) {
+        if (untilTick_ == 0) controlTick();
+        const int intoMicro = (int)(sample_ % ck::MICRO);
+        if (intoMicro == 0) pool_.Micro();
+        int seg = ck::MICRO - intoMicro;
+        if (seg > untilTick_) seg = untilTick_;
+        if ((size_t)seg > frames - pos) seg = (int)(frames - pos);
+        renderSegment(left + pos, right + pos, seg);
+        pos += seg; sample_ += seg; untilTick_ -= seg;
+    }
+}
+
+void CreekEngine::renderSegment(float* L, float* R, int n) {
+    for (int l = 0; l < ck::LAYERS; l++) for (int i = 0; i < n; i++) { bufL_[l][i] = 0; bufR_[l][i] = 0; }
+    // events: scheduled births, then queued events due in this segment
+    sched_.Run(rng_[S_BTIME], n);
+    for (int b = 0; b < sched_.nBorn; b++) sched_.Make(rng_[S_BPARAM], sched_.bornZone[b], pool_, sched_.bornOff[b], nullptr);
+    const uint64_t end = sample_ + (uint64_t)n;
+    for (int i = 0; i < ck::QUEUE_SIZE; i++) {
+        if (!queue_.used[i]) continue;
+        const Event& e = queue_.ev[i];
+        if (e.at >= end) continue;
+        queue_.used[i] = false;
+        const int o = e.at > sample_ ? (int)(e.at - sample_) : 0;
+        if (e.type == EV_BUBBLE) sched_.Make(rng_[S_TRIGGER], e.zone, pool_, o, &e);
+    }
+    bed_.Render(bufL_[L_FLOW], bufR_[L_FLOW], n, rng_[S_NOISE_C], rng_[S_NOISE_L], rng_[S_NOISE_R]);
+    pool_.Render(bufL_[L_BUBBLES], bufR_[L_BUBBLES], n);
+    mixer_.Mix(pL_, pR_, L, R, n);
+    out_.Process(L, R, n);
+}
+
+void CreekEngine::GetStats(Stats& s) const {
+    s.births = pool_.births; s.drops = pool_.drops + sched_.over; s.steals = pool_.steals;
+    s.queueDrops = queue_.drops; s.limited = out_.limited; s.peak = out_.peak;
+    s.active = pool_.Active(); s.maxActive = pool_.maxActive;
+    s.sumLog2F = pool_.sumLog2F;
+    s.meanF = pool_.births ? exp2f(pool_.sumLog2F / pool_.births) : 0.f;
+    s.rate = sched_.rate[0] + sched_.rate[1] + sched_.rate[2]; s.gate = flow_.gate;
+    for (int z = 0; z < ck::ZONES; z++) { s.E[z] = flow_.E[z]; s.T[z] = flow_.T[z]; s.B[z] = flow_.B[z]; }
+}
+
+} // namespace creek

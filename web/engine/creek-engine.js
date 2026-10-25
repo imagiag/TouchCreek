@@ -1,0 +1,618 @@
+// =============================================================================
+// Creek — procedural stereo creek synthesis (portable engine, plain C-style JS).
+// The C++ port in daisy/creek/ mirrors this file module by module; keep them in
+// step (daisy/test compares their output).
+//
+// Modules (brief, "Portable DSP boundary"):
+//   CrRng            seeded PRNG streams (one per purpose / layer)
+//   CrFlowState      macros -> three zones of E / T / B, updated at 250 Hz
+//   CrEventQueue     sample-timed pending events (Trigger(), splash children)
+//   CrBubbleScheduler hazard-based bubble births per zone
+//   CrBubblePool     fixed pool of damped sinusoidal voices (van den Doel)
+//   CrFlowBed        noise layers: body / mid / sheen bands
+//   CrSpatialMixer   layer sum, diagnostic mutes, stereo width
+//   CrOutputStage    DC blocker, gain, linked limiter
+//   CreekEngine      init / setMacros / trigger / reset / process
+//
+// Timing: everything that changes over time is tied to the absolute sample
+// counter (control tick every Fs/250 samples, micro tick every CK.MICRO), so
+// the output does not depend on how the host splits it into blocks.
+// =============================================================================
+
+const CR_TWO_PI = 6.283185307179586;
+const CR_LOG = 64;                      // bubble birth log size (power of two)
+const CR_U24 = 5.9604644775390625e-8;   // 2^-24
+const CR_U23 = 1.1920928955078125e-7;   // 2^-23
+
+// ---- PRNG: mulberry32 (32-bit integer ops: identical in JS and C++) --------
+class CrRng {
+  constructor(seed) { this.s = seed >>> 0; }
+  seed(s) { this.s = s >>> 0; }
+  u32() {
+    let t = (this.s = (this.s + 0x6D2B79F5) >>> 0);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return (t ^ (t >>> 14)) >>> 0;
+  }
+  uni() { return (this.u32() >>> 8) * CR_U24; }                 // [0, 1)
+  uniPos() { return (((this.u32() >>> 9) * 2) + 1) * CR_U24; }  // (0, 1)
+  bip() { return (this.u32() >>> 8) * CR_U23 - 1; }             // [-1, 1)
+}
+function crHash(x) {
+  x = (x ^ (x >>> 16)) >>> 0; x = Math.imul(x, 0x7feb352d) >>> 0;
+  x = (x ^ (x >>> 15)) >>> 0; x = Math.imul(x, 0x846ca68b) >>> 0;
+  return (x ^ (x >>> 16)) >>> 0;
+}
+function crStreamSeed(seed, stream) { return crHash((seed + Math.imul(stream + 1, 0x9E3779B9)) >>> 0); }
+// stream ids (fixed: muting a layer never shifts another layer's randomness)
+const CR_S_DRIFT = 0, CR_S_BTIME = 1, CR_S_BPARAM = 2, CR_S_NOISE_C = 3, CR_S_NOISE_L = 4,
+  CR_S_NOISE_R = 5, CR_S_BED_DRIFT = 6, CR_S_EDDY = 7, CR_S_FALLS = 8, CR_S_SURFACE = 9, CR_S_TRIGGER = 10;
+
+function crClamp(x, lo, hi) { return x < lo ? lo : (x > hi ? hi : x); }
+function crLerp(a, b, t) { return a + (b - a) * t; }
+
+// ---- smooth bounded random drift in [-1, 1] -----------------------------
+// Random targets, smoothstep-interpolated over random durations.
+class CrDrift {
+  constructor() { this.from = 0; this.to = 0; this.t = 0; this.dur = 1; this.v = 0; this.minS = 1; this.maxS = 1; }
+  init(rng, minSec, maxSec) {
+    this.minS = minSec; this.maxS = maxSec;
+    this.from = rng.bip(); this.to = rng.bip();
+    this.dur = minSec + (maxSec - minSec) * rng.uni();
+    this.t = 0; this.v = this.from;
+  }
+  tick(rng, dt, timeMul) {
+    this.t += dt;
+    if (this.t >= this.dur) {
+      this.t -= this.dur;
+      this.from = this.to; this.to = rng.bip();
+      this.dur = (this.minS + (this.maxS - this.minS) * rng.uni()) * timeMul;
+      if (this.t > this.dur) this.t = this.dur;
+    }
+    const x = this.t / this.dur, s = x * x * (3 - 2 * x);
+    this.v = this.from + (this.to - this.from) * s;
+    return this.v;
+  }
+}
+
+// ---- TPT state-variable filter (Cytomic), stable under modulation ----------
+class CrSvf {
+  constructor() { this.ic1 = 0; this.ic2 = 0; this.a1 = 0; this.a2 = 0; this.a3 = 0; this.k = 1; }
+  set(fc, q, sr) {
+    const g = Math.tan(Math.PI * crClamp(fc, 10, 0.45 * sr) / sr);
+    this.k = 1 / q;
+    this.a1 = 1 / (1 + g * (g + this.k)); this.a2 = g * this.a1; this.a3 = g * this.a2;
+  }
+  reset() { this.ic1 = 0; this.ic2 = 0; }
+}
+// one-pole TPT high-pass
+class CrHp1 {
+  constructor() { this.s = 0; this.G = 0; }
+  set(fc, sr) { const g = Math.tan(Math.PI * fc / sr); this.G = g / (1 + g); }
+  reset() { this.s = 0; }
+}
+
+// =============================================================================
+// FlowState: shared slow causes. Zones 0 = flow bed (centre), 1 = rock wake
+// (left), 2 = drop (right). E energy, T turbulence, B entrained air, J splash
+// entrainment impulse, all in [0, 1].
+// =============================================================================
+class CrFlowState {
+  constructor() {
+    this.E = new Float32Array(3); this.T = new Float32Array(3); this.B = new Float32Array(3); this.J = new Float32Array(3);
+    this.eta0 = new CrDrift(); this.etaZ = [new CrDrift(), new CrDrift(), new CrDrift()];
+    this.m = new Float32Array(4);       // smoothed F R S A
+    this.target = new Float32Array(4);
+    this.hold = false;
+    this.gate = 0;                      // scene gate (0 = silent)
+  }
+  init(sr, rng) {
+    const dt = 1 / CK.CONTROL_HZ;
+    this.dt = dt;
+    this.kE = 1 - Math.exp(-dt / CK.TAU_E); this.kT = 1 - Math.exp(-dt / CK.TAU_T); this.kB = 1 - Math.exp(-dt / CK.TAU_B);
+    this.kM = 1 - Math.exp(-dt / CK.MACRO_SMOOTH_SEC);
+    this.kJ = Math.exp(-dt / CK.J_DECAY_SEC);
+    this.E.fill(0); this.T.fill(0); this.B.fill(0); this.J.fill(0); this.gate = 0;
+    this.eta0.init(rng, CK.ETA_MIN_SEC, CK.ETA_MAX_SEC);
+    for (let z = 0; z < 3; z++) this.etaZ[z].init(rng, CK.ETA_MIN_SEC, CK.ETA_MAX_SEC);
+  }
+  setMacros(F, R, S, A, first) {
+    this.target[0] = F; this.target[1] = R; this.target[2] = S; this.target[3] = A;
+    if (first) for (let i = 0; i < 4; i++) this.m[i] = this.target[i];
+  }
+  addSplash(z, amount) { this.J[z] = Math.min(CK.J_CAP, this.J[z] + amount); }
+  tick(rng) {
+    const m = this.m;
+    for (let i = 0; i < 4; i++) m[i] += this.kM * (this.target[i] - m[i]);
+    const F = m[0], R = m[1], A = m[3];
+    for (let z = 0; z < 3; z++) this.J[z] *= this.kJ;
+    if (this.hold) return;
+    const e0 = this.eta0.tick(rng, this.dt, 1);
+    let eMax = 0;
+    for (let z = 0; z < 3; z++) {
+      const ez = this.etaZ[z].tick(rng, this.dt, 1);
+      const Es = crClamp(F * F * (0.85 + 0.10 * e0 + 0.05 * ez), 0, 1);
+      this.E[z] += this.kE * (Es - this.E[z]);
+      const E = this.E[z];
+      const Ts = crClamp(E * (0.15 + 0.85 * R) * CK.KZ[z] + 0.10 * ez * E, 0, 1);
+      this.T[z] += this.kT * (Ts - this.T[z]);
+      const Bs = crClamp(A * (0.20 * E + 0.80 * this.T[z] + this.J[z]), 0, 1);
+      this.B[z] += this.kB * (Bs - this.B[z]);
+      if (E > eMax) eMax = E;
+    }
+    this.gate = crClamp((eMax - CK.E_GATE) / (CK.E_GATE_FULL - CK.E_GATE), 0, 1);
+  }
+}
+
+// =============================================================================
+// EventQueue: pending events at absolute sample times (bounded, no allocation).
+// =============================================================================
+const CR_EV_BUBBLE = 0, CR_EV_SPLASH = 1;
+class CrEvent {
+  constructor() { this.type = 0; this.zone = 1; this.radiusMm = 0; this.amp = 0; this.tauSec = 0; this.rise = -1; this.pan = -2; this.delaySec = 0; this.at = 0; }
+}
+class CrEventQueue {
+  constructor(n) { this.ev = []; for (let i = 0; i < n; i++) this.ev.push(new CrEvent()); this.used = new Uint8Array(n); this.drops = 0; }
+  reset() { this.used.fill(0); this.drops = 0; }
+  push(src, at) {
+    for (let i = 0; i < this.used.length; i++) if (!this.used[i]) {
+      const e = this.ev[i];
+      e.type = src.type; e.zone = src.zone; e.radiusMm = src.radiusMm; e.amp = src.amp; e.tauSec = src.tauSec;
+      e.rise = src.rise; e.pan = src.pan; e.at = at; this.used[i] = 1; return true;
+    }
+    this.drops++; return false;
+  }
+}
+
+// =============================================================================
+// BubblePool: fixed slots of damped sinusoids y = A exp(-t/tau) sin(phi(t)).
+// Each voice is a decaying complex phasor rotated once per sample; pitch glides
+// update the rotation at micro ticks, so phase stays continuous.
+// =============================================================================
+class CrBubblePool {
+  constructor() {
+    const N = CK.VOICE_SLOTS;
+    this.n = N;
+    this.on = new Uint8Array(N); this.fading = new Uint8Array(N);
+    this.zr = new Float64Array(N); this.zi = new Float64Array(N);
+    this.c = new Float32Array(N); this.s = new Float32Array(N); this.damp = new Float32Array(N);
+    this.w0 = new Float32Array(N); this.rise = new Float32Array(N); this.riseInc = new Float32Array(N);
+    this.att = new Float64Array(N); this.ka = new Float32Array(N);
+    this.gl = new Float32Array(N); this.gr = new Float32Array(N);
+    this.fade = new Float64Array(N); this.fadeStep = new Float32Array(N);
+    this.life = new Int32Array(N); this.age = new Int32Array(N); this.start = new Int32Array(N);
+    this.wMax = 0;
+    // birth log for displays / LED (not used by the audio path)
+    this.logF = new Float32Array(CR_LOG); this.logA = new Float32Array(CR_LOG); this.logP = new Float32Array(CR_LOG);
+    this.logW = 0;
+    this.reset();
+  }
+  init(sr) {
+    this.sr = sr;
+    this.wMax = CR_TWO_PI * CK.F_MAX_RATIO;
+    this.fadeInc = 1 / (CK.STEAL_FADE_SEC * sr);
+    this.lifeLn = Math.log(Math.pow(10, -CK.RETIRE_DB / 20));
+    this.retireAbs = Math.pow(10, CK.RETIRE_ABS_DB / 20);
+  }
+  reset() {
+    this.on.fill(0); this.fading.fill(0); this.zr.fill(0); this.zi.fill(0);
+    this.births = 0; this.drops = 0; this.steals = 0; this.maxActive = 0; this.sumLog2F = 0;
+  }
+  active() { let a = 0; for (let i = 0; i < this.n; i++) if (this.on[i] && !this.fading[i]) a++; return a; }
+  // Start a voice at sample offset `off` of the current segment.
+  spawn(f0, amp, tau, attack, rise, pan, off) {
+    const N = this.n, sr = this.sr;
+    let act = 0, low = -1, lowE = 1e30;
+    for (let i = 0; i < N; i++) if (this.on[i] && !this.fading[i]) {
+      act++;
+      const e = this.zr[i] * this.zr[i] + this.zi[i] * this.zi[i];
+      if (e < lowE) { lowE = e; low = i; }
+    }
+    if (act >= CK.VOICES) {
+      if (amp * amp <= lowE) { this.drops++; return false; }   // quieter than everything: drop it
+      this.fading[low] = 1; this.fade[low] = 1; this.fadeStep[low] = this.fadeInc; this.steals++;
+    }
+    let v = -1;
+    for (let i = 0; i < N; i++) if (!this.on[i]) { v = i; break; }
+    if (v < 0) { this.drops++; return false; }
+    const w = Math.min(CR_TWO_PI * f0 / sr, this.wMax / (1 + rise));
+    const r = Math.exp(-1 / (tau * sr));
+    this.on[v] = 1; this.fading[v] = 0; this.fade[v] = 1; this.fadeStep[v] = 0;
+    this.zr[v] = amp; this.zi[v] = 0;
+    this.damp[v] = r; this.w0[v] = w;
+    this.c[v] = r * Math.cos(w); this.s[v] = r * Math.sin(w);
+    this.rise[v] = rise; this.riseInc[v] = rise > 0 ? 1 / (CK.RISE_TIME_TAUS * tau * sr) : 0;
+    this.att[v] = 0; this.ka[v] = 1 - Math.exp(-3 / (attack * sr));  // ~95 % after `attack`
+    const p = (crClamp(pan, -1, 1) + 1) * 0.25 * Math.PI;
+    this.gl[v] = Math.cos(p); this.gr[v] = Math.sin(p);
+    // retire at -80 dB re. the event, or earlier once it is below RETIRE_ABS_DB absolute
+    const lifeLn = Math.min(this.lifeLn, Math.log(Math.max(amp, 1e-9) / this.retireAbs));
+    this.life[v] = Math.max(1, Math.ceil(tau * sr * lifeLn)); this.age[v] = 0; this.start[v] = off;
+    this.births++; this.sumLog2F += Math.log2(w * sr / CR_TWO_PI);
+    const j = this.logW & (CR_LOG - 1);
+    this.logF[j] = w * sr / CR_TWO_PI; this.logA[j] = amp; this.logP[j] = pan; this.logW = (this.logW + 1) >>> 0;
+    const nowActive = act >= CK.VOICES ? act : act + 1;
+    if (nowActive > this.maxActive) this.maxActive = nowActive;
+    return true;
+  }
+  // Micro tick: move gliding voices along their pitch rise.
+  micro() {
+    for (let v = 0; v < this.n; v++) {
+      if (!this.on[v] || this.riseInc[v] === 0) continue;
+      const prog = Math.min(1, this.age[v] * this.riseInc[v]);
+      const w = this.w0[v] * (1 + this.rise[v] * prog), r = this.damp[v];
+      this.c[v] = r * Math.cos(w); this.s[v] = r * Math.sin(w);
+      if (prog >= 1) this.riseInc[v] = 0;
+    }
+  }
+  render(L, R, n) {
+    for (let v = 0; v < this.n; v++) {
+      if (!this.on[v]) continue;
+      let zr = this.zr[v], zi = this.zi[v], att = this.att[v], fade = this.fade[v];
+      const c = this.c[v], s = this.s[v], ka = this.ka[v], gl = this.gl[v], gr = this.gr[v], fs = this.fadeStep[v];
+      const i0 = this.start[v];
+      let end = i0 + this.life[v]; if (end > n) end = n;
+      for (let i = i0; i < end; i++) {
+        const nr = zr * c - zi * s; zi = zr * s + zi * c; zr = nr;
+        att += ka * (1 - att);
+        fade -= fs;
+        const y = zi * att * (fade > 0 ? fade : 0);
+        L[i] += y * gl; R[i] += y * gr;
+      }
+      const done = end - i0;
+      this.zr[v] = zr; this.zi[v] = zi; this.att[v] = att; this.fade[v] = fade;
+      this.life[v] -= done; this.age[v] += done; this.start[v] = 0;
+      if (this.life[v] <= 0 || fade <= 0) { this.on[v] = 0; this.fading[v] = 0; }
+    }
+  }
+}
+
+// =============================================================================
+// BubbleScheduler: per-zone hazard accumulators. Each sample adds lambda/Fs;
+// a bubble is born when the sum crosses an exponential threshold -ln(U).
+// Bubble parameters come from their own stream, so timing and timbre are
+// reproducible independently.
+// =============================================================================
+class CrBubbleScheduler {
+  constructor() {
+    this.acc = new Float32Array(3); this.thr = new Float32Array(3); this.inc = new Float32Array(3);
+    this.rate = new Float32Array(3);
+    this.bornZone = new Int32Array(CK.MAX_BIRTHS_PER_MICRO); this.bornOff = new Int32Array(CK.MAX_BIRTHS_PER_MICRO);
+    this.nBorn = 0; this.over = 0;
+    this.lnRmin = Math.log(CK.R_MIN_MM); this.lnRspan = Math.log(CK.R_MAX_MM) - Math.log(CK.R_MIN_MM);
+    this.lnTauSpan = Math.log(CK.TAU_MAX / CK.TAU_MIN);
+    this.ampScale = 0; this.scaleMul = 1;
+  }
+  init(sr, rngT) {
+    this.sr = sr;
+    for (let z = 0; z < 3; z++) { this.acc[z] = 0; this.thr[z] = -Math.log(rngT.uniPos()); this.inc[z] = 0; this.rate[z] = 0; }
+    this.over = 0;
+  }
+  // control tick: rates from the shared state
+  update(fs, S) {
+    let total = 0;
+    for (let z = 0; z < 3; z++) {
+      const B = fs.B[z];
+      const lam = B > CK.B_MIN ? CK.RATE_MAX * CK.ZONE_RATE_W[z] * Math.pow(B, CK.RATE_EXP) * fs.gate : 0;
+      this.rate[z] = lam; this.inc[z] = lam / this.sr; total += lam;
+    }
+    this.scaleMul = CK.SCALE_MUL_MIN * Math.pow(CK.SCALE_MUL_MAX / CK.SCALE_MUL_MIN, S);
+    this.ampScale = CK.BUBBLE_GAIN / Math.sqrt(1 + total / CK.DENSITY_REF);
+  }
+  // collect births in the next n samples
+  run(rngT, n) {
+    this.nBorn = 0;
+    for (let z = 0; z < 3; z++) {
+      const inc = this.inc[z];
+      if (inc <= 0) continue;
+      let acc = this.acc[z];
+      for (let i = 0; i < n; i++) {
+        acc = Math.fround(acc + inc);            // float like the C++ engine: same birth samples
+        if (acc >= this.thr[z]) {
+          acc = Math.fround(acc - this.thr[z]);
+          this.thr[z] = -Math.log(rngT.uniPos());
+          if (this.nBorn < CK.MAX_BIRTHS_PER_MICRO) { this.bornZone[this.nBorn] = z; this.bornOff[this.nBorn] = i; this.nBorn++; }
+          else this.over++;
+        }
+      }
+      this.acc[z] = acc;
+    }
+  }
+  // draw a bubble for zone z; ev (optional) overrides fields >= 0
+  make(rngP, z, pool, off, ev) {
+    const u0 = rngP.uni(), u1 = rngP.uni(), u2 = rngP.uni(), u3 = rngP.uni(), u4 = rngP.uni(), u5 = rngP.uni(), u6 = rngP.bip(), u7 = rngP.bip();
+    const logr = this.lnRmin + this.lnRspan * Math.pow(u0, CK.R_SKEW);
+    let rMm = Math.exp(logr) * this.scaleMul;
+    if (ev && ev.radiusMm > 0) rMm = ev.radiusMm;
+    const f0 = Math.max(CK.F_MIN_HZ, 3000 / rMm);                 // f0 = 3 / r
+    const x = crClamp((Math.log(rMm) - this.lnRmin) / this.lnRspan, 0, 1);
+    let tau = CK.TAU_MIN * Math.exp(this.lnTauSpan * x) * (1 + CK.TAU_JITTER * u6);
+    if (ev && ev.tauSec > 0) tau = ev.tauSec;
+    let amp = Math.pow(10, -CK.AMP_DB_RANGE * Math.pow(u1, CK.AMP_SKEW) / 20) *
+      Math.min(CK.AMP_R_MAX, Math.pow(rMm, CK.AMP_R_EXP)) * this.ampScale;
+    if (ev && ev.amp > 0) amp = ev.amp * CK.BUBBLE_GAIN;
+    const attack = CK.ATTACK_MIN + (CK.ATTACK_MAX - CK.ATTACK_MIN) * u2;
+    let rise = u3 < CK.RISE_PROB ? CK.RISE_MAX * u4 : 0;
+    if (ev && ev.rise >= 0) rise = ev.rise;
+    let pan = CK.ZONE_PAN[z] + CK.ZONE_JITTER[z] * u7;
+    if (ev && ev.pan >= -1) pan = ev.pan;
+    void u5; // reserved (keeps the stream layout stable for later parameters)
+    return pool.spawn(f0, amp, tau, attack, rise, pan, off);
+  }
+}
+
+// =============================================================================
+// FlowBed (noise layers): continuous wash in three overlapping bands.
+//   body  ~90 Hz – 1 kHz, mono (keeps mono playback solid)
+//   mid   ~0.7 – 1.8 kHz, partly independent L/R
+//   sheen ~2 – 4 kHz,     mostly independent L/R
+// Gains and cutoffs drift slowly with the shared state; a faster "flutter"
+// follows turbulence. Gains ramp linearly between control ticks.
+// =============================================================================
+class CrFlowBed {
+  constructor() {
+    this.hp = new CrHp1(); this.body = new CrSvf();
+    this.midL = new CrSvf(); this.midR = new CrSvf(); this.hiL = new CrSvf(); this.hiR = new CrSvf();
+    this.dBody = new CrDrift(); this.dMid = new CrDrift(); this.dHi = new CrDrift(); this.dCut = new CrDrift();
+    this.flMid = new CrDrift(); this.flHi = new CrDrift();
+    this.g = new Float64Array(3); this.gStep = new Float32Array(3);
+    this.aM = Math.sqrt(CK.MID_CORR); this.bM = Math.sqrt(1 - CK.MID_CORR);
+    this.aH = Math.sqrt(CK.HIGH_CORR); this.bH = Math.sqrt(1 - CK.HIGH_CORR);
+  }
+  init(sr, rngD) {
+    this.sr = sr;
+    this.hp.reset(); this.body.reset(); this.midL.reset(); this.midR.reset(); this.hiL.reset(); this.hiR.reset();
+    this.hp.set(CK.BODY_HP_HZ, sr);
+    this.dBody.init(rngD, 0.4, 3.0); this.dMid.init(rngD, 0.3, 2.5); this.dHi.init(rngD, 0.3, 2.0); this.dCut.init(rngD, 0.5, 4.0);
+    this.flMid.init(rngD, CK.FLUTTER_MIN_SEC, CK.FLUTTER_MAX_SEC); this.flHi.init(rngD, CK.FLUTTER_MIN_SEC, CK.FLUTTER_MAX_SEC);
+    this.g.fill(0); this.gStep.fill(0);
+    this.body.set(CK.BODY_LP_HZ[0], CK.BODY_Q, sr); this.midL.set(CK.MID_HZ[0], CK.MID_Q, sr); this.midR.set(CK.MID_HZ[0], CK.MID_Q, sr);
+    this.hiL.set(CK.HIGH_HZ[0], CK.HIGH_Q, sr); this.hiR.set(CK.HIGH_HZ[0], CK.HIGH_Q, sr);
+  }
+  // control tick. `span` = samples until the next tick (gain ramp length)
+  update(fs, rngD, dt, span) {
+    const R = fs.m[1], S = fs.m[2], E = fs.E[0], T = fs.T[0], e0 = fs.eta0.v;
+    const db = this.dBody.tick(rngD, dt, 1), dm = this.dMid.tick(rngD, dt, 1), dh = this.dHi.tick(rngD, dt, 1), dc = this.dCut.tick(rngD, dt, 1);
+    const fm = this.flMid.tick(rngD, dt, 1), fh = this.flHi.tick(rngD, dt, 1);
+    const level = CK.BED_GAIN * Math.pow(E, CK.BED_E_EXP) * fs.gate / (1 + CK.BED_TOP_SQUASH * E * E);
+    const depth = crLerp(CK.MOD_DEPTH[0], CK.MOD_DEPTH[1], crClamp(0.6 * R + 0.8 * T, 0, 1));
+    const flut = depth * crClamp(0.3 + 1.5 * T, 0, 1);
+    const tilt = Math.pow(2, -CK.SCALE_TILT * (2 * S - 1));       // larger Scale -> darker
+    const gB = CK.BODY_GAIN * (0.8 + 0.4 * S) * (1 + depth * (0.6 * e0 + 0.4 * db));
+    const gM = CK.MID_GAIN * (0.5 + 0.7 * R + 1.2 * T) * (1 + depth * (0.5 * e0 + 0.5 * dm)) * (1 + flut * fm);
+    const gH = CK.HIGH_GAIN * (0.3 + 1.0 * R + 1.5 * T) * (1.2 - 0.4 * S) * (1 + depth * (0.4 * e0 + 0.6 * dh)) * (1 + flut * fh);
+    this.gStep[0] = (level * Math.max(0, gB) - this.g[0]) / span;
+    this.gStep[1] = (level * Math.max(0, gM) - this.g[1]) / span;
+    this.gStep[2] = (level * Math.max(0, gH) - this.g[2]) / span;
+    const cm = Math.pow(2, CK.CUT_DEPTH * (0.5 * dc + 0.5 * e0)) * tilt;
+    const tt = crClamp(0.5 * T + 0.5 * R * E, 0, 1);
+    this.body.set(crLerp(CK.BODY_LP_HZ[0], CK.BODY_LP_HZ[1], tt) * cm, CK.BODY_Q, this.sr);
+    const fM = crLerp(CK.MID_HZ[0], CK.MID_HZ[1], tt) * cm, fH = crLerp(CK.HIGH_HZ[0], CK.HIGH_HZ[1], tt) * cm;
+    this.midL.set(fM, CK.MID_Q, this.sr); this.midR.set(fM * 1.03, CK.MID_Q, this.sr);
+    this.hiL.set(fH, CK.HIGH_Q, this.sr); this.hiR.set(fH * 0.97, CK.HIGH_Q, this.sr);
+  }
+  render(L, R, n, rc, rl, rr) {
+    const hp = this.hp, b = this.body, mL = this.midL, mR = this.midR, hL = this.hiL, hR = this.hiR;
+    const aM = this.aM, bM = this.bM, aH = this.aH, bH = this.bH;
+    let g0 = this.g[0], g1 = this.g[1], g2 = this.g[2];
+    const s0 = this.gStep[0], s1 = this.gStep[1], s2 = this.gStep[2];
+    for (let i = 0; i < n; i++) {
+      const c = rc.bip(), l = rl.bip(), r = rr.bip();
+      g0 += s0; g1 += s1; g2 += s2;
+      // body: one-pole HP then SVF low-pass (mono)
+      let v = (c - hp.s) * hp.G, lp = v + hp.s; hp.s = lp + v;
+      const x = c - lp;
+      const yb = crSvfLp(b, x) * g0;
+      const ym1 = crSvfBpN(mL, aM * c + bM * l) * g1, ym2 = crSvfBpN(mR, aM * c + bM * r) * g1;
+      const yh1 = crSvfBpN(hL, aH * c + bH * l) * g2, yh2 = crSvfBpN(hR, aH * c + bH * r) * g2;
+      L[i] = yb + ym1 + yh1; R[i] = yb + ym2 + yh2;
+    }
+    this.g[0] = g0; this.g[1] = g1; this.g[2] = g2;
+  }
+}
+function crSvfLp(f, x) {
+  const v3 = x - f.ic2, v1 = f.a1 * f.ic1 + f.a2 * v3, v2 = f.ic2 + f.a2 * f.ic1 + f.a3 * v3;
+  f.ic1 = 2 * v1 - f.ic1; f.ic2 = 2 * v2 - f.ic2;
+  return v2;
+}
+function crSvfBpN(f, x) { // band-pass normalised to unity gain at the centre
+  const v3 = x - f.ic2, v1 = f.a1 * f.ic1 + f.a2 * v3, v2 = f.ic2 + f.a2 * f.ic1 + f.a3 * v3;
+  f.ic1 = 2 * v1 - f.ic1; f.ic2 = 2 * v2 - f.ic2;
+  return v1 * f.k;
+}
+
+// =============================================================================
+// SpatialMixer: sums the layer buffers with smooth diagnostic mutes, then
+// applies stereo width (mid/side). Zone placement happens per event / band.
+// =============================================================================
+class CrSpatialMixer {
+  constructor() { this.g = new Float64Array(CK_LAYERS); this.target = new Float32Array(CK_LAYERS); this.w = 1; this.wTarget = 1; }
+  init(sr) {
+    this.kMute = 1 - Math.exp(-1 / (CK.MUTE_SMOOTH_SEC * sr));
+    this.kW = 1 - Math.exp(-1 / (CK.UTIL_SMOOTH_SEC * sr));
+    this.g.fill(1); this.target.fill(1); this.w = this.wTarget;
+  }
+  setMask(mask, width) {
+    for (let l = 0; l < CK_LAYERS; l++) this.target[l] = (mask >> l) & 1 ? 1 : 0;
+    this.wTarget = width;
+  }
+  mix(bufL, bufR, outL, outR, off, n) {
+    for (let i = 0; i < n; i++) { outL[off + i] = 0; outR[off + i] = 0; }
+    for (let l = 0; l < CK_LAYERS; l++) {
+      const bl = bufL[l], br = bufR[l], t = this.target[l];
+      let g = this.g[l];
+      if (g === 0 && t === 0) continue;
+      for (let i = 0; i < n; i++) { g += this.kMute * (t - g); outL[off + i] += bl[i] * g; outR[off + i] += br[i] * g; }
+      if (t === 0 && g < 1e-5) g = 0;
+      if (t === 1 && g > 0.99999) g = 1;
+      this.g[l] = g;
+    }
+    let w = this.w;
+    const wt = this.wTarget, kW = this.kW;
+    for (let i = 0; i < n; i++) {
+      w += kW * (wt - w);
+      const L = outL[off + i], R = outR[off + i], m = 0.5 * (L + R), s = 0.5 * (L - R) * w;
+      outL[off + i] = m + s; outR[off + i] = m - s;
+    }
+    this.w = w;
+  }
+}
+
+// =============================================================================
+// OutputStage: DC blocker (~25 Hz), smoothed gain, linked peak limiter with
+// instant attack and smooth release; output never exceeds LIMIT_CEIL.
+// =============================================================================
+class CrOutputStage {
+  constructor() { this.x1 = new Float64Array(2); this.y1 = new Float64Array(2); this.g = 1; this.gTarget = 1; this.env = 0; }
+  init(sr) {
+    this.rDc = Math.exp(-CR_TWO_PI * CK.DC_HZ / sr);
+    this.kG = 1 - Math.exp(-1 / (CK.UTIL_SMOOTH_SEC * sr));
+    this.rel = Math.exp(-1 / (CK.LIMIT_RELEASE_SEC * sr));
+    this.reset();
+  }
+  reset() { this.x1.fill(0); this.y1.fill(0); this.env = 0; this.g = this.gTarget; this.limited = 0; this.peak = 0; }
+  setGain(g) { this.gTarget = g; }
+  process(L, R, off, n) {
+    const rDc = this.rDc, rel = this.rel, ceil = CK.LIMIT_CEIL, kG = this.kG, gt = this.gTarget;
+    let xl = this.x1[0], xr = this.x1[1], yl = this.y1[0], yr = this.y1[1], g = this.g, env = this.env;
+    for (let i = off; i < off + n; i++) {
+      g += kG * (gt - g);
+      const a = L[i] * g, b = R[i] * g;
+      yl = a - xl + rDc * yl; xl = a;
+      yr = b - xr + rDc * yr; xr = b;
+      const p = Math.max(Math.abs(yl), Math.abs(yr));
+      env = p > env ? p : env * rel + p * (1 - rel);
+      let k = 1;
+      if (env > ceil) { k = ceil / env; this.limited++; }
+      L[i] = yl * k; R[i] = yr * k;
+      if (p * k > this.peak) this.peak = p * k;
+    }
+    this.x1[0] = xl; this.x1[1] = xr; this.y1[0] = yl; this.y1[1] = yr; this.g = g; this.env = env;
+  }
+}
+
+// =============================================================================
+// CreekEngine
+// =============================================================================
+class CreekMacros {
+  constructor() {
+    this.flow = 0.2; this.roughness = 0.25; this.scale = 0.2; this.aeration = 0.3;   // "Quiet trickle"
+    this.gain = 1; this.width = 1; this.mask = 0x1F; this.hold = false;
+  }
+}
+
+class CreekEngine {
+  constructor(sr, seed) {
+    this.rng = []; for (let i = 0; i <= CR_S_TRIGGER; i++) this.rng.push(new CrRng(0));
+    this.flow = new CrFlowState(); this.queue = new CrEventQueue(CK.QUEUE_SIZE);
+    this.sched = new CrBubbleScheduler(); this.pool = new CrBubblePool();
+    this.bed = new CrFlowBed(); this.mixer = new CrSpatialMixer(); this.out = new CrOutputStage();
+    this.bufL = []; this.bufR = [];
+    for (let l = 0; l < CK_LAYERS; l++) { this.bufL.push(new Float32Array(CK.MICRO)); this.bufR.push(new Float32Array(CK.MICRO)); }
+    this.macros = new CreekMacros();
+    this.init(sr || 48000, seed === undefined ? 1 : seed);
+  }
+  init(sr, seed) {
+    this.sr = sr;
+    this.pool.init(sr); this.mixer.init(sr); this.out.init(sr);
+    this.reset(seed);
+  }
+  reset(seed) {
+    this.seed = seed >>> 0;
+    for (let i = 0; i < this.rng.length; i++) this.rng[i].seed(crStreamSeed(this.seed, i));
+    this.sample = 0; this.tickIndex = 0; this.untilTick = 0;
+    this.flow.init(this.sr, this.rng[CR_S_DRIFT]);
+    this.queue.reset(); this.pool.reset();
+    this.sched.init(this.sr, this.rng[CR_S_BTIME]);
+    this.bed.init(this.sr, this.rng[CR_S_BED_DRIFT]);
+    this.mixer.init(this.sr); this.out.reset();
+    this.applyMacros(true);
+    this.snapNext = true;      // the first setMacros() after a reset jumps instead of gliding
+  }
+  // values: {flow, roughness, scale, aeration, gain, width, mask, hold}; nonfinite input is ignored
+  setMacros(v) {
+    const m = this.macros;
+    const fin = (x, lo, hi, d) => (typeof x === 'number' && isFinite(x)) ? crClamp(x, lo, hi) : d;
+    m.flow = fin(v.flow, 0, 1, m.flow); m.roughness = fin(v.roughness, 0, 1, m.roughness);
+    m.scale = fin(v.scale, 0, 1, m.scale); m.aeration = fin(v.aeration, 0, 1, m.aeration);
+    m.gain = fin(v.gain, 0, 4, m.gain); m.width = fin(v.width, 0, CK.WIDTH_MAX, m.width);
+    if (v.mask !== undefined) m.mask = v.mask & 0x1F;
+    if (v.hold !== undefined) m.hold = !!v.hold;
+    this.applyMacros(this.snapNext);
+    this.snapNext = false;
+  }
+  applyMacros(snap) {
+    const m = this.macros;
+    this.flow.setMacros(m.flow, m.roughness, m.scale, m.aeration, snap);
+    this.flow.hold = m.hold;
+    this.mixer.setMask(m.mask, m.width);
+    this.out.setGain(m.gain);
+    if (snap) { this.mixer.w = m.width; this.out.g = m.gain; this.mixer.g.set(this.mixer.target); }
+  }
+  // ev: CrEvent-like {type, zone, radiusMm, amp, tauSec, rise, pan, delaySec}; unset (<0 / 0) fields are drawn randomly
+  trigger(ev) {
+    const e = new CrEvent();
+    e.type = ev.type | 0; e.zone = crClamp(ev.zone === undefined ? 1 : ev.zone | 0, 0, 2);
+    e.radiusMm = ev.radiusMm > 0 ? crClamp(ev.radiusMm, 0.05, 50) : 0;
+    e.amp = ev.amp > 0 ? Math.min(ev.amp, 4) : 0; e.tauSec = ev.tauSec > 0 ? crClamp(ev.tauSec, 0.002, 1) : 0;
+    e.rise = ev.rise >= 0 ? Math.min(ev.rise, 1) : -1; e.pan = ev.pan >= -1 ? Math.min(ev.pan, 1) : -2;
+    const d = ev.delaySec > 0 ? ev.delaySec : 0;
+    return this.queue.push(e, this.sample + Math.round(d * this.sr));
+  }
+  controlTick() {
+    this.flow.tick(this.rng[CR_S_DRIFT]);
+    const k = this.tickIndex;
+    const next = Math.floor((k + 1) * this.sr / CK.CONTROL_HZ) - Math.floor(k * this.sr / CK.CONTROL_HZ);
+    this.untilTick = next; this.tickIndex++;
+    this.sched.update(this.flow, this.flow.m[2]);
+    this.bed.update(this.flow, this.rng[CR_S_BED_DRIFT], this.flow.dt, next);
+  }
+  process(L, R, n) {
+    let pos = 0;
+    while (pos < n) {
+      if (this.untilTick === 0) this.controlTick();
+      const intoMicro = this.sample % CK.MICRO;
+      if (intoMicro === 0) this.pool.micro();
+      let seg = CK.MICRO - intoMicro;
+      if (seg > this.untilTick) seg = this.untilTick;
+      if (seg > n - pos) seg = n - pos;
+      this.renderSegment(L, R, pos, seg);
+      pos += seg; this.sample += seg; this.untilTick -= seg;
+    }
+  }
+  renderSegment(L, R, off, n) {
+    const bl = this.bufL, br = this.bufR;
+    for (let l = 0; l < CK_LAYERS; l++) for (let i = 0; i < n; i++) { bl[l][i] = 0; br[l][i] = 0; }
+    // events: scheduled births, then queued events due in this segment
+    const s = this.sched;
+    s.run(this.rng[CR_S_BTIME], n);
+    for (let b = 0; b < s.nBorn; b++) s.make(this.rng[CR_S_BPARAM], s.bornZone[b], this.pool, s.bornOff[b], null);
+    const q = this.queue, end = this.sample + n;
+    for (let i = 0; i < q.used.length; i++) {
+      if (!q.used[i]) continue;
+      const e = q.ev[i];
+      if (e.at >= end) continue;
+      q.used[i] = 0;
+      const o = e.at > this.sample ? e.at - this.sample : 0;
+      if (e.type === CR_EV_BUBBLE) s.make(this.rng[CR_S_TRIGGER], e.zone, this.pool, o, e);
+    }
+    this.bed.render(bl[CK_L_FLOW], br[CK_L_FLOW], n, this.rng[CR_S_NOISE_C], this.rng[CR_S_NOISE_L], this.rng[CR_S_NOISE_R]);
+    this.pool.render(bl[CK_L_BUBBLES], br[CK_L_BUBBLES], n);
+    this.mixer.mix(bl, br, L, R, off, n);
+    this.out.process(L, R, off, n);
+  }
+  stats() {
+    const p = this.pool;
+    return {
+      births: p.births, drops: p.drops + this.sched.over, steals: p.steals, active: p.active(), maxActive: p.maxActive,
+      meanF: p.births ? Math.pow(2, p.sumLog2F / p.births) : 0, sumLog2F: p.sumLog2F, queueDrops: this.queue.drops,
+      limited: this.out.limited, peak: this.out.peak,
+      E: Array.from(this.flow.E), T: Array.from(this.flow.T), B: Array.from(this.flow.B),
+      rate: this.sched.rate[0] + this.sched.rate[1] + this.sched.rate[2], gate: this.flow.gate,
+    };
+  }
+}
+
+if (typeof module !== 'undefined') {
+  module.exports = { CR_LOG, CrRng, crStreamSeed, CreekEngine, CreekMacros, CrEvent, CR_EV_BUBBLE, CR_EV_SPLASH };
+}

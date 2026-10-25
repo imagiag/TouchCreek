@@ -1,0 +1,7 @@
+# One bubble voice: 2 mm (1.5 kHz) without and with a 25 % rise, then 1 mm.
+seconds 2
+seed 1
+at 0 set flow 0.2 aeration 0 mask 2
+at 0.1 bubble zone 0 radius 2 amp 1 rise 0 pan 0
+at 0.7 bubble zone 0 radius 2 amp 1 rise 0.25 pan 0
+at 1.3 bubble zone 0 radius 1 amp 1 rise 0 pan 0

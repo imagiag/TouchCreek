@@ -1,0 +1,20 @@
+# 60 s demonstration: trickle -> rocky -> cascade -> deeper -> trickle (preset-style glides)
+seconds 60
+seed 7
+at 0 preset trickle
+ramp 12 12.25 flow 0.20 0.50
+ramp 12 12.25 roughness 0.25 0.60
+ramp 12 12.25 scale 0.20 0.45
+ramp 12 12.25 aeration 0.30 0.55
+ramp 24 24.25 flow 0.50 0.75
+ramp 24 24.25 roughness 0.60 0.80
+ramp 24 24.25 scale 0.45 0.50
+ramp 24 24.25 aeration 0.55 0.85
+ramp 36 36.25 flow 0.75 0.65
+ramp 36 36.25 roughness 0.80 0.35
+ramp 36 36.25 scale 0.50 0.80
+ramp 36 36.25 aeration 0.85 0.40
+ramp 48 50 flow 0.65 0.20
+ramp 48 50 roughness 0.35 0.25
+ramp 48 50 scale 0.80 0.20
+ramp 48 50 aeration 0.40 0.30

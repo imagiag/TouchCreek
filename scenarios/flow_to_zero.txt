@@ -1,0 +1,5 @@
+# Rocky creek, Flow to 0 at 4 s: silence within 3 s.
+seconds 8
+seed 1
+at 0 preset rocky
+at 4 set flow 0

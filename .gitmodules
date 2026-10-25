@@ -1,0 +1,3 @@
+[submodule "daisy/lib/libDaisy"]
+	path = daisy/lib/libDaisy
+	url = https://github.com/Synthux-Academy/libDaisy.git

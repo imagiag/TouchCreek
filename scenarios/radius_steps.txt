@@ -1,0 +1,9 @@
+# Radius -> pitch: four bubbles per second at 0.5, 1, 2, 4, 6 mm (expect 6000 .. 500 Hz).
+seconds 6
+seed 1
+at 0 set flow 0.2 aeration 0 mask 2
+every 0 1 0.25 bubble zone 0 radius 0.5 amp 1 rise 0 pan 0
+every 1 2 0.25 bubble zone 0 radius 1 amp 1 rise 0 pan 0
+every 2 3 0.25 bubble zone 0 radius 2 amp 1 rise 0 pan 0
+every 3 4 0.25 bubble zone 0 radius 4 amp 1 rise 0 pan 0
+every 4 5 0.25 bubble zone 0 radius 6 amp 1 rise 0 pan 0
