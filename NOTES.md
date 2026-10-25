@@ -35,3 +35,4 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - Optional subtle ambience (disabled for evaluation).
 - LED flicker on loud bubble births.
 - Use S30/S35 for calibration or "bubble glide amount" if listening calls for it.
+- 2026-10-25, user: stress test on hardware (v5 + monitor) stays under 25 % CPU worst block: timing criterion passes.
