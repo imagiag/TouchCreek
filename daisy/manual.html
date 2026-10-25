@@ -66,6 +66,7 @@
   <a class="sub" href="#presets">Presets</a>
   <a class="sub" href="#notes">Notes</a>
   <a class="sub" href="#diagnostics">Diagnostics</a>
+  <a class="sub" href="#midi">MIDI</a>
   <a href="#led">LED</a>
   <a href="#sound">What you hear</a>
   <a href="#emulator">Emulator &amp; monitor</a>
@@ -157,6 +158,17 @@
 </table>
 <p>Muting is smooth (20 ms) and doesn't change what the other layers do. In Presets and Notes all layers always play; the mutes are remembered for next time.</p>
 
+<h3 id="midi">MIDI</h3>
+<p>Connect the Touch 2's USB to a computer (DAW, or a keyboard through the computer) or to a USB-MIDI host box. A keyboard plugged straight into the Touch 2 won't work: both are USB devices. Any channel.</p>
+<table>
+  <tr><th>MIDI</th><th>Function</th></tr>
+  <tr><td class="id">Notes</td><td>Play like the note pads, in every mode: a tuned drop on press, the water pours onto the note while held (chromatic). Velocity = drop level. In Notes mode Free flow and Latch apply.</td></tr>
+  <tr><td class="id">Mod wheel, aftertouch</td><td><b>Surge</b>: the water rushes, raising Flow, Roughness and a little Aeration on top of the knobs; back at zero it changes nothing.</td></tr>
+  <tr><td class="id">Sustain (CC 64)</td><td>Holds notes. Pitch bend ±2 semitones. CC 123 / 120 = all notes off.</td></tr>
+  <tr><td class="id">Program Change 1–4</td><td>The four presets</td></tr>
+  <tr><td class="id">CC</td><td>7 Level · 20 Flow · 21 Roughness · 22 Scale · 23 Aeration · 24 Free flow · 25 Variety · 26 Decay · 27 Width · 14 scale select · 15 root. A CC moves the value; the knob then waits until you move it.</td></tr>
+</table>
+
 <h2 id="led">LED</h2>
 <ul>
   <li>Switching mode: 1 blink = Presets, 2 = Notes, 3 = Diagnostics</li>
@@ -178,7 +190,7 @@
 <h2 id="emulator">Emulator &amp; monitor</h2>
 <ul>
   <li><b>Emulator</b>: run <code>python3 web/serve.py 8766</code> and open <code>http://localhost:8766</code>. Same engine (a JavaScript twin, checked against the firmware's), same panel, pickup and LED. "Render 30 s WAV" saves what you hear.</li>
-  <li><b>Monitor</b>: <code>http://localhost:8766/monitor.html</code> reads the firmware's once-a-second report over USB (Chrome or Edge): CPU load (average and worst audio block), voices, bubbles per second, stack use, dropped events and limiter activity. Use Diagnostics + P09 for the worst case; the brief asks for the worst block below 70 %.</li>
+  <li><b>Monitor</b>: flash the separate <b>monitor</b> build (<code>CreekTouch-v*-monitor.bin</code>; its USB sends statistics instead of MIDI). <code>http://localhost:8766/monitor.html</code> reads its once-a-second report over USB (Chrome or Edge): CPU load (average and worst audio block), voices, bubbles per second, stack use, dropped events and limiter activity. Use Diagnostics + P09 for the worst case; the brief asks for the worst block below 70 %.</li>
 </ul>
 
 <h2 id="build">Building</h2>

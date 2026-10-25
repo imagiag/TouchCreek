@@ -41,3 +41,4 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - 2026-10-25 (user agreed): keep the USB monitor + P09 stress test in releases for now (~14 KB flash; v6 = 120/128 KB). When a feature no longer fits, make it a build option (normal releases without, a separate -monitor build with).
 - 2026-10-25 (user): right switch in Notes = Latch (like TouchPulsar's Hold); elsewhere still Hold slow state.
 - 2026-10-25 (user): Scale goes deeper: radius x up to 4 at the top (S^8 bend, presets unchanged), tau extends to x=1.5 (~0.25 s) with energy compensation, F_MIN 60 Hz, tuned range from C2.
+- 2026-10-25 (user): USB MIDI in normal releases (notes in every mode, mod wheel/aftertouch = Surge, CCs 7/20-27/14/15, PC = presets, sustain, bend +-2); the monitor is now the separate `make monitor` build (CreekTouch-v*-monitor.bin). Emulator has Web MIDI.

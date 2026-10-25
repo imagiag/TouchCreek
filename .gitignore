@@ -3,6 +3,7 @@
 
 # build outputs
 daisy/build/
+daisy/build-monitor/
 daisy/test/host_test
 daisy/test/creek_render
 daisy/test/soak

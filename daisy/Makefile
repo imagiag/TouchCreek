@@ -1,8 +1,9 @@
 # Creek firmware for the Synthux Touch 2 (Daisy Seed)
 TARGET = CreekTouch
 
-# CPU load, voice and stack stats are printed over USB serial once a second
-# (web/monitor.html shows them).
+# USB carries MIDI in the normal build. `make monitor` builds CreekTouch-monitor
+# instead, which sends CPU / voice / stack stats over USB serial once a second
+# for web/monitor.html (no MIDI).
 
 CPP_SOURCES = CreekTouch.cpp $(wildcard creek/*.cpp) $(wildcard ui/*.cpp) $(wildcard touch/*.cpp)
 C_INCLUDES = -Icommon/ -Itouch/
@@ -18,10 +19,15 @@ include $(SYSTEM_FILES_DIR)/Makefile
 CPP_STANDARD = -std=gnu++17
 # -Os keeps the 128 KB internal flash comfortable; the DSP files in creek/ force -O3.
 OPT = -Os
-ifeq ($(DEBUG),1)
-C_DEFS += -DDEBUG=1
+ifeq ($(MONITOR),1)
+C_DEFS += -DCREEK_MONITOR=1
 endif
 LDFLAGS += -Wl,--no-warn-rwx-segments
 
 libs:
 	cd $(LIBDAISY_DIR) && $(MAKE)
+
+monitor:
+	$(MAKE) MONITOR=1 BUILD_DIR=build-monitor TARGET=CreekTouch-monitor
+
+.PHONY: monitor

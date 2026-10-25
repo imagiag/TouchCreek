@@ -25,6 +25,15 @@ float LevelToGain(float v) { return 2.f * v * v; }
 float KnobToWidth(float v) { return v < 0.5f ? v * 2.f : 1.f + (ck::WIDTH_MAX - 1.f) * ((v - 0.5f) / 0.5f); }
 float MidiToHz(int midi) { return 440.f * powf(2.f, (midi - 69) / 12.f); }
 
+int CcToMacro(int cc) {
+    switch (cc) {
+        case 7: return M_LEVEL;  case 20: return M_FLOW;    case 21: return M_ROUGH;
+        case 22: return M_SCALE; case 23: return M_AER;     case 24: return M_FREE;
+        case 25: return M_VARIETY; case 26: return M_DECAY; case 27: return M_WIDTH;
+        default: return -1;
+    }
+}
+
 Controls::Controls() {
     const Preset& p = kPresets[0];
     value[M_FLOW] = p.flow; value[M_ROUGH] = p.roughness; value[M_SCALE] = p.scale; value[M_AER] = p.aeration;
@@ -32,6 +41,7 @@ Controls::Controls() {
     value[M_FREE] = 1.f; value[M_VARIETY] = 0.5f; value[M_DECAY] = 0.5f;
     for (int k = 0; k < 4; k++) glideFrom_[k] = glideTo_[k] = 0;
     for (int i = 0; i < 12; i++) touched[i] = false;
+    for (int i = 0; i < 128; i++) midiDown[i] = false;
 }
 
 void Controls::push(ControlEvent t, int8_t a) {
@@ -66,7 +76,7 @@ void Controls::RecallPreset(int i) {
 void Controls::SetMode(Mode m) {
     if (m == mode) return;
     mode = m;
-    if (m != MODE_NOTES) nHeld = 0;
+    if (m != MODE_NOTES) keepHeld([](const Controls&, int k) { return k >= kMidiKey; });   // MIDI notes play in every mode
     if (m != MODE_DIAG && stress) { stress = false; push(CE_STRESS, 0); }
     push(CE_MODE, (int8_t)m);
 }
@@ -125,11 +135,7 @@ void Controls::PadDown(int pad, float vel) {
             removeHeld(pad);                                          // latched note tapped again: release it
             push(CE_NOTE, (int8_t)pad);
         } else if (note) {
-            pushDrop(MidiToHz(PadMidi(pad)), vel > 0.f ? fminf(1.f, vel) : 0.7f);
-            removeHeld(pad);
-            if (nHeld == kMaxHeld) { for (int j = 0; j + 1 < nHeld; j++) held[j] = held[j + 1]; nHeld--; }
-            held[nHeld++] = pad;
-            push(CE_NOTE, (int8_t)pad);
+            addHeld(pad, MidiToHz(PadMidi(pad)), vel > 0.f ? fminf(1.f, vel) : 0.7f);
         }
     }
 }
@@ -141,6 +147,58 @@ void Controls::PadUp(int pad) {
     removeHeld(pad);
 }
 
+void Controls::keepHeld(bool (*keep)(const Controls&, int)) {
+    int n = 0;
+    for (int i = 0; i < nHeld; i++) if (keep(*this, held[i])) held[n++] = held[i];
+    nHeld = n;
+}
+
+void Controls::addHeld(int key, float hz, float vel) {
+    pushDrop(hz, vel);
+    removeHeld(key);
+    if (nHeld == kMaxHeld) { for (int j = 0; j + 1 < nHeld; j++) held[j] = held[j + 1]; nHeld--; }
+    held[nHeld++] = key;
+    push(CE_NOTE, (int8_t)(key & 0x7F));
+}
+
+// ---------------- MIDI (raw bytes, same entry point as the emulator) ----------------
+void Controls::Midi(uint8_t st, uint8_t d1, uint8_t d2) {
+    const uint8_t t = st & 0xF0;
+    d1 &= 0x7F; d2 &= 0x7F;
+    if (t == 0x90 && d2 > 0) {                                        // note on
+        const int key = kMidiKey + d1;
+        midiDown[d1] = true;
+        if (latch && isHeld(key)) { removeHeld(key); return; }
+        addHeld(key, MidiToHz(d1) * exp2f(bend / 12.f), d2 / 127.f);
+    } else if (t == 0x80 || t == 0x90) {                              // note off
+        midiDown[d1] = false;
+        if (latch || sustain) return;
+        removeHeld(kMidiKey + d1);
+    } else if (t == 0xB0) {
+        const float x = d2 / 127.f;
+        const int m = CcToMacro(d1);
+        if (m >= 0) { SetKnob(m, x); push(CE_CC, (int8_t)m); }
+        else if (d1 == 1) { wheel = x; surge = fmaxf(wheel, pressure); }
+        else if (d1 == 64) {
+            sustain = d2 >= 64;
+            if (!sustain && !latch) keepHeld([](const Controls& c, int k) { return k < kMidiKey || c.midiDown[k - kMidiKey]; });
+        }
+        else if (d1 == 14) setScale(d2 * 7 / 128);
+        else if (d1 == 15) { root = d2 * 12 / 128; push(CE_ROOT, (int8_t)root); }
+        else if (d1 == 120 || d1 == 123) {
+            keepHeld([](const Controls&, int k) { return k < kMidiKey; });
+            for (int i = 0; i < 128; i++) midiDown[i] = false;
+            sustain = false;
+        }
+    } else if (t == 0xC0) {
+        if (d1 < kNumPresets) RecallPreset(d1);
+    } else if (t == 0xD0) {
+        pressure = d1 / 127.f; surge = fmaxf(wheel, pressure);
+    } else if (t == 0xE0) {
+        bend = (float)(((int)d2 << 7 | d1) - 8192) / 8192.f * kBendSemis;
+    }
+}
+
 bool Controls::isHeld(int pad) const {
     for (int i = 0; i < nHeld; i++) if (held[i] == pad) return true;
     return false;
@@ -148,11 +206,8 @@ bool Controls::isHeld(int pad) const {
 
 void Controls::SetRightSwitch(bool down) {
     const bool l = down && mode == MODE_NOTES;
-    if (latch && !l) {                                                // release what isn't touched
-        int n = 0;
-        for (int i = 0; i < nHeld; i++) if (touched[held[i]]) held[n++] = held[i];
-        nHeld = n;
-    }
+    if (latch && !l)                                                  // release what isn't touched / still down
+        keepHeld([](const Controls& c, int k) { return k >= kMidiKey ? (c.midiDown[k - kMidiKey] || c.sustain) : c.touched[k]; });
     latch = l;
     hold = down && mode != MODE_NOTES;
 }
@@ -196,11 +251,16 @@ void Controls::stressTick(double t) {
 void Controls::Compute(Macros& m) const {
     m.flow = value[M_FLOW]; m.roughness = value[M_ROUGH]; m.scale = value[M_SCALE]; m.aeration = value[M_AER];
     m.gain = LevelToGain(value[M_LEVEL]); m.width = KnobToWidth(value[M_WIDTH]);
+    // Surge (mod wheel / aftertouch): the water rushes on top of the knob settings
+    if (surge > 0.f) {
+        m.flow += surge * (1.f - m.flow); m.roughness += 0.6f * surge * (1.f - m.roughness); m.aeration += 0.4f * surge * (1.f - m.aeration);
+    }
     m.mask = mode == MODE_DIAG ? diagMask : 0x1Fu;
     if (stress) { m.flow = stressV_[0]; m.roughness = stressV_[1]; m.scale = stressV_[2]; m.aeration = stressV_[3]; m.mask = 0x1Fu; }
     m.hold = hold;
-    for (int k = 0; k < 4; k++) m.tuneHz[k] = k < nHeld ? MidiToHz(PadMidi(held[k])) : 0.f;
-    m.tune = mode == MODE_NOTES && nHeld > 0;
+    const float bendMul = exp2f(bend / 12.f);
+    for (int k = 0; k < 4; k++) m.tuneHz[k] = k < nHeld ? MidiToHz(KeyMidi(held[k])) * bendMul : 0.f;
+    m.tune = nHeld > 0;
     m.freeFlow = mode == MODE_NOTES ? value[M_FREE] : 1.f;   // presets / diagnostics always flow
     m.variety = value[M_VARIETY]; m.decay = value[M_DECAY];
     m.scaleMask = ScaleMask();

@@ -13,6 +13,9 @@
 //   Notes:       P03..P09 play the scale (tap = tuned drop, hold = the creek's
 //                bubbles gather onto the held notes), P00 / P02 octave,
 //                P11 + P00 / P02 / P03..P09 = scale, P10 + note pad = root
+//   MIDI (any channel): notes play like note pads (drop + pour, chromatic), velocity = drop level,
+//                sustain pedal holds notes, pitch bend +-2, mod wheel / aftertouch = Surge,
+//                CCs for every knob, CC 14/15 scale/root, Program Change 1-4 = presets
 //   Diagnostics: P03..P07 toggle flow / bubbles / eddies / falls / surface, P08 = all on,
 //                P09 = stress test (worst-case settings, rapid jumps, note bursts)
 
@@ -34,7 +37,11 @@ const CC = {
   PRESET_GLIDE_SEC: 0.25,
   BASE_MIDI: 72,            // P03 with root C, octave 0 = C5 (523 Hz, a 5.7 mm bubble)
   MAX_HELD: 4,
-  EV_NONE: 0, EV_PRESET: 1, EV_LAYER: 2, EV_ALL: 3, EV_MODE: 4, EV_SCALE: 5, EV_OCT: 6, EV_ROOT: 7, EV_NOTE: 8, EV_STRESS: 9,
+  EV_NONE: 0, EV_PRESET: 1, EV_LAYER: 2, EV_ALL: 3, EV_MODE: 4, EV_SCALE: 5, EV_OCT: 6, EV_ROOT: 7, EV_NOTE: 8, EV_STRESS: 9, EV_CC: 10,
+  MIDI_KEY: 128,            // held keys: pads 0..11, MIDI notes 128 + note
+  // CC -> macro (CC 1 / channel pressure = Surge, 64 sustain, 14 scale, 15 root, 120/123 all notes off)
+  CC_MAP: { 7: 4, 20: 0, 21: 1, 22: 2, 23: 3, 24: 6, 25: 7, 26: 8, 27: 5 },
+  BEND_SEMIS: 2,
   // same scales as TouchPulsar (semitones above the root for P03..P09)
   SCALES: [
     ['Chromatic', [0, 1, 2, 3, 4, 5, 6]],
@@ -81,6 +88,8 @@ class CreekControls {
     this.lastT = 0;
     this.stress = false;         // diagnostics P09: worst-case stress test
     this.latch = false;          // Notes + right switch down: notes stay held after release
+    this.midiDown = new Uint8Array(128); this.sustain = false;
+    this.surge = 0; this.wheel = 0; this.pressure = 0; this.bend = 0;   // MIDI performance controls
     this.stressV = new Float32Array(4); this.stressNext = 0; this.stressDrop = 0; this.rs = 0x12345678;
   }
   // a physical control moved (after pickup): cancels a running glide for that macro
@@ -99,11 +108,12 @@ class CreekControls {
     if (m === this.mode) return;
     this.mode = m; this.diag = m === CC.MODE_DIAG;
     if (m !== CC.MODE_DIAG && this.stress) { this.stress = false; this.events.push({ type: CC.EV_STRESS, arg: 0 }); }
-    if (m !== CC.MODE_NOTES) this.held.length = 0;
+    if (m !== CC.MODE_NOTES) this.held = this.held.filter((k) => k >= CC.MIDI_KEY);   // MIDI notes play in every mode
     this.events.push({ type: CC.EV_MODE, arg: m });
   }
   chromatic() { return this.scale === 0; }
   octRange() { return this.chromatic() ? [-2, 4] : [-1, 2]; }
+  keyMidi(k) { return k >= CC.MIDI_KEY ? k - CC.MIDI_KEY : this.padMidi(k); }
   // MIDI note of a note pad: root + scale degree + octave (or 7-semitone page in Chromatic)
   padMidi(pad) { return CC.BASE_MIDI + this.root + CC.SCALES[this.scale][1][pad - CC.PAD_NOTE0] + this.oct * (this.chromatic() ? 7 : 12); }
   setScale(s) {
@@ -138,10 +148,7 @@ class CreekControls {
         this.events.push({ type: CC.EV_NOTE, arg: pad });
       } else if (note) {
         const v = vel > 0 ? Math.min(1, vel) : 0.7;
-        this.drops.push({ hz: ccHz(this.padMidi(pad)), vel: v });
-        const j = this.held.indexOf(pad); if (j >= 0) this.held.splice(j, 1);
-        this.held.push(pad); if (this.held.length > CC.MAX_HELD) this.held.shift();
-        this.events.push({ type: CC.EV_NOTE, arg: pad });
+        this.addHeld(pad, ccHz(this.padMidi(pad)), v);
       }
     }
   }
@@ -154,9 +161,49 @@ class CreekControls {
   // right switch: Latch in Notes, Hold (slow state) elsewhere
   setRightSwitch(down) {
     const latch = down && this.mode === CC.MODE_NOTES;
-    if (this.latch && !latch) this.held = this.held.filter((p) => this.touched[p]);   // release what isn't touched
+    if (this.latch && !latch)                                       // release what isn't touched / still down
+      this.held = this.held.filter((k) => (k >= CC.MIDI_KEY ? this.midiDown[k - CC.MIDI_KEY] || this.sustain : this.touched[k]));
     this.latch = latch;
     this.hold = down && this.mode !== CC.MODE_NOTES;
+  }
+  // ---------------- MIDI (raw bytes, same entry point as the firmware) ----------------
+  addHeld(key, hz, vel) {
+    this.drops.push({ hz, vel });
+    const j = this.held.indexOf(key); if (j >= 0) this.held.splice(j, 1);
+    this.held.push(key); if (this.held.length > CC.MAX_HELD) this.held.shift();
+    this.events.push({ type: CC.EV_NOTE, arg: key });
+  }
+  midiNoteOn(n, vel) {
+    const key = CC.MIDI_KEY + n;
+    this.midiDown[n] = 1;
+    if (this.latch && this.held.includes(key)) { this.held.splice(this.held.indexOf(key), 1); return; }
+    this.addHeld(key, ccHz(n) * Math.pow(2, this.bend / 12), vel);
+  }
+  midiNoteOff(n) {
+    this.midiDown[n] = 0;
+    if (this.latch || this.sustain) return;
+    const j = this.held.indexOf(CC.MIDI_KEY + n); if (j >= 0) this.held.splice(j, 1);
+  }
+  midiCc(c, v) {           // v 0..127
+    const x = v / 127, m = CC.CC_MAP[c];
+    if (m !== undefined) { this.setKnob(m, x); this.events.push({ type: CC.EV_CC, arg: m }); }
+    else if (c === 1) { this.wheel = x; this.surge = Math.max(this.wheel, this.pressure); }
+    else if (c === 64) {
+      this.sustain = v >= 64;
+      if (!this.sustain && !this.latch) this.held = this.held.filter((k) => k < CC.MIDI_KEY || this.midiDown[k - CC.MIDI_KEY]);
+    }
+    else if (c === 14) this.setScale(Math.min(6, Math.floor(v * 7 / 128)));
+    else if (c === 15) { this.root = Math.min(11, Math.floor(v * 12 / 128)); this.events.push({ type: CC.EV_ROOT, arg: this.root }); }
+    else if (c === 120 || c === 123) { this.held = this.held.filter((k) => k < CC.MIDI_KEY); this.midiDown.fill(0); this.sustain = false; }
+  }
+  midi(st, d1, d2) {
+    const t = st & 0xF0;
+    if (t === 0x90 && d2 > 0) this.midiNoteOn(d1, d2 / 127);
+    else if (t === 0x80 || (t === 0x90 && d2 === 0)) this.midiNoteOff(d1);
+    else if (t === 0xB0) this.midiCc(d1, d2);
+    else if (t === 0xC0) { if (d1 < CREEK_PRESETS.length) this.recallPreset(d1); }
+    else if (t === 0xD0) { this.pressure = d1 / 127; this.surge = Math.max(this.wheel, this.pressure); }
+    else if (t === 0xE0) this.bend = (((d2 << 7) | d1) - 8192) / 8192 * CC.BEND_SEMIS;
   }
   // t in seconds (monotonic)
   tick(t) {
@@ -196,12 +243,16 @@ class CreekControls {
     m.flow = this.value[CC.M_FLOW]; m.roughness = this.value[CC.M_ROUGH];
     m.scale = this.value[CC.M_SCALE]; m.aeration = this.value[CC.M_AER];
     m.gain = ccLevel(this.value[CC.M_LEVEL]); m.width = ccWidth(this.value[CC.M_WIDTH]);
+    // Surge (mod wheel / aftertouch): the water rushes on top of the knob settings
+    const s = this.surge;
+    if (s > 0) { m.flow += s * (1 - m.flow); m.roughness += 0.6 * s * (1 - m.roughness); m.aeration += 0.4 * s * (1 - m.aeration); }
     m.mask = this.mode === CC.MODE_DIAG ? this.diagMask : 0x1F;
     if (this.stress) { m.flow = this.stressV[0]; m.roughness = this.stressV[1]; m.scale = this.stressV[2]; m.aeration = this.stressV[3]; m.mask = 0x1F; }
     m.hold = this.hold;
     if (!m.tuneHz) m.tuneHz = [0, 0, 0, 0];
-    for (let k = 0; k < 4; k++) m.tuneHz[k] = k < this.held.length ? ccHz(this.padMidi(this.held[k])) : 0;
-    m.tune = this.mode === CC.MODE_NOTES && this.held.length > 0 ? 1 : 0;
+    const bendMul = Math.pow(2, this.bend / 12);
+    for (let k = 0; k < 4; k++) m.tuneHz[k] = k < this.held.length ? ccHz(this.keyMidi(this.held[k])) * bendMul : 0;
+    m.tune = this.held.length > 0 ? 1 : 0;
     m.freeFlow = this.mode === CC.MODE_NOTES ? this.value[CC.M_FREE] : 1;   // presets / diagnostics always flow
     m.variety = this.value[CC.M_VARIETY]; m.decay = this.value[CC.M_DECAY];
     m.scaleMask = this.scaleMask();

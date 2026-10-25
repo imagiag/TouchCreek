@@ -73,6 +73,7 @@ function handleEvents() {
     else if (e.type === CC.EV_ROOT) blink(1, 120, 0);
     else if (e.type === CC.EV_NOTE) led.flickerUntil = performance.now() + 40;
     else if (e.type === CC.EV_STRESS) blink(e.arg ? 4 : 1, 40, 40);
+    else if (e.type === CC.EV_CC) take[e.arg].hold(ctl.value[e.arg], physPos[PHYS_OF[e.arg]]);   // knob waits until moved
   }
   ctl.events.length = 0;
 }
@@ -336,6 +337,19 @@ $('render').onclick = () => {
   a.href = URL.createObjectURL(wavBlob(L, R, sr));
   a.download = `creek-seed${seed()}-F${m.flow.toFixed(2)}-R${m.roughness.toFixed(2)}-S${m.scale.toFixed(2)}-A${m.aeration.toFixed(2)}.wav`;
   a.click();
+};
+
+// ------------------------------------------------------------------ MIDI (Web MIDI -> same Controls.midi as the firmware)
+let midiOn = false;
+$('midiBtn').onclick = async () => {
+  if (midiOn) return;
+  if (!navigator.requestMIDIAccess) { $('midiBtn').textContent = 'No Web MIDI (use Chrome)'; return; }
+  try {
+    const acc = await navigator.requestMIDIAccess();
+    const hook = () => { let n = 0; acc.inputs.forEach((inp) => { n++; inp.onmidimessage = (e) => { const d = e.data; if (d.length >= 2) { ctl.midi(d[0], d[1], d.length > 2 ? d[2] : 0); ensureAudio(); } }; });
+      $('midiBtn').textContent = n ? `MIDI: ${n} input${n > 1 ? 's' : ''}` : 'MIDI: no inputs'; };
+    acc.onstatechange = hook; hook(); midiOn = true; $('midiBtn').classList.add('on');
+  } catch (err) { $('midiBtn').textContent = 'MIDI blocked'; }
 };
 
 // ------------------------------------------------------------------ wiring

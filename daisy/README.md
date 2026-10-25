@@ -62,6 +62,14 @@ Presets glide over 250 ms. After a preset, the four sound knobs (Flow, Roughness
 
 Muting is smooth (20 ms) and doesn't change what the other layers do. In Presets and Notes all layers always play; the diagnostic mutes are remembered for next time.
 
+### MIDI
+Connect the Touch 2's USB to a computer (DAW, or a keyboard through the computer) or to a USB-MIDI host box; a keyboard plugged straight into the Touch 2 won't work, as both are USB devices. Any channel.
+- **Notes** play like the note pads, in every mode: a tuned drop on press, the water pours onto the note while held (chromatic, any pitch). Velocity = drop level. In Notes mode Free flow and Latch apply.
+- **Sustain pedal** (CC 64) holds notes; **pitch bend** ±2 semitones; **CC 123 / 120** all notes off.
+- **Mod wheel** (CC 1) and **channel aftertouch** = **Surge**: the water rushes, raising Flow, Roughness and a little Aeration on top of the knobs; back at zero it changes nothing.
+- **Program Change** 1–4 = the four presets.
+- **CCs**: 7 Level · 20 Flow · 21 Roughness · 22 Scale · 23 Aeration · 24 Free flow · 25 Variety · 26 Decay · 27 Width · 14 scale select (0–127 over the 7 scales) · 15 root (0–127 over C … B). A CC moves the value; the physical knob then waits until you move it (soft pickup).
+
 ### LED
 - Switching mode: 1 blink = Presets, 2 = Notes, 3 = Diagnostics
 - 1–4 blinks: preset number; 1–7 quick blinks: scale number; octave changes blink the octave; 1 long blink: root set
@@ -90,7 +98,7 @@ Everything is made of short decaying tones; there is no noise in the sound for n
 
 ## Browser emulator and offline renders
 - **Emulator**: `python3 web/serve.py 8766`, then open http://localhost:8766. Same engine (JS twin of the firmware engine), same panel, same pickup and LED. "Render 30 s WAV" saves what you're hearing.
-- **Monitor**: open http://localhost:8766/monitor.html (Chrome or Edge) with the Touch 2 plugged in by USB and click Connect. The firmware reports CPU load (average and worst 1 ms block), voices, bubbles per second, stack use, dropped events and limiter activity once a second. Use Diagnostics + P09 for the worst case.
+- **Monitor**: flash the separate **monitor** build (`releases/CreekTouch-v*-monitor.bin`, USB = stats instead of MIDI), open http://localhost:8766/monitor.html (Chrome or Edge) with the Touch 2 plugged in by USB and click Connect. The firmware reports CPU load (average and worst 1 ms block), voices, bubbles per second, stack use, dropped events and limiter activity once a second. Use Diagnostics + P09 for the worst case.
 - **Manual (HTML)**: [manual.html](manual.html). **Validation report**: [../REPORT.md](../REPORT.md).
 - **Reference renders**: `make -C daisy/test renders` renders every scenario in `scenarios/` to `renders/` with the C++ engine (24-bit WAV plus a .json with seed, settings, automation, version and stats). Identical every time.
 - **Tests**: `make -C daisy/test` runs the acceptance checks and compares the C++ engine with the JS one; `make -C daisy/test soak` runs the 30-minute stability test.
@@ -102,4 +110,4 @@ git submodule update --init --recursive
 make -C daisy/lib/libDaisy
 make -C daisy
 ```
-The firmware always reports CPU load and voice statistics once a second over USB serial (115200 baud, lines starting with `CREEK`); see the monitor above.
+The normal build uses USB for MIDI. `make -C daisy monitor` builds `build-monitor/CreekTouch-monitor.bin` instead, which reports CPU load and voice statistics once a second over USB serial (lines starting with `CREEK`) for the monitor page.

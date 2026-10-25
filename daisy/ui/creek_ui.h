@@ -40,6 +40,7 @@ public:
 
     void Init(daisy::DaisySeed& hw);
     void Process(daisy::DaisySeed& hw);   // UI tick, every ~4 ms (main loop)
+    void PollMidi();                      // every main-loop pass (USB MIDI; not in the monitor build)
 
     // audio callback side: newest macros from the mailbox, then render
     void AudioBlock(float* left, float* right, size_t n);
@@ -60,6 +61,9 @@ private:
     creek::CreekEngine& engine_;
     creek::Controls ctl_;
     creek::Macros macros_;
+#if !CREEK_MONITOR
+    daisy::MidiUsbHandler midi_;   // USB carries either MIDI (normal build) or the monitor report (MONITOR=1)
+#endif
 
     Takeover knob_[creek::M_COUNT];
     bool firstRun_ = true, altPrev_ = false;

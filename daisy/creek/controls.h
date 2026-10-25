@@ -12,6 +12,9 @@
 //   Notes:       P03..P09 play the scale (tap = tuned drop, hold = the creek's
 //                bubbles gather onto the held notes), P00 / P02 octave,
 //                P11 + P00 / P02 / P03..P09 = scale, P10 + note pad = root
+//   MIDI (any channel): notes play like note pads (drop + pour, chromatic), velocity = drop level,
+//                sustain pedal holds notes, pitch bend +-2, mod wheel / aftertouch = Surge,
+//                CCs for every knob, CC 14/15 scale/root, Program Change 1-4 = presets
 //   Diagnostics: P03..P07 toggle flow / bubbles / eddies / falls / surface, P08 = all on,
 //                P09 = stress test (worst-case settings, rapid jumps, note bursts)
 #pragma once
@@ -30,7 +33,10 @@ extern const Scale kScales[kNumScales];
 
 enum MacroIndex { M_FLOW = 0, M_ROUGH, M_SCALE, M_AER, M_LEVEL, M_WIDTH, M_FREE, M_VARIETY, M_DECAY, M_COUNT };
 enum Mode { MODE_PRESETS = 0, MODE_NOTES, MODE_DIAG };
-enum ControlEvent : uint8_t { CE_NONE = 0, CE_PRESET, CE_LAYER, CE_ALL, CE_MODE, CE_SCALE, CE_OCT, CE_ROOT, CE_NOTE, CE_STRESS };
+enum ControlEvent : uint8_t { CE_NONE = 0, CE_PRESET, CE_LAYER, CE_ALL, CE_MODE, CE_SCALE, CE_OCT, CE_ROOT, CE_NOTE, CE_STRESS, CE_CC };
+constexpr int kMidiKey = 128;        // held keys: pads 0..11, MIDI notes 128 + note
+constexpr float kBendSemis = 2.f;
+int CcToMacro(int cc);               // -1 if the CC is not a knob
 
 constexpr int kPadOctDn = 0, kPadOctUp = 2, kPadRoot = 10, kPadScale = 11;
 constexpr int kPadPreset0 = 3, kPadNote0 = 3, kPadLayer0 = 3, kPadAll = 8, kPadStress = 9;
@@ -53,6 +59,8 @@ public:
     void PadDown(int pad, float vel);
     void PadUp(int pad);
     void SetRightSwitch(bool down);   // Latch in Notes, Hold (slow state) elsewhere
+    void Midi(uint8_t status, uint8_t d1, uint8_t d2);   // raw MIDI (channel messages)
+    int KeyMidi(int key) const { return key >= kMidiKey ? key - kMidiKey : PadMidi(key); }
     void Tick(double t);
     bool Gliding() const { return glideT_ >= 0; }
     void Compute(Macros& m) const;
@@ -72,6 +80,9 @@ public:
     int nHeld = 0;
     bool stress = false;        // diagnostics P09: worst-case stress test
     bool latch = false;         // Notes + right switch down: notes stay held after release
+    bool midiDown[128];
+    bool sustain = false;
+    float surge = 0, wheel = 0, pressure = 0, bend = 0;   // MIDI performance controls
 
 private:
     bool chromatic() const { return scale == 0; }
@@ -79,6 +90,8 @@ private:
     void setScale(int s);
     void removeHeld(int pad);
     bool isHeld(int pad) const;
+    void addHeld(int key, float hz, float vel);
+    void keepHeld(bool (*keep)(const Controls&, int));
     void push(ControlEvent t, int8_t a);
     void pushDrop(float hz, float vel);
     float rnd();

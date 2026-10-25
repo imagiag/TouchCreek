@@ -11,6 +11,31 @@ void CreekUI::Init(DaisySeed& hw) {
     touch_.pads().SetOnRelease([this](uint16_t pad) { ctl_.PadUp(pad); });
     ctl_.Compute(macros_);
     post();
+#if !CREEK_MONITOR
+    MidiUsbHandler::Config midiCfg;
+    midi_.Init(midiCfg);
+    midi_.StartReceive();
+#endif
+}
+
+// USB MIDI -> raw bytes -> Controls::Midi (same entry point as the emulator's Web MIDI)
+void CreekUI::PollMidi() {
+#if !CREEK_MONITOR
+    midi_.Listen();
+    while (midi_.HasEvents()) {
+        MidiEvent m = midi_.PopEvent();
+        const uint8_t ch = (uint8_t)(m.channel & 0x0F);
+        switch (m.type) {
+            case NoteOff: case NoteOn: case ControlChange: case ProgramChange: case ChannelPressure: case PitchBend:
+                ctl_.Midi((uint8_t)(0x80 | (m.type << 4) | ch), m.data[0], m.data[1]);
+                break;
+            case ChannelMode: // CC 120..127 (all notes off etc.)
+                ctl_.Midi((uint8_t)(0xB0 | ch), m.data[0], m.data[1]);
+                break;
+            default: break;
+        }
+    }
+#endif
 }
 
 double CreekUI::now() {
@@ -126,6 +151,9 @@ void CreekUI::handleEvents() {
             case CE_ROOT:  blink(1, 120, 0); break;
             case CE_NOTE:  flickerUntil_ = now() + 0.04; break;
             case CE_STRESS: blink(arg ? 4 : 1, 40, 40); break;
+            case CE_CC:    // a MIDI CC moved this value: its knob waits until it's moved (as TouchPulsar)
+                if (arg >= 0 && arg < M_COUNT) knob_[arg].Hold(ctl_.value[arg], phys[kPhys[arg]]->Value());
+                break;
             default: break;
         }
     }

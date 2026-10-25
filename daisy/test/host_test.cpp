@@ -95,6 +95,33 @@ static void controlsTests() {
         CHECK(h.hold && !h.latch, "right switch in Presets = Hold slow state");
     }
 
+    // MIDI
+    {
+        Controls c; Macros mm; Drop dm;
+        c.Midi(0x90, 69, 127); c.Compute(mm);
+        CHECK(c.PopDrop(dm) && fabsf(dm.hz - 440.f) < 0.01f && dm.vel == 1.f, "MIDI note on = drop at its pitch, velocity");
+        CHECK(mm.tune && fabsf(mm.tuneHz[0] - 440.f) < 0.01f, "MIDI notes pour in Presets mode too");
+        c.Midi(0x80, 69, 0); c.Compute(mm); CHECK(!mm.tune, "note off releases");
+        c.Midi(0xB0, 64, 127); c.Midi(0x91, 60, 80); c.Midi(0x81, 60, 0); c.Compute(mm);
+        CHECK(mm.tune, "sustain pedal holds");
+        c.Midi(0xB0, 64, 0); c.Compute(mm); CHECK(!mm.tune, "pedal up releases");
+        c.Midi(0xB0, 20, 0); ControlEvent ce; int8_t ca; bool sawCc = false;
+        while (c.PopEvent(ce, ca)) if (ce == CE_CC && ca == M_FLOW) sawCc = true;
+        CHECK(c.value[M_FLOW] == 0.f && sawCc, "CC 20 sets Flow (and asks the knob to wait for pickup)");
+        c.Midi(0xB0, 1, 127); c.Compute(mm);
+        CHECK(mm.flow > 0.99f && mm.roughness > c.value[M_ROUGH], "mod wheel = Surge (Flow and Roughness up)");
+        c.Midi(0xB0, 1, 0); c.Compute(mm); CHECK(mm.flow == 0.f, "wheel back = no change");
+        c.Midi(0xC0, 3, 0); CHECK(c.preset == 3 && c.Gliding(), "Program Change 4 = Deeper run");
+        while (c.PopDrop(dm)) {}
+        c.Midi(0xE0, 0x7F, 0x7F); c.Midi(0x90, 69, 100); c.PopDrop(dm);
+        CHECK(fabsf(dm.hz - 440.f * exp2f(2.f / 12.f)) < 0.1f, "pitch bend +2 semitones");
+        c.Midi(0xB0, 123, 0); c.Compute(mm); CHECK(!mm.tune, "all notes off");
+        c.Midi(0xB0, 14, 127); CHECK(c.scale == 6, "CC 14 picks the scale");
+        Controls lt; lt.SetMode(MODE_NOTES); lt.SetRightSwitch(true);
+        lt.Midi(0x90, 64, 90); lt.Midi(0x80, 64, 0); lt.Compute(mm); CHECK(mm.tune, "latch holds MIDI notes");
+        lt.Midi(0x90, 64, 90); lt.Compute(mm); CHECK(!mm.tune, "playing a latched MIDI note again releases it");
+    }
+
     // stress test (diagnostics P09)
     Controls st; st.SetMode(MODE_DIAG); st.Tick(10.0);
     st.PadDown(kPadStress, .7f); st.PadUp(kPadStress);

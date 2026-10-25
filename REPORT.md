@@ -43,7 +43,7 @@ Renders are regenerated with `make -C daisy/test renders` (not in git, ~160 MB);
 
 ## How to finish the hardware checks
 
-1. Flash `daisy/releases/CreekTouch-v5-monitor-fix.bin`.
+1. Flash the newest monitor build, `daisy/releases/CreekTouch-v*-monitor.bin` (normal builds use USB for MIDI).
 2. Run `python3 web/serve.py 8766`, open http://localhost:8766/monitor.html in Chrome, plug the Touch 2 in, click **Connect**.
 3. Play the four presets and Notes for a minute, then left switch down → **P09** (stress test) and let it run 30 minutes.
 4. Copy the "CPU worst block", "Stack used", "Voices" peak and "Dropped events" into the table below (or paste the copied log into the conversation).
