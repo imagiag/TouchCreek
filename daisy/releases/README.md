@@ -7,8 +7,9 @@ Flash these with https://flash.daisy.audio/ (hold BOOT while plugging in, or BOO
 
 | File | Date | Changes |
 |---|---|---|
+| `CreekTouch-v13.bin` | 2026-10-25 | **Release moved to P11 + S34**, next to Attack (P11 + S33): both envelope controls on one modifier. CCs unchanged (107 / 72). |
 | `CreekTouch-v12.bin` | 2026-10-25 | Same sound and controls as v11. The P09 stress test is now only in the monitor build (saves flash); monitor builds are no longer released. |
-| `CreekTouch-v11-attack-release.bin` | 2026-10-25 | **Attack** (P11 + S33, 4 ms – 3 s) and **Release** (P10 + S34, 20 ms – 4 s) for the note pour, as TouchPulsar (CC 107 / 72); release tails stay on the played notes. **Tone** (P10 + S31): dark ↔ bright mix (CC 28). **Deeper Scale**: up to 8× bubble size, ~60 Hz. **Width moved to P10 + S30** (as TouchPulsar). |
+| `CreekTouch-v11-attack-release.bin` | 2026-10-25 | **Attack** (P11 + S33, 4 ms – 3 s) and **Release** (P11 + S34, 20 ms – 4 s) for the note pour, as TouchPulsar (CC 107 / 72); release tails stay on the played notes. **Tone** (P10 + S31): dark ↔ bright mix (CC 28). **Deeper Scale**: up to 8× bubble size, ~60 Hz. **Width moved to P10 + S30** (as TouchPulsar). |
 | `CreekTouch-v11-monitor.bin` | 2026-10-25 | Same as v11, USB = CPU report instead of MIDI. |
 | `CreekTouch-v10-filter.bin` | 2026-10-25 | **Filter** as TouchPulsar: P11 + right fader = low-pass cutoff (30 Hz – 18 kHz, open at power-up), P11 + left fader = resonance (CC 102/103). USB now has its own product ID, so iOS / Audiobus should list it as **Creek** instead of a remembered name. |
 | `CreekTouch-v10-monitor.bin` | 2026-10-25 | Same as v10-filter, USB = CPU report for `web/monitor.html` instead of MIDI. |
@@ -16,7 +17,7 @@ Flash these with https://flash.daisy.audio/ (hold BOOT while plugging in, or BOO
 | `CreekTouch-v9-monitor.bin` | 2026-10-25 | Same as v9-midi but USB sends the CPU / voices / stack report for `web/monitor.html` instead of MIDI. |
 | `CreekTouch-v8-deep.bin` | 2026-10-25 | **Deeper Scale**: the last quarter of S31 bends up to 4× bubble size (was 1.8×) for bass, deepest bubbles ~125 Hz, ringing longer at matched energy. Notes can tune down to C2. Presets unchanged. |
 | `CreekTouch-v7-latch.bin` | 2026-10-25 | **Latch** in Notes: right switch down keeps touched notes pouring after release (up to 4); tap a latched note again to release it. In Presets / Diagnostics the right switch still holds the slow creek state. |
-| `CreekTouch-v6-pour.bin` | 2026-10-25 | **Free flow** (S30, Notes): how much the creek plays by itself, fully left = still; holding a note now **pours** water onto it. **Variety** (S35): left = one note, noon = default, right = across the active scale. **Decay** (S34): ¼× … 4×, noon = default. **Width moved to P10 + S34.** |
+| `CreekTouch-v6-pour.bin` | 2026-10-25 | **Free flow** (S30, Notes): how much the creek plays by itself, fully left = still; holding a note now **pours** water onto it. **Variety** (S35): left = one note, noon = default, right = across the active scale. **Decay** (S34): ¼× … 4×, noon = default. **Width moved to P11 + S34.** |
 | `CreekTouch-v5-monitor-fix.bin` | 2026-10-25 | Fixes the USB report for `web/monitor.html` (lines were too long for libDaisy's logger and got cut off). Sound unchanged from v4. |
 | `CreekTouch-v4-monitor.bin` | 2026-10-25 | Sound as v3 (large bubbles slightly less loud, for headroom). Reports CPU, voices and stack over USB once a second for `web/monitor.html`. **Diagnostics P09 = stress test** (worst case, LED blinks fast). USB shows up as "Creek". |
 | `CreekTouch-v3-layers.bin` | 2026-10-25 | **Phase 2 layers**: eddies (slow swells that make the rock wake surge), small waterfalls (a soft low plop at the drop, then bubbly settling), surface detail (sparse quiet high ticks). **Noise wash off** completely. Controls unchanged from v2. Diagnostics P05–P07 now mute eddies / falls / surface. |

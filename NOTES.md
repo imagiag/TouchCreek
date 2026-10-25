@@ -46,3 +46,4 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - 2026-10-25, user: confirmed Audiobus (iOS) now lists the v10 MIDI build as "Creek" (own USB PID worked).
 - 2026-10-25 (user): Scale deeper (8x, ~60 Hz); Attack P11+S33 / Release P10+S34 as TouchPulsar (pour envelope, CC 107/72), release tails stay tuned; Width -> P10+S30 (as Pulsar); Tone P10+S31 (radius-distribution skew, CC 28). Flash 122/128 KB.
 - 2026-10-25 (user): stress test only in monitor build (CREEK_STRESS=1: monitor + host tests); monitor build no longer released, `make -C daisy monitor` on demand. Emulator hides P09 (ctl.stressEnabled=false).
+- 2026-10-25 (user): Attack and Release on the same modifier: P11 + S33 / P11 + S34 (P10 = Width S30, Tone S31).

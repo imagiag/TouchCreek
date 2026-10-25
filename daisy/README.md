@@ -33,10 +33,11 @@ At power-up the creek plays whatever the knobs and faders are set to; the second
   - **P08** - All layers on
   - (monitor build only: **P09** - stress test, worst-case settings and note bursts; LED blinks fast)
 - **P10** - Modifier:
-  - Hold P10 + S30 / S31 / S34 - **Width** / **Tone** / **Release** (see Knobs)
+  - Hold P10 + S30 / S31 - **Width** / **Tone** (see Knobs)
   - Notes: hold P10 + P03...P09 - set the **root key** to that pad's current note (the scale type stays)
 - **P11** - Modifier:
-  - Hold P11 + S33 - **Attack**: how quickly a held note's pour swells in, 4 ms–3 s (default 0.25 s). Pairs with Release (P10 + S34)
+  - Hold P11 + S33 - **Attack**: how quickly a held note's pour swells in, 4 ms–3 s (default 0.25 s)
+  - Hold P11 + S34 - **Release**: how long the pour keeps going after you let go, 20 ms–4 s (default 0.6 s)
   - Hold P11 + right fader (S37) - **Filter cutoff** (30 Hz–18 kHz; fully up = open)
   - Hold P11 + left fader (S36) - **Filter resonance**
   - Notes: P11 + P00 / P02 - Previous / next scale (cycles through all 7 scales)
@@ -49,7 +50,7 @@ Diagnostic mutes are smooth (20 ms), don't change what the other layers do, and 
 - S31 **Scale** | Fine shallow trickle → larger stream body. Bubbles get 0.6× to 1.8× bigger over most of the knob (typical pitch about 3 kHz → 1.3 kHz); the last quarter bends up to 8× for bass, the deepest bubbles around 60 Hz ringing longer. Splashes plop lower, eddies get slower | Hold P10: **Tone** - dark ↔ bright: noon = default mix, left = more big, low bubbles, right = more small, high ones
 - S32 **Aeration** | Sparse bubbling → bubbly white water. Fully left = no bubbles at all
 - S33 **Flow** | Still → trickle → lively creek. More bubbles and splashes (0.2 → 4 per second). Fully left: silence within about 1.5 s | Hold P11: **Attack** (4 ms–3 s)
-- S34 **Decay** | How long every bubble, drop, plop and tick rings. Noon = default; left shorter (down to ¼), right longer (up to 4×) | Hold P10: **Release** (20 ms–4 s; the pour's tail, still on the notes you played)
+- S34 **Decay** | How long every bubble, drop, plop and tick rings. Noon = default; left shorter (down to ¼), right longer (up to 4×) | Hold P11: **Release** (20 ms–4 s; the pour's tail, still on the notes you played)
 - S35 **Variety** (Notes) | Noon = default (the held note, in the octave nearest each bubble's own size). Left: more and more exactly the held note (fully left = one note). Right: more and more other notes of the active scale, up to an octave around the held note
 
 ### Faders
@@ -74,7 +75,7 @@ Everything you hear is made of short decaying tones; there is no noise in the so
 - **Eddies**: Two to four overlapping slow swells (0.3–3 s; slower with larger Scale, deeper with Roughness) in the rock wake. No sound of their own: each makes the left side surge with more, slightly bigger and lower bubbles, then settle.
 - **Small Waterfalls**: At the drop, 0.2–4 times a second as Flow rises: a soft low plop that falls in pitch, then 2–8 bubbles settling over the next tenth of a second (more with Aeration), plus a short burst of extra air. Overlapping splashes share a limited energy, so they never swamp the creek.
 - **Surface Detail**: Sparse, very short, quiet high ticks (2–9 kHz), more near the drop, at turbulence peaks and right after splashes, in loose bursts rather than a steady crackle.
-- **Attack & Release**: As on TouchPulsar (P11 + S33, P10 + S34): how quickly a held note's pour swells in (4 ms – 3 s) and how long it keeps pouring and settling after you let go (20 ms – 4 s).
+- **Attack & Release**: Both on P11 (P11 + S33, P11 + S34; ranges and CCs as TouchPulsar): how quickly a held note's pour swells in (4 ms – 3 s) and how long it keeps pouring and settling after you let go (20 ms – 4 s).
 - **Tone**: P10 + S31 shifts the mix darker (more big, low bubbles) or brighter (more small, high ones); noon = default.
 - **Drops & Pouring**: Tapping a note drops one tuned bubble with 1–3 quieter followers; holding it pours the water onto the note in the rhythm of Flow, Roughness and Aeration. With **Free flow** down the creek is still and only your notes sound; **Variety** decides whether the pour sticks to one note or spreads across the scale; **Latch** keeps notes pouring hands-free.
 - **Surge**: MIDI mod wheel or aftertouch makes the water rush (Flow, Roughness and a little Aeration rise on top of the knobs), a crescendo you can play.
@@ -137,7 +138,7 @@ Creek appears as a USB MIDI device (listed as **Creek**) when connected via the 
 | 26 | S34 **Decay** |
 | 27 | **Width** (P10 + S30) |
 | 28 | **Tone** (P10 + S31) |
-| 72 | **Release** (P10 + S34) |
+| 72 | **Release** (P11 + S34) |
 | 107 | **Attack** (P11 + S33) |
 | 64 | **Sustain** |
 | 102 | **Filter Cutoff** (P11 + S37) |

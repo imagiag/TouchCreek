@@ -140,7 +140,7 @@ const CK = {
   DROP_CHILD_AMP: [0.15, 0.4], // ... at this level relative to the drop
   DROP_PAN: 0.35,           // drops spread +- this around the centre
   TUNE_ATTACK_SEC: 0.25,    // holding a note gathers / pours the bubbles onto it (default; P11 + S33 = Attack) ...
-  TUNE_RELEASE_SEC: 0.6,    // ... and lets go after release (default; P10 + S34 = Release)
+  TUNE_RELEASE_SEC: 0.6,    // ... and lets go after release (default; P11 + S34 = Release)
   ATTACK_RANGE_SEC: [0.004, 3.0],   // Attack knob (exponential), as TouchPulsar
   RELEASE_RANGE_SEC: [0.02, 4.0],   // Release knob (exponential), as TouchPulsar
   TUNE_MAX: 0.9,            // share of creek bubbles tuned when fully gathered

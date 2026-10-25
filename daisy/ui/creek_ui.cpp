@@ -53,8 +53,8 @@ static constexpr KnobLayers kLayers[8] = {
     {M_FREE, M_WIDTH, -1},     // S30 Free flow | P10: Width (as TouchPulsar)
     {M_SCALE, M_TONE, -1},     // S31 Scale | P10: Tone
     {M_AER, -1, -1},           // S32 Aeration
-    {M_FLOW, -1, M_ATTACK},    // S33 Flow | P11: Attack (as TouchPulsar)
-    {M_DECAY, M_RELEASE, -1},  // S34 Decay | P10: Release (as TouchPulsar)
+    {M_FLOW, -1, M_ATTACK},    // S33 Flow | P11: Attack
+    {M_DECAY, -1, M_RELEASE},  // S34 Decay | P11: Release (with Attack on P11 + S33)
     {M_VARIETY, -1, -1},       // S35 Variety
     {M_LEVEL, -1, M_RES},      // S36 Level | P11: Resonance
     {M_ROUGH, -1, M_CUTOFF},   // S37 Roughness | P11: Cutoff

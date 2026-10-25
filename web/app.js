@@ -22,7 +22,7 @@ const PADS = [
 const KNOBS = [
   { id: 'S30', p: 0, x: 21.2, y: 49.5, m: CC.M_FREE, alt: CC.M_WIDTH }, { id: 'S31', p: 1, x: 21.2, y: 35.5, m: CC.M_SCALE, alt: CC.M_TONE },
   { id: 'S32', p: 2, x: 40.8, y: 35.5, m: CC.M_AER }, { id: 'S33', p: 3, x: 60.3, y: 35.5, m: CC.M_FLOW, alt11: CC.M_ATTACK },
-  { id: 'S34', p: 4, x: 79.2, y: 35.5, m: CC.M_DECAY, alt: CC.M_RELEASE }, { id: 'S35', p: 5, x: 79.2, y: 49.5, m: CC.M_VARIETY },
+  { id: 'S34', p: 4, x: 79.2, y: 35.5, m: CC.M_DECAY, alt11: CC.M_RELEASE }, { id: 'S35', p: 5, x: 79.2, y: 49.5, m: CC.M_VARIETY },
 ];
 const FADERS = [{ id: 'S36', p: 6, x: 6.5, y: 42, m: CC.M_LEVEL, alt11: CC.M_RES }, { id: 'S37', p: 7, x: 93.5, y: 42, m: CC.M_ROUGH, alt11: CC.M_CUTOFF }];
 const SWITCHES = [ // pos 0 = up, 1 = centre, 2 = down

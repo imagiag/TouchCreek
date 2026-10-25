@@ -5,7 +5,7 @@
 // Panel:
 //   left fader S36 = Level, right fader S37 = Roughness,
 //   S31 = Scale (P10 + S31 = Tone), S32 = Aeration, S33 = Flow (P11 + S33 = Attack),
-//   S34 = Decay (P10 + S34 = Release), S30 = Free flow (P10 + S30 = Width), S35 = Variety,
+//   S34 = Decay (P11 + S34 = Release), S30 = Free flow (P10 + S30 = Width), S35 = Variety,
 //   P11 + S37 = filter cutoff, P11 + S36 = resonance (layers as TouchPulsar)
 //   left switch  (S09/S10): up = Presets, centre = Notes, down = Diagnostics
 //   right switch (S07/S08): down = Hold slow state; in Notes = Latch (touched notes keep pouring,
