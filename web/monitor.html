@@ -54,11 +54,19 @@
 'use strict';
 const $ = (id) => document.getElementById(id);
 const lines = [], hist = [];
-let worst = 0, drops = 0, vdrops = 0, stressSec = 0, stressWorst = 0;
+let resetSinceBoot = false, worst = 0, drops = 0, vdrops = 0, stressSec = 0, stressWorst = 0;
 
+// Firmware line (v4.1+): "CREEK c 15.6 m 18.2 w 23.9 v 21 p 24 b 73 s 4 d 0 f 2 t 9 q 0 l 0 k 1288 x 0"
+// (v4 sent a longer line that libDaisy cut off after "lim": still read what's there.)
 function parse(line) {
   if (!line.startsWith('CREEK ')) return null;
   const num = (re) => { const m = line.match(re); return m ? Number(m[1]) : NaN; };
+  if (/^CREEK c /.test(line)) {
+    const v = {}, t = line.slice(6).trim().split(/\s+/);
+    for (let i = 0; i + 1 < t.length; i += 2) v[t[i]] = Number(t[i + 1]);
+    return { avg: v.c, max: v.m, worst: v.w, voices: v.v, peak: v.p, bubbles: v.b, steals: v.s, drops: v.d,
+      qdrop: v.q, lim: v.l, stack: v.k, stress: v.x };
+  }
   return {
     avg: num(/cpu (-?[\d.]+)/), max: num(/ max (-?[\d.]+)/), worst: num(/worst (-?[\d.]+)/),
     voices: num(/voices (\d+)/), peak: num(/peak (\d+)/), bubbles: num(/bubbles (\d+)/), steals: num(/steals (\d+)/),
@@ -66,7 +74,7 @@ function parse(line) {
   };
 }
 function show(s) {
-  worst = Math.max(worst, s.max);
+  worst = Math.max(worst, s.max, isFinite(s.worst) && !resetSinceBoot ? s.worst : 0);   // firmware also reports its worst since power-up
   hist.push(s.max); if (hist.length > 300) hist.shift();
   vdrops += s.drops;
   if (s.stress) { stressSec++; stressWorst = Math.max(stressWorst, s.max); }
@@ -77,10 +85,10 @@ function show(s) {
   $('tVoices').textContent = `${s.voices} / ${s.peak}`;
   $('tBub').textContent = s.bubbles;
   $('tSteal').textContent = `steals ${s.steals}/s`;
-  $('tStack').textContent = (s.stack / 1024).toFixed(1) + ' KB';
+  $('tStack').textContent = isFinite(s.stack) ? (s.stack / 1024).toFixed(1) + ' KB' : '—';
   $('tDrops').textContent = `${s.qdrop} / ${vdrops}`;
   $('tLim').textContent = (s.lim / 480).toFixed(1) + ' %';
-  $('tStress').textContent = s.stress ? 'running' : 'off';
+  $('tStress').textContent = isFinite(s.stress) ? (s.stress ? 'running' : 'off') : '—';
   $('tStress').className = 'v ' + (s.stress ? 'warn' : '');
   $('tStressT').textContent = stressSec ? `${stressSec} s run, worst ${stressWorst.toFixed(1)} %` : 'Diagnostics + P09';
   draw();
@@ -107,6 +115,7 @@ async function connect() {
     if (done) break;
     buf += value;
     let i;
+    buf = buf.replace(/\$\$/g, '\n');                 // libDaisy marks a cut-off line with "$$" instead of a newline
     while ((i = buf.indexOf('\n')) >= 0) {
       const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
       if (!line) continue;
@@ -119,7 +128,7 @@ async function connect() {
   }
 }
 $('connect').onclick = () => connect().catch((e) => { $('log').textContent = 'Could not connect: ' + e.message; });
-$('reset').onclick = () => { worst = 0; vdrops = 0; stressSec = 0; stressWorst = 0; hist.length = 0; draw(); };
+$('reset').onclick = () => { resetSinceBoot = true; worst = 0; vdrops = 0; stressSec = 0; stressWorst = 0; hist.length = 0; draw(); };
 $('copy').onclick = () => navigator.clipboard.writeText(lines.join('\n'));
 draw();
 </script>

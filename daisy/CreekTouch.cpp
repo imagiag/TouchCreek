@@ -79,7 +79,11 @@ int main(void) {
             // one line per second: easy to read in a serial monitor and to parse
             // CPU in tenths of a percent, printed as integers (no float printf)
             const int avg10 = (int)(cpu.GetAvgCpuLoad() * 1000.f), max10 = (int)(mx * 1000.f), worst10 = (int)(worst * 1000.f);
-            hw.PrintLine("CREEK cpu %d.%d max %d.%d worst %d.%d | voices %d peak %d | bubbles %lu steals %lu drops %lu | splashes %lu ticks %lu | qdrop %lu | lim %lu | stack %lu | stress %d",
+            // Short keys: libDaisy's logger buffer is 128 bytes per line.
+            // c cpu avg, m max this second, w worst since boot (tenths of %), v voices, p peak voices,
+            // b bubbles/s, s steals/s, d dropped/s, f splashes/s, t surface ticks/s, q queue drops (total),
+            // l limited samples/s, k stack bytes, x stress test on
+            hw.PrintLine("CREEK c %d.%d m %d.%d w %d.%d v %d p %d b %lu s %lu d %lu f %lu t %lu q %lu l %lu k %lu x %d",
                          avg10 / 10, avg10 % 10, max10 / 10, max10 % 10, worst10 / 10, worst10 % 10,
                          s.active, s.maxActive,
                          (unsigned long)(s.births - prev.births), (unsigned long)(s.steals - prev.steals), (unsigned long)(s.drops - prev.drops),
