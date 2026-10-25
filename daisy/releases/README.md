@@ -7,6 +7,7 @@ Flash these with https://flash.daisy.audio/ (hold BOOT while plugging in, or BOO
 
 | File | Date | Changes |
 |---|---|---|
+| `CreekTouch-v14-tone-wide.bin` | 2026-10-25 | **Tone moved to P11 + S31** (with Attack / Release / filter) and made **much wider**: the mix shifts further, and near the ends all bubbles move up to an octave (dark) or ~⅔ octave (bright). At mid Scale the average pitch now spans ~350 Hz – 7.5 kHz (was ~1–3.5 kHz). Noon unchanged. |
 | `CreekTouch-v13.bin` | 2026-10-25 | **Release moved to P11 + S34**, next to Attack (P11 + S33): both envelope controls on one modifier. CCs unchanged (107 / 72). |
 | `CreekTouch-v12.bin` | 2026-10-25 | Same sound and controls as v11. The P09 stress test is now only in the monitor build (saves flash); monitor builds are no longer released. |
 | `CreekTouch-v11-attack-release.bin` | 2026-10-25 | **Attack** (P11 + S33, 4 ms – 3 s) and **Release** (P11 + S34, 20 ms – 4 s) for the note pour, as TouchPulsar (CC 107 / 72); release tails stay on the played notes. **Tone** (P10 + S31): dark ↔ bright mix (CC 28). **Deeper Scale**: up to 8× bubble size, ~60 Hz. **Width moved to P10 + S30** (as TouchPulsar). |

@@ -51,7 +51,7 @@ double CreekUI::now() {
 struct KnobLayers { int8_t main, p10, p11; };
 static constexpr KnobLayers kLayers[8] = {
     {M_FREE, M_WIDTH, -1},     // S30 Free flow | P10: Width (as TouchPulsar)
-    {M_SCALE, M_TONE, -1},     // S31 Scale | P10: Tone
+    {M_SCALE, -1, M_TONE},     // S31 Scale | P11: Tone
     {M_AER, -1, -1},           // S32 Aeration
     {M_FLOW, -1, M_ATTACK},    // S33 Flow | P11: Attack
     {M_DECAY, -1, M_RELEASE},  // S34 Decay | P11: Release (with Attack on P11 + S33)

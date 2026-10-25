@@ -73,7 +73,9 @@ void CreekEngine::applyMacros(bool snap) {
     kTuneA_ = 1.f - expf(-1.f / (ck::CONTROL_HZ * m.attack));
     kTuneR_ = 1.f - expf(-1.f / (ck::CONTROL_HZ * m.release));
     sched_.variety = m.variety; sched_.scaleMask = m.scaleMask;
-    sched_.rSkew = ck::R_SKEW * powf(ck::TONE_SKEW_RANGE, 2.f * m.tone - 1.f);
+    const float tb = 2.f * m.tone - 1.f;                         // -1 dark .. +1 bright
+    sched_.rSkew = ck::R_SKEW * powf(ck::TONE_SKEW_RANGE, tb);
+    sched_.toneMul = exp2f((tb < 0.f ? ck::TONE_OCT[0] : -ck::TONE_OCT[1]) * powf(fabsf(tb), ck::TONE_OCT_EXP));
     const float tm = exp2f(ck::DECAY_OCT * (2.f * m.decay - 1.f));
     pool_.tauMul = tm; falls_.pool.tauMul = tm; surface_.pool.tauMul = tm;
     if (snap) freeS_ = m.freeFlow;

@@ -48,3 +48,4 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - 2026-10-25 (user): stress test only in monitor build (CREEK_STRESS=1: monitor + host tests); monitor build no longer released, `make -C daisy monitor` on demand. Emulator hides P09 (ctl.stressEnabled=false).
 - 2026-10-25 (user): Attack and Release on the same modifier: P11 + S33 / P11 + S34 (P10 = Width S30, Tone S31).
 - 2026-10-25 (user): release file names always say what changed: CreekTouch-vN-<what>.bin (v12/v13 were plain by mistake; don't rename old ones).
+- 2026-10-25 (user): Tone -> P11 + S31 and much wider (skew range 6, plus radius shift up to 1 oct dark / 0.6 oct bright near the ends, |t|^2). P10 now only Width (S30).

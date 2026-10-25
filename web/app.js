@@ -20,7 +20,7 @@ const PADS = [
 ];
 // physical controls (p = S30..S37 -> 0..7) -> macro (CC.M_*); alt = macro while P10 is held
 const KNOBS = [
-  { id: 'S30', p: 0, x: 21.2, y: 49.5, m: CC.M_FREE, alt: CC.M_WIDTH }, { id: 'S31', p: 1, x: 21.2, y: 35.5, m: CC.M_SCALE, alt: CC.M_TONE },
+  { id: 'S30', p: 0, x: 21.2, y: 49.5, m: CC.M_FREE, alt: CC.M_WIDTH }, { id: 'S31', p: 1, x: 21.2, y: 35.5, m: CC.M_SCALE, alt11: CC.M_TONE },
   { id: 'S32', p: 2, x: 40.8, y: 35.5, m: CC.M_AER }, { id: 'S33', p: 3, x: 60.3, y: 35.5, m: CC.M_FLOW, alt11: CC.M_ATTACK },
   { id: 'S34', p: 4, x: 79.2, y: 35.5, m: CC.M_DECAY, alt11: CC.M_RELEASE }, { id: 'S35', p: 5, x: 79.2, y: 49.5, m: CC.M_VARIETY },
 ];

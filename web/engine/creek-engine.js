@@ -305,7 +305,8 @@ class CrBubbleScheduler {
     this.tuneLog2 = new Float32Array(4); this.nTune = 0; this.tuneAmt = 0;
     this.tuneMidi = new Float32Array(4);  // held notes as MIDI numbers
     this.variety = 0.5; this.scaleMask = 0xFFF; this.freeFlow = 1; this.activity = 1;
-    this.rSkew = CK.R_SKEW;               // Tone: radius distribution skew
+    this.rSkew = CK.R_SKEW;               // Tone: radius distribution skew ...
+    this.toneMul = 1;                     // ... and radius multiplier at the extremes
     this.rateMul = new Float32Array([1, 1, 1]); this.radMul = new Float32Array([1, 1, 1]);   // eddies (wake)
     this.lastZone = 1;
   }
@@ -380,7 +381,7 @@ class CrBubbleScheduler {
     const u0 = rngP.uni(), u1 = rngP.uni(), u2 = rngP.uni(), u3 = rngP.uni(), u4 = rngP.uni(), u5 = rngP.uni(), u6 = rngP.bip(), u7 = rngP.bip();
     const u8 = rngP.uni(), u9 = rngP.uni();
     const logr = this.lnRmin + this.lnRspan * Math.pow(u0, this.rSkew);
-    let rMm = Math.exp(logr) * this.scaleMul * this.radMul[z];
+    let rMm = Math.exp(logr) * this.scaleMul * this.radMul[z] * this.toneMul;
     if (ev && ev.radiusMm > 0) rMm = ev.radiusMm;
     let f0 = Math.max(CK.F_MIN_HZ, 3000 / rMm);                   // f0 = 3 / r
     const tauBase = this.tauFor(rMm);
@@ -834,7 +835,9 @@ class CreekEngine {
     this.kTuneA = 1 - Math.exp(-1 / (CK.CONTROL_HZ * m.attack));
     this.kTuneR = 1 - Math.exp(-1 / (CK.CONTROL_HZ * m.release));
     sc.variety = m.variety; sc.scaleMask = m.scaleMask;
-    sc.rSkew = CK.R_SKEW * Math.pow(CK.TONE_SKEW_RANGE, 2 * m.tone - 1);
+    const tb = 2 * m.tone - 1;                                    // -1 dark .. +1 bright
+    sc.rSkew = CK.R_SKEW * Math.pow(CK.TONE_SKEW_RANGE, tb);
+    sc.toneMul = Math.pow(2, (tb < 0 ? CK.TONE_OCT[0] : -CK.TONE_OCT[1]) * Math.pow(Math.abs(tb), CK.TONE_OCT_EXP));
     const tm = Math.pow(2, CK.DECAY_OCT * (2 * m.decay - 1));
     this.pool.tauMul = tm; this.falls.pool.tauMul = tm; this.surface.pool.tauMul = tm;
     if (snap) this.freeS = m.freeFlow;

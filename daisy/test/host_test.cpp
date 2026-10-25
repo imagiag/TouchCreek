@@ -402,8 +402,8 @@ static void engineTests() {
         writeF32("stress", L1, R1);
     }
     // --- reference renders for the JS comparison ---
-    for (const char* k : {"trickle", "rocky", "cascade", "deeper", "single_bubble", "presets_walk", "notes", "notes_pour"}) {
-        auto sc = load(k, strcmp(k, "presets_walk") && strcmp(k, "single_bubble") && strcmp(k, "notes") && strcmp(k, "notes_pour") ? 10.f : -1.f);
+    for (const char* k : {"trickle", "rocky", "cascade", "deeper", "single_bubble", "presets_walk", "notes", "notes_pour", "sweep_tone"}) {
+        auto sc = load(k, strcmp(k, "presets_walk") && strcmp(k, "single_bubble") && strcmp(k, "notes") && strcmp(k, "notes_pour") && strcmp(k, "sweep_tone") ? 10.f : -1.f);
         render(eng, sc, 48, L1, R1);
         writeF32(k, L1, R1);
     }

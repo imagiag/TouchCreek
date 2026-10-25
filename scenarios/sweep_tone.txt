@@ -1,0 +1,5 @@
+# Sweep Tone dark -> bright over 20 s, rocky-like settings
+seconds 20
+seed 4
+at 0 set flow 0.6 roughness 0.5 scale 0.5 aeration 0.6
+ramp 0 20 tone 0 1

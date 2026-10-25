@@ -39,7 +39,9 @@ const CK = {
   // radius -> pitch: f0 = 3 / r  (r in metres) [van den Doel]
   R_MIN_MM: 0.4, R_MAX_MM: 6.0,
   R_SKEW: 1.15,             // >1 favours small radii (u^skew in log-radius); Tone knob scales it ...
-  TONE_SKEW_RANGE: 2.6,     // ... by 2.6^(-1..+1): left = more big, low bubbles (dark), right = more small, high ones (bright)
+  TONE_SKEW_RANGE: 6,       // ... by 6^(-1..+1): left = more big, low bubbles (dark), right = more small, high ones (bright) ...
+  TONE_OCT: [1, 0.6],       // ... and towards the ends all bubbles shift by up to [dark, bright] octaves (x2 bigger / x0.66 smaller)
+  TONE_OCT_EXP: 2,          // the octave shift comes in late (|2t-1|^2), so noon stays the default mix
   SCALE_MUL_MIN: 0.6, SCALE_MUL_MAX: 1.8,
   SCALE_MUL_TOP: 8.0,       // ... bending up near the top of the knob to 8x for bass (presets unchanged)
   SCALE_TOP_EXP: 8,         // how late the bend starts (S^8: +27 % at 0.8, x4.4 at 1)

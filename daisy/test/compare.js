@@ -35,6 +35,6 @@ function compare(name, secs) {
 }
 
 for (const [k, s] of [['trickle', 10], ['rocky', 10], ['cascade', 10], ['deeper', 10], ['single_bubble'], ['radius_steps'],
-  ['sweep_flow'], ['presets_walk'], ['stress'], ['notes'], ['notes_pour']]) compare(k, s);
+  ['sweep_flow'], ['presets_walk'], ['stress'], ['notes'], ['notes_pour'], ['sweep_tone']]) compare(k, s);
 console.log(fail ? `${fail} comparison(s) failed` : 'C++ and JS engines match');
 process.exitCode = fail ? 1 : 0;
