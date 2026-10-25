@@ -45,6 +45,7 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - 2026-10-25 (user): Tone -> P11 + S31 and much wider (skew range 6, plus radius shift up to 1 oct dark / 0.6 oct bright near the ends, |t|^2). P10 now only Width (S30).
 
 ## Parked ideas
+- Tune the stone (P01) by ear: user says it needs tuning (2026-10-25), details to come. Knobs in creek-config.js STONE_* (plop pitch/length/gain, burst size/spread/radii/level, surge time/rate, ripples).
 - Right switch: up and centre both = live, so one position is free for a future mode (ideas: notes + presets together, a second knob layer, Hold + Latch together). User: keep as is for now (2026-10-25).
 - Revisit the flow noise / wash (user wants it figured out later): e.g. noise only as very soft, heavily modulated gurgle at high Roughness, or a noise splash transient.
 - Collective low modes during dense bubble clusters (brief, after baseline passes).
