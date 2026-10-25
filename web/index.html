@@ -2,65 +2,65 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Creek</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <h1>Creek <span class="sub">procedural creek · audition</span></h1>
-  <div class="top">
-    <button id="start" class="primary">Start</button>
-    <label>Seed <input id="seed" type="number" value="1" min="0" max="4294967295"></label>
-    <button id="reseed" title="New random seed and reset the engine">New seed</button>
+<header class="top">
+  <div class="brand"><span class="dot" id="led" title="the Daisy Seed LED"></span><h1>Creek</h1>
+    <span class="sub">procedural creek · Touch 2 emulator · same engine as the firmware</span></div>
+  <div class="actions">
+    <label class="seedbox">Seed <input id="seed" type="number" value="1" min="0" max="4294967295"></label>
+    <button id="reseed" title="New random seed (the hardware always uses seed 1)">New seed</button>
     <button id="render" title="Render 30 s offline with the current settings and seed">Render 30 s WAV</button>
+    <button id="power" class="primary">Start audio</button>
   </div>
 </header>
 
 <main>
-  <section class="panel">
-    <div class="fader">
-      <input id="k0" type="range" min="0" max="1" step="0.001" orient="vertical">
-      <div class="lbl">Flow<small>S36</small></div><div class="val" id="v0"></div>
+  <section class="board-wrap">
+    <div class="board" id="board">
+      <div class="seedchip"><span>daisy seed</span></div>
     </div>
-
-    <div class="mid">
-      <div class="trims">
-        <div class="trim"><input id="k2" type="range" min="0" max="1" step="0.001"><div class="lbl">Scale<small>S31</small></div><div class="val" id="v2"></div></div>
-        <div class="trim"><input id="k3" type="range" min="0" max="1" step="0.001"><div class="lbl">Aeration<small>S32</small></div><div class="val" id="v3"></div></div>
-        <div class="trim"><input id="k4" type="range" min="0" max="1" step="0.001"><div class="lbl">Gain<small>S33</small></div><div class="val" id="v4"></div></div>
-        <div class="trim"><input id="k5" type="range" min="0" max="1" step="0.001"><div class="lbl">Width<small>S34</small></div><div class="val" id="v5"></div></div>
-      </div>
-
-      <div class="switches">
-        <div class="sw"><span>Mode <small>left switch</small></span>
-          <button id="swMode" class="toggle">Performance</button></div>
-        <div class="sw"><span>Slow state <small>right switch</small></span>
-          <button id="swHold" class="toggle">Live</button></div>
-      </div>
-
-      <div class="pads" id="pads"></div>
-      <p class="hint" id="hint"></p>
-    </div>
-
-    <div class="fader">
-      <input id="k1" type="range" min="0" max="1" step="0.001" orient="vertical">
-      <div class="lbl">Roughness<small>S37</small></div><div class="val" id="v1"></div>
-    </div>
+    <p class="hint" id="hint"></p>
   </section>
 
-  <section class="scope">
-    <canvas id="bubbles" width="900" height="220"></canvas>
-    <div class="legend"><span>bubble births · height = pitch (log, 200 Hz – 10 kHz) · size = level · colour = pan (wake left, drop right)</span></div>
-    <div class="zones" id="zones"></div>
-    <div class="stats" id="stats">stopped</div>
+  <section class="side">
+    <div class="oled">
+      <div class="oled-row">
+        <span class="tag" id="dMode">PERFORMANCE</span>
+        <span class="big" id="dPreset">Quiet trickle</span>
+        <span class="tag hold" id="dHold">LIVE</span>
+      </div>
+      <canvas id="bubbles" height="190"></canvas>
+      <div class="cap"><span>bubble births · height = pitch (200 Hz – 10 kHz) · size = level · colour = pan</span><span id="dRate"></span></div>
+      <div class="zones" id="zones"></div>
+      <div class="stats" id="stats">audio stopped</div>
+    </div>
+
+    <details class="card" id="help" open>
+      <summary>Controls</summary>
+      <table>
+        <tr><th>Control</th><th>Performance</th><th>Diagnostics</th></tr>
+        <tr><td>Left fader S36</td><td colspan="2"><b>Flow</b>: still → trickle → lively creek. Fully down fades to silence.</td></tr>
+        <tr><td>Right fader S37</td><td colspan="2"><b>Roughness</b>: smooth channel → rocky interruptions (brighter, more movement).</td></tr>
+        <tr><td>S31</td><td colspan="2"><b>Scale</b>: fine shallow trickle → larger stream body (bubble size 0.6–1.8×, lower pitch).</td></tr>
+        <tr><td>S32</td><td colspan="2"><b>Aeration</b>: sparse bubbling → bubbly white water. Fully left = no bubbles.</td></tr>
+        <tr><td>S33</td><td colspan="2"><b>Gain</b>: off at the bottom, 0 dB at noon, +6 dB fully right.</td></tr>
+        <tr><td>S34</td><td colspan="2"><b>Width</b>: mono at the bottom, natural at noon, wider fully right.</td></tr>
+        <tr><td>S30, S35</td><td colspan="2">Reserved.</td></tr>
+        <tr><td>Left switch</td><td>up / centre</td><td>down</td></tr>
+        <tr><td>Right switch</td><td colspan="2">down = <b>Hold</b> the slow creek state (bubbles keep happening).</td></tr>
+        <tr><td>P03 – P06</td><td>Presets: Quiet trickle, Rocky creek, Small cascade, Deeper run (250 ms glide)</td><td>P03 Flow, P04 Bubbles, P05 Eddies, P06 Falls, P07 Surface: tap to mute / unmute. P08 = all on.</td></tr>
+        <tr><td>LED</td><td colspan="2">Blinks the preset number (1–4); 2 blinks = layer on, 1 = muted, 3 = all on. Otherwise flickers with louder bubbles (dark flickers in diagnostics).</td></tr>
+      </table>
+      <p class="muted"><b>Soft pickup</b>: after a preset, the macro knobs keep their place but no longer match the sound. The gold arc shows the value in use, the white pointer where the knob is. A knob takes over again once you move it a little. Eddies, falls and surface detail arrive in Phase 2.</p>
+      <p class="muted">Mouse: drag knobs up/down (Alt = fine), drag faders, click switches (top / middle / bottom). Keys: <kbd>1</kbd>–<kbd>4</kbd> presets (diagnostics: <kbd>1</kbd>–<kbd>5</kbd> layers, <kbd>6</kbd> all), <kbd>D</kbd> left switch, <kbd>H</kbd> right switch, <kbd>Space</kbd> audio.</p>
+    </details>
   </section>
 </main>
-
-<footer>
-  Keys: <b>1–4</b> presets · <b>D</b> diagnostics · <b>H</b> hold · in diagnostics <b>1–5</b> toggle layers, <b>6</b> all · <b>Space</b> start/stop.
-  Same engine as the Touch 2 firmware (C++ port, compared sample by sample).
-</footer>
 
 <script src="engine/creek-config.js"></script>
 <script src="engine/creek-engine.js"></script>

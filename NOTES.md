@@ -10,7 +10,9 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - `scenarios/` — seed + automation for every render (the record the brief asks for).
 
 ## Status
-- 2026-10-25, Claude Code: Phase 1 (audible core) — flow bed, three-zone flow state, seeded hazard scheduler, 24/32-voice bubble pool, output stage, browser audition, C++ port with tests. Firmware v1 next.
+- 2026-10-25, Claude Code: Phase 1 (audible core) — flow bed, three-zone flow state, seeded hazard scheduler, 24/32-voice bubble pool, output stage, browser audition, C++ port with tests.
+- 2026-10-25, Claude Code: firmware `CreekTouch-v1.bin` (105 KB of 128 KB flash, engine 7 KB RAM) and the Touch 2 emulator page. Waiting for the user's listening notes on hardware. CPU on hardware not measured yet (`DEBUG=1` build prints it).
+- TODO: HTML manual (`daisy/manual.html`) like TouchPulsar's, once the controls settle.
 
 ## Decisions
 - 2026-10-25: audition host = browser page (JS twin of the engine) + C++ offline renderer; the C++/JS comparison test keeps them equal (user's choice).
