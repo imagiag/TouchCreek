@@ -1,0 +1,9 @@
+# Throw a stone: into still water (Notes, Free flow 0), then into a rocky creek, then a gentle one.
+seconds 16
+seed 6
+at 0 preset rocky
+at 0 set freeflow 0
+at 1 stone amp 1
+at 6 set freeflow 1
+at 8 stone amp 1
+at 12 stone amp 0.3

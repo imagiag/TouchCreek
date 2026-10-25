@@ -10,6 +10,7 @@ void CreekEngine::Init(float sampleRate, uint32_t seed) {
     srInt_ = (uint32_t)lroundf(sampleRate);
     for (int l = 0; l < ck::LAYERS; l++) { pL_[l] = bufL_[l]; pR_[l] = bufR_[l]; }
     pool_.Init(sr_); mixer_.Init(sr_); out_.Init(sr_);
+    kStone_ = expf(-1.f / (ck::CONTROL_HZ * ck::STONE_SURGE_SEC));
     kTuneA_ = 1.f - expf(-1.f / (ck::CONTROL_HZ * ck::TUNE_ATTACK_SEC));
     kTuneR_ = 1.f - expf(-1.f / (ck::CONTROL_HZ * ck::TUNE_RELEASE_SEC));
     Reset(seed);
@@ -22,7 +23,7 @@ void CreekEngine::Reset(uint32_t seed) {
     flow_.Init(rng_[S_DRIFT]);
     queue_.Reset(); pool_.Reset();
     sched_.Init(sr_, rng_[S_BTIME]);   // (clears the held notes too)
-    freeS_ = 1.f; activity_ = 1.f;
+    freeS_ = 1.f; activity_ = 1.f; stoneS_ = 0.f; stones_ = 0; creekFade_ = 1.f;
     if (ck::BED_ON) bed_.Init(sr_, rng_[S_BED_DRIFT]);   // wash off: not even compiled in (flash)
     eddies_.Init(rng_[S_EDDY]);
     falls_.Init(sr_, rng_[S_FALLS]);
@@ -114,7 +115,12 @@ void CreekEngine::controlTick() {
     // Free flow: the creek plays by itself only this much; holding notes pours
     freeS_ += flow_.KM() * (macros_.freeFlow - freeS_);
     sched_.freeFlow = freeS_;
-    activity_ = fmaxf(freeS_, sched_.tuneAmt);
+    const float g = flow_.gate;
+    creekFade_ = g >= 1.f ? 1.f : expf(-(1.f - g) * ck::MICRO / (ck::GATE_FADE_SEC * sr_));
+    stoneS_ *= kStone_;                                            // a thrown stone's disturbance settles
+    const float st = stoneS_ * stoneS_;                            // squared: settles fully to still water
+    // the surge matters in quiet water; a full creek needs little extra (keeps headroom)
+    activity_ = fmaxf(fmaxf(freeS_, sched_.tuneAmt), st) * (1.f + ck::STONE_SURGE_RATE * st * (1.f - 0.8f * flow_.m[0]));
     if (ck::BED_ON) bed_.Update(flow_, rng_[S_BED_DRIFT], flow_.dt, next);
 }
 
@@ -123,7 +129,10 @@ void CreekEngine::Process(float* left, float* right, size_t frames) {
     while (pos < frames) {
         if (untilTick_ == 0) controlTick();
         const int intoMicro = (int)(sample_ % ck::MICRO);
-        if (intoMicro == 0) { pool_.Micro(); falls_.pool.Micro(); surface_.pool.Micro(); out_.Micro(); }
+        if (intoMicro == 0) {
+            pool_.Micro(); falls_.pool.Micro(); surface_.pool.Micro(); out_.Micro();
+            if (creekFade_ < 1.f) { pool_.FadeCreek(creekFade_); falls_.pool.FadeCreek(creekFade_); surface_.pool.FadeCreek(creekFade_); }
+        }
         int seg = ck::MICRO - intoMicro;
         if (seg > untilTick_) seg = untilTick_;
         if ((size_t)seg > frames - pos) seg = (int)(frames - pos);
@@ -148,6 +157,7 @@ void CreekEngine::renderSegment(float* L, float* R, int n) {
         const int o = e.at > sample_ ? (int)(e.at - sample_) : 0;
         if (e.type == EV_BUBBLE) sched_.Make(rng_[S_TRIGGER], e.zone, pool_, o, &e);
         else if (e.type == EV_DROP) { const Event d = e; drop(d, o); }
+        else if (e.type == EV_STONE) { const Event d = e; stone(d, o); }
     }
     if (ck::BED_ON) bed_.Render(bufL_[L_FLOW], bufR_[L_FLOW], n, rng_[S_NOISE_C], rng_[S_NOISE_L], rng_[S_NOISE_R]);
     pool_.Render(bufL_[L_BUBBLES], bufR_[L_BUBBLES], n);
@@ -165,7 +175,7 @@ void CreekEngine::drop(const Event& e, int o) {
     const float u0 = r.Uni(), u1 = r.Bip();
     const float pan = e.pan >= -1 ? e.pan : ck::DROP_PAN * u1, amp = e.amp > 0 ? e.amp : 0.7f;
     pool_.Spawn(fmaxf(ck::F_MIN_HZ, 3000.f / rMm), amp * ck::DROP_GAIN * ck::BUBBLE_GAIN, sched_.TauFor(rMm) * ck::DROP_TAU_MUL,
-                ck::ATTACK_MIN, ck::DROP_RISE, pan, o);
+                ck::ATTACK_MIN, ck::DROP_RISE, pan, o, true);
     const int nc = 1 + (int)floorf(u0 * ck::DROP_CHILDREN * fminf(1.f, amp));
     for (int k = 0; k < (int)ck::DROP_CHILDREN; k++) {
         const float d = r.Uni(), a = r.Uni(), oc = r.Uni(), pj = r.Bip();
@@ -178,6 +188,33 @@ void CreekEngine::drop(const Event& e, int o) {
     }
 }
 
+// throw a stone: a deep falling plop, a burst of larger bubbles spreading from the
+// centre over ~0.35 s, and a disturbance (air in every zone, more events) that settles
+void CreekEngine::stone(const Event& e, int o) {
+    Rng& r = rng_[S_TRIGGER];
+    const float amp = e.amp > 0 ? fminf(1.f, e.amp) : 0.8f;
+    const float u0 = r.Uni(), u1 = r.Uni(), u2 = r.Uni(), u3 = r.Bip();
+    const float sm = sched_.ScaleMul();
+    falls_.pool.Spawn(Lerp(ck::STONE_PLOP_HZ[0], ck::STONE_PLOP_HZ[1], u0) / sm, amp * ck::STONE_PLOP_GAIN,
+                      Lerp(ck::STONE_PLOP_TAU_SEC[0], ck::STONE_PLOP_TAU_SEC[1], u1), ck::FALLS_ATTACK_SEC[1], ck::STONE_PLOP_GLIDE, 0.15f * u3, o, true);
+    const int n = (int)roundf(Lerp(ck::STONE_BUBBLES[0], ck::STONE_BUBBLES[1], amp * (0.7f + 0.3f * u2)));
+    const float lnR = logf(ck::STONE_RADIUS_MM[1] / ck::STONE_RADIUS_MM[0]);
+    for (int k = 0; k < (int)ck::STONE_BUBBLES[1]; k++) {
+        const float d = r.Uni(), rr = r.Uni(), a = r.Uni(), pj = r.Bip();
+        if (k >= n) continue;
+        Event c;
+        c.type = EV_BUBBLE; c.zone = 0; c.tauSec = 0; c.rise = -1;
+        c.radiusMm = ck::STONE_RADIUS_MM[0] * expf(lnR * rr) * sm;
+        c.amp = amp * Lerp(ck::STONE_BUBBLE_AMP[0], ck::STONE_BUBBLE_AMP[1], a) * (1.f - 0.6f * d);   // later = quieter
+        c.pan = Clamp(0.5f * pj * (0.3f + d), -1.f, 1.f);                                              // spreading out
+        queue_.Push(c, sample_ + (uint64_t)o + (uint64_t)lroundf(d * d * ck::STONE_SPREAD_SEC * sr_));
+    }
+    for (int z = 0; z < ck::ZONES; z++) flow_.AddSplash(z, amp * ck::STONE_J);
+    stoneS_ = fminf(1.f, stoneS_ + amp);
+    surface_.boost += amp * ck::STONE_SURFACE;
+    stones_++;
+}
+
 void CreekEngine::GetStats(Stats& s) const {
     s.births = pool_.births; s.drops = pool_.drops + sched_.over; s.steals = pool_.steals;
     s.queueDrops = queue_.drops; s.limited = out_.limited; s.peak = out_.peak;
@@ -186,7 +223,7 @@ void CreekEngine::GetStats(Stats& s) const {
     s.meanF = pool_.births ? exp2f(pool_.sumLog2F / pool_.births) : 0.f;
     s.rate = sched_.rate[0] + sched_.rate[1] + sched_.rate[2]; s.gate = flow_.gate;
     s.eddy = flow_.eddy; s.splashes = falls_.count; s.surface = surface_.count;
-    s.splashRate = falls_.rate; s.surfaceRate = surface_.rate;
+    s.splashRate = falls_.rate; s.surfaceRate = surface_.rate; s.stones = stones_;
     for (int z = 0; z < ck::ZONES; z++) { s.E[z] = flow_.E[z]; s.T[z] = flow_.T[z]; s.B[z] = flow_.B[z]; }
 }
 

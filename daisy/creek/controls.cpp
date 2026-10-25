@@ -64,6 +64,17 @@ bool Controls::PopEvent(ControlEvent& type, int8_t& arg) {
     type = evT_[evR_]; arg = evA_[evR_]; evR_ = (evR_ + 1) % kEv;
     return true;
 }
+void Controls::throwStone(float vel) {
+    const int n = (sW_ + 1) % kStones;
+    if (n != sR_) { stones_[sW_] = fminf(1.f, vel); sW_ = n; }
+    push(CE_STONE, 0);
+}
+bool Controls::PopStone(float& vel) {
+    if (sR_ == sW_) return false;
+    vel = stones_[sR_]; sR_ = (sR_ + 1) % kStones;
+    return true;
+}
+
 bool Controls::PopDrop(Drop& d) {
     if (dR_ == dW_) return false;
     d = drops_[dR_]; dR_ = (dR_ + 1) % kDrops;
@@ -121,6 +132,7 @@ void Controls::removeHeld(int pad) {
 void Controls::PadDown(int pad, float vel) {
     if (pad < 0 || pad > 11) return;
     touched[pad] = true;
+    if (pad == kPadStone) { throwStone(vel > 0.f ? vel : 0.7f); return; }   // every mode
     if (mode == MODE_PRESETS) {
         const int i = pad - kPadPreset0;
         if (i >= 0 && i < kNumPresets) RecallPreset(i);
@@ -195,6 +207,7 @@ void Controls::Midi(uint8_t st, uint8_t d1, uint8_t d2) {
             sustain = d2 >= 64;
             if (!sustain && !latch) keepHeld([](const Controls& c, int k) { return k < kMidiKey || c.midiDown[k - kMidiKey]; });
         }
+        else if (d1 == 29) { if (d2 > 0) throwStone(d2 / 127.f); }
         else if (d1 == 14) setScale(d2 * 7 / 128);
         else if (d1 == 15) { root = d2 * 12 / 128; push(CE_ROOT, (int8_t)root); }
         else if (d1 == 120 || d1 == 123) {

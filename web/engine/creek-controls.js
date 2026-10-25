@@ -14,6 +14,7 @@
 //   Notes:       P03..P09 play the scale (tap = tuned drop, hold = the creek's
 //                bubbles gather onto the held notes), P00 / P02 octave,
 //                P11 + P00 / P02 / P03..P09 = scale, P10 + note pad = root
+//   P01 (every mode): throw a stone (velocity = size); MIDI CC 29 does the same
 //   MIDI (any channel): notes play like note pads (drop + pour, chromatic), velocity = drop level,
 //                sustain pedal holds notes, pitch bend +-2, mod wheel / aftertouch = Surge,
 //                CCs for every knob, CC 14/15 scale/root, Program Change 1-4 = presets
@@ -29,7 +30,7 @@ const CREEK_PRESETS = [
 const CC = {
   M_FLOW: 0, M_ROUGH: 1, M_SCALE: 2, M_AER: 3, M_LEVEL: 4, M_WIDTH: 5, M_FREE: 6, M_VARIETY: 7, M_DECAY: 8, M_CUTOFF: 9, M_RES: 10, M_TONE: 11, M_ATTACK: 12, M_RELEASE: 13, M_COUNT: 14,
   MODE_PRESETS: 0, MODE_NOTES: 1, MODE_DIAG: 2,
-  P_OCT_DN: 0, P_OCT_UP: 2, P_ROOT: 10, P_SCALE: 11,
+  P_OCT_DN: 0, P_STONE: 1, P_OCT_UP: 2, P_ROOT: 10, P_SCALE: 11,
   PAD_PRESET0: 3,           // P03..P06
   PAD_NOTE0: 3,             // P03..P09
   PAD_LAYER0: 3,            // P03..P07 in diagnostics
@@ -38,7 +39,7 @@ const CC = {
   PRESET_GLIDE_SEC: 0.25,
   BASE_MIDI: 72,            // P03 with root C, octave 0 = C5 (523 Hz, a 5.7 mm bubble)
   MAX_HELD: 4,
-  EV_NONE: 0, EV_PRESET: 1, EV_LAYER: 2, EV_ALL: 3, EV_MODE: 4, EV_SCALE: 5, EV_OCT: 6, EV_ROOT: 7, EV_NOTE: 8, EV_STRESS: 9, EV_CC: 10,
+  EV_NONE: 0, EV_PRESET: 1, EV_LAYER: 2, EV_ALL: 3, EV_MODE: 4, EV_SCALE: 5, EV_OCT: 6, EV_ROOT: 7, EV_NOTE: 8, EV_STRESS: 9, EV_CC: 10, EV_STONE: 11,
   MIDI_KEY: 128,            // held keys: pads 0..11, MIDI notes 128 + note
   // CC -> macro (CC 1 / channel pressure = Surge, 64 sustain, 14 scale, 15 root, 120/123 all notes off)
   CC_MAP: { 7: 4, 20: 0, 21: 1, 22: 2, 23: 3, 24: 6, 25: 7, 26: 8, 27: 5, 28: 11, 102: 9, 103: 10, 107: 12, 72: 13 },   // 102/103/107/72 as TouchPulsar
@@ -92,6 +93,7 @@ class CreekControls {
     this.oct = 0;
     this.held = [];              // note pads held (newest last), up to MAX_HELD
     this.drops = [];             // {hz, vel} for the host to send as engine drop events
+    this.stones = [];            // vel 0..1: stones to throw (engine stone events)
     this.events = [];            // {type, arg} for the UI (LED blinks, display)
     this.lastT = 0;
     this.stress = false;         // diagnostics P09: worst-case stress test ...
@@ -133,6 +135,7 @@ class CreekControls {
   padDown(pad, vel) {
     if (pad < 0 || pad > 11) return;
     this.touched[pad] = 1;
+    if (pad === CC.P_STONE) { this.throwStone(vel > 0 ? vel : 0.7); return; }   // every mode
     if (this.mode === CC.MODE_PRESETS) {
       const i = pad - CC.PAD_PRESET0;
       if (i >= 0 && i < CREEK_PRESETS.length) this.recallPreset(i);
@@ -175,6 +178,7 @@ class CreekControls {
     this.latch = latch;
     this.hold = down && this.mode !== CC.MODE_NOTES;
   }
+  throwStone(vel) { this.stones.push(Math.min(1, vel)); this.events.push({ type: CC.EV_STONE, arg: 0 }); }
   // ---------------- MIDI (raw bytes, same entry point as the firmware) ----------------
   addHeld(key, hz, vel) {
     this.drops.push({ hz, vel });
@@ -201,6 +205,7 @@ class CreekControls {
       this.sustain = v >= 64;
       if (!this.sustain && !this.latch) this.held = this.held.filter((k) => k < CC.MIDI_KEY || this.midiDown[k - CC.MIDI_KEY]);
     }
+    else if (c === 29) { if (v > 0) this.throwStone(v / 127); }
     else if (c === 14) this.setScale(Math.min(6, Math.floor(v * 7 / 128)));
     else if (c === 15) { this.root = Math.min(11, Math.floor(v * 12 / 128)); this.events.push({ type: CC.EV_ROOT, arg: this.root }); }
     else if (c === 120 || c === 123) { this.held = this.held.filter((k) => k < CC.MIDI_KEY); this.midiDown.fill(0); this.sustain = false; }

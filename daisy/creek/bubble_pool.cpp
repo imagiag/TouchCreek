@@ -25,7 +25,15 @@ int BubblePool::Active() const {
     return a;
 }
 
-bool BubblePool::Spawn(float f0, float amp, float tau, float attack, float rise, float pan, int off) {
+void BubblePool::FadeCreek(float k) {
+    const float t2 = retireAbs_ * retireAbs_;
+    for (int v = 0; v < n_; v++) if (on_[v] && !user_[v]) {
+        zr_[v] *= k; zi_[v] *= k;
+        if (zr_[v] * zr_[v] + zi_[v] * zi_[v] < t2) { on_[v] = 0; fading_[v] = 0; }   // inaudible: free the voice
+    }
+}
+
+bool BubblePool::Spawn(float f0, float amp, float tau, float attack, float rise, float pan, int off, bool user) {
     int act = 0, low = -1;
     float lowE = 1e30f;
     for (int i = 0; i < n_; i++) if (on_[i] && !fading_[i]) {
@@ -43,7 +51,7 @@ bool BubblePool::Spawn(float f0, float amp, float tau, float attack, float rise,
     tau *= tauMul;                         // Decay knob
     const float w = fminf(kTwoPi * f0 / sr_, wMax_ / (1.f + fmaxf(0.f, rise)));
     const float r = expf(-1.f / (tau * sr_));
-    on_[v] = 1; fading_[v] = 0; fade_[v] = 1.f; fadeStep_[v] = 0;
+    on_[v] = 1; fading_[v] = 0; fade_[v] = 1.f; fadeStep_[v] = 0; user_[v] = user ? 1 : 0;
     zr_[v] = amp; zi_[v] = 0;
     damp_[v] = r; w0_[v] = w;
     c_[v] = r * cosf(w); s_[v] = r * sinf(w);

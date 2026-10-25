@@ -117,7 +117,7 @@
 <table>
   <tr><th>Pad</th><th>Presets (left switch up)</th><th>Notes (left switch centre)</th><th>Diagnostics (left switch down)</th></tr>
   <tr><td class="id">P00</td><td>—</td><td>Octave down (to −1; in Chromatic −7 semitones, to −14)</td><td>—</td></tr>
-  <tr><td class="id">P01</td><td>—</td><td>—</td><td>—</td></tr>
+  <tr><td class="id">P01</td><td colspan="3"><b>Throw a stone</b> (every mode): a deep falling plop, a burst of 10–24 larger bubbles spreading from the centre, and a disturbance (extra air, more bubbling, splashes and ripples) that settles over 2–3&nbsp;s. Hit harder for a bigger stone. Works in still water too: the stone stirs it up, then it goes still again</td></tr>
   <tr><td class="id">P02</td><td>—</td><td>Octave up (to +2; in Chromatic +7 semitones, to +28)</td><td>—</td></tr>
   <tr><td class="id">P03</td><td>Quiet trickle</td><td rowspan="7">Notes of the scale, from C5 in C major pentatonic by default.
     <ul>
@@ -195,6 +195,7 @@
   <li><b>Small waterfalls</b>: at the drop, 0.2–4 times a second as Flow rises: a soft low plop that falls in pitch, then 2–8 bubbles settling over the next tenth of a second (more with Aeration), and a short burst of extra air in the drop. Rougher water gives more uneven splashes. Overlapping splashes share a limited energy, so they never swamp the creek.</li>
   <li><b>Surface detail</b>: sparse, very short, quiet high ticks (2–9&nbsp;kHz), more near the drop, at turbulence peaks and right after splashes, in loose bursts rather than a steady crackle.</li>
   <li><b>Filter</b>: hold P11 and move the faders: right = cutoff, left = resonance. A smooth 12&nbsp;dB/oct low-pass on both channels (the same one as TouchPulsar), before the output limiter, so strong resonance can't clip. At power-up it's fully open.</li>
+  <li><b>Throw a stone</b> (P01, any mode; MIDI CC 29): a deep plop that falls in pitch (lower with larger Scale), a burst of larger bubbles spreading out from the centre over a third of a second, and a disturbance that settles over 2–3&nbsp;s: air in every part of the creek, more bubbling and splashing, ripples of surface ticks. In still water (Free flow at zero) it stirs the water up and lets it go still again. Pad velocity sets the size of the stone.</li>
   <li><b>Hold</b> (right switch down outside Notes): freezes the slow creek state while bubbles keep coming, to compare one setting with another.</li>
   <li><b>Output</b>: a DC blocker and a linked stereo limiter keep peaks below −1&nbsp;dBFS; at 0&nbsp;dB level the presets peak around −5 to −7&nbsp;dBFS, so the limiter only catches rare overlaps.</li>
   <li><b>Soft Takeover</b>: after a preset, after a MIDI CC, or when you press or release P10 / P11, a knob only takes control once you move it, so values never jump. The <a href="#emulator">emulator</a> shows it: the gold arc is the value in use, the white pointer the knob.</li>
@@ -247,6 +248,7 @@
   <li><b>Scale Confirmation</b>: blinks N times for scale 1 through 7 (Chromatic = 1 blink, …, Harmonic Minor = 7 blinks).</li>
   <li><b>Octave Shift</b>: quick blinks: 1 at octave 0, 2 at ±1, 3 at +2.</li>
   <li><b>Root Key</b>: 1 long blink.</li>
+  <li><b>Stone</b>: a longer flash when a stone is thrown.</li>
   <li><b>Diagnostics</b>: 2 blinks = layer on, 1 blink = layer muted, 3 quick blinks = all on (monitor build: stress test = 4 quick blinks, then fast blinking while it runs).</li>
 </ul>
 
@@ -274,6 +276,7 @@
   <tr><td class="id">21</td><td>S37 <b>Roughness</b></td><td class="id">102</td><td><b>Filter Cutoff</b> (P11 + S37)</td></tr>
   <tr><td class="id">22</td><td>S31 <b>Scale</b> (bubble size)</td><td class="id">103</td><td><b>Filter Resonance</b> (P11 + S36)</td></tr>
   <tr><td class="id">23</td><td>S32 <b>Aeration</b></td><td class="id">120, 123</td><td>All Notes Off</td></tr>
+  <tr><td class="id">29</td><td><b>Throw a stone</b> (P01; value = size, 0 = nothing)</td><td></td><td></td></tr>
 </table>
 <p><b>Soft Takeover</b>: a value set via MIDI CC is kept until the corresponding knob or fader is moved; from then on the physical control takes over again.</p>
 

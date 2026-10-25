@@ -53,3 +53,4 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - Before publishing: refresh REPORT.md (still v5-era) and regenerate renders; GitHub repo (MIT, no PDFs); website via Codex (coordinate here).
 - Listener test (brief: 4 of 5 recognise water unprompted); optional 30-min stress run on hardware (monitor build).
 - Flash ~6 KB free (v14 = 121.9/128 KB): next big feature needs LTO / trimming or the Daisy bootloader.
+- 2026-10-25 (user): P01 = throw a stone (EV_STONE: plop via falls pool, 10-24 explicit larger bubbles over 0.35 s, J in all zones, stoneS surge squared, scaled down at high Flow; CC 29). Creek voices fade when the scene gate closes (GATE_FADE_SEC 0.15) so Flow 0 is silent < 3 s even at Scale 1 + Decay 4x. Flash 123.7/128 KB.

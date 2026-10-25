@@ -58,6 +58,7 @@ inline Scenario parse(const std::string& text, float sr) {
             if (pt.op == "preset") pt.name = w[3];
             else if (pt.op == "set") pt.v = kv(3, keys, 13);
             else if (pt.op == "bubble") pt.v = kv(3, bkeys, 6);
+            else if (pt.op == "stone") { static const char* sk[] = {"amp"}; pt.v = kv(3, sk, 1); }
             else if (pt.op == "drop") { static const char* dk[] = {"hz", "amp", "pan"}; pt.v = kv(3, dk, 3); }
             else if (pt.op == "tune") { for (size_t i = 3; i < w.size() && i < 7; i++) pt.hz[i - 3] = (float)atof(w[i].c_str()); }
             else throw std::runtime_error("unknown op " + pt.op);
@@ -106,6 +107,11 @@ void run(const Scenario& sc, creek::CreekEngine& eng, float sr, int block, std::
                 changed = true;
             } else if (p.op == "set") { for (auto& kv : p.v) setKey(m, kv.first, kv.second); changed = true; }
             else if (p.op == "tune") { for (int k = 0; k < 4; k++) m.tuneHz[k] = p.hz[k]; changed = true; }
+            else if (p.op == "stone") {
+                creek::Event e; e.type = creek::EV_STONE; e.amp = 0.8f;
+                for (auto& kv : p.v) if (kv.first == "amp") e.amp = kv.second;
+                eng.Trigger(e);
+            }
             else if (p.op == "drop") {
                 creek::Event e; e.type = creek::EV_DROP; e.amp = 0.7f;
                 for (auto& kv : p.v) {

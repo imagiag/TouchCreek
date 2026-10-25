@@ -22,6 +22,7 @@ USB is **MIDI**; for measuring CPU there's a separate monitor build (see Emulato
 At power-up the creek plays whatever the knobs and faders are set to; the second-layer controls start at their defaults (natural width, default tone, attack and release, filter open). The **left switch** decides what the pads do.
 
 ### Pads
+- **P01** - **Throw a stone**, in every mode: a deep falling plop, a burst of larger bubbles spreading from the centre, and a disturbance that settles over 2–3 s (hit harder = bigger stone)
 - **Presets** (left switch up)
   - **P03** - Quiet trickle | **P04** - Rocky creek | **P05** - Small cascade | **P06** - Deeper run (250 ms glide)
 - **Notes** (left switch centre)
@@ -80,6 +81,7 @@ Everything you hear is made of short decaying tones; there is no noise in the so
 - **Tone**: P11 + S31 shifts the creek darker or brighter over a wide range (noon = default): first the mix (more big or more small bubbles), then near the ends all bubbles move up to an octave.
 - **Drops & Pouring**: Tapping a note drops one tuned bubble with 1–3 quieter followers; holding it pours the water onto the note in the rhythm of Flow, Roughness and Aeration. With **Free flow** down the creek is still and only your notes sound; **Variety** decides whether the pour sticks to one note or spreads across the scale; **Latch** keeps notes pouring hands-free.
 - **Chords**: Hold up to **4 notes** at once (pads and MIDI keys together) and the water pours onto all of them: each bubble lands on whichever held note is nearest its own pitch, so a chord shimmers as one cloud. Holding a 5th note releases the oldest one (it settles with Release). With Latch, tapped notes add up to a 4-note chord you can leave pouring.
+- **Throw a Stone**: P01 (or MIDI CC 29): a deep plop that falls in pitch (lower with larger Scale), a burst of larger bubbles spreading out from the centre over a third of a second, then a disturbance that settles over 2–3 s - air in every part of the creek, more bubbling and splashing, ripples of surface ticks. In still water it stirs the water up and lets it go still again.
 - **Surge**: MIDI mod wheel or aftertouch makes the water rush (Flow, Roughness and a little Aeration rise on top of the knobs), a crescendo you can play.
 - **Filter**: Hold P11 and move the faders: right = cutoff, left = resonance. A smooth 12 dB/oct low-pass on both channels (the same one as TouchPulsar), before the output limiter. At power-up it's fully open.
 - **Output**: A DC blocker and a linked stereo limiter keep peaks below −1 dBFS; at 0 dB level the presets peak around −5 to −7 dBFS, so the limiter only catches rare overlaps.
@@ -113,6 +115,7 @@ The onboard LED provides visual feedback:
 - **Scale Confirmation**: Blinks N times for scale 1 through 7 (Chromatic = 1 blink, ..., Harmonic Minor = 7 blinks).
 - **Octave Shift**: Quick blinks: 1 at octave 0, 2 at ±1, 3 at +2.
 - **Root Key**: 1 long blink.
+- **Stone**: a longer flash when a stone is thrown.
 - **Diagnostics**: 2 blinks = layer on, 1 blink = layer muted, 3 quick blinks = all on (monitor build: stress test = 4 quick blinks, then fast blinking while it runs).
 
 ### MIDI
@@ -142,6 +145,7 @@ Creek appears as a USB MIDI device (listed as **Creek**) when connected via the 
 | 28 | **Tone** (P11 + S31) |
 | 72 | **Release** (P11 + S34) |
 | 107 | **Attack** (P11 + S33) |
+| 29 | **Throw a stone** (P01; value = size) |
 | 64 | **Sustain** |
 | 102 | **Filter Cutoff** (P11 + S37) |
 | 103 | **Filter Resonance** (P11 + S36) |

@@ -7,6 +7,7 @@ Flash these with https://flash.daisy.audio/ (hold BOOT while plugging in, or BOO
 
 | File | Date | Changes |
 |---|---|---|
+| `CreekTouch-v15-stone.bin` | 2026-10-25 | **Throw a stone** on P01 (every mode, velocity = size; MIDI CC 29): deep falling plop, burst of larger bubbles spreading from the centre, disturbance that settles over 2–3 s, also into still water. Flow 0 now goes silent within 3 s even at full Scale and Decay. |
 | `CreekTouch-v14-tone-wide.bin` | 2026-10-25 | **Tone moved to P11 + S31** (with Attack / Release / filter) and made **much wider**: the mix shifts further, and near the ends all bubbles move up to an octave (dark) or ~⅔ octave (bright). At mid Scale the average pitch now spans ~350 Hz – 7.5 kHz (was ~1–3.5 kHz). Noon unchanged. |
 | `CreekTouch-v13.bin` | 2026-10-25 | **Release moved to P11 + S34**, next to Attack (P11 + S33): both envelope controls on one modifier. CCs unchanged (107 / 72). |
 | `CreekTouch-v12.bin` | 2026-10-25 | Same sound and controls as v11. The P09 stress test is now only in the monitor build (saves flash); monitor builds are no longer released. |

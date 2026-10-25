@@ -105,6 +105,11 @@ void CreekUI::Process(DaisySeed& hw) {
         Event e; e.type = EV_DROP; e.radiusMm = 3000.f / d.hz; e.amp = 0.25f + 0.75f * d.vel;
         pushTrigger(e);
     }
+    float sv;
+    while (ctl_.PopStone(sv)) {                                 // P01 / CC 29 -> throw a stone
+        Event e; e.type = EV_STONE; e.amp = 0.3f + 0.7f * sv;
+        pushTrigger(e);
+    }
     handleEvents();                          // before knobs: a recall must arm pickup first
     readKnobs();
     ctl_.Compute(macros_);
@@ -161,6 +166,7 @@ void CreekUI::handleEvents() {
             case CE_OCT:   blink(arg < 0 ? 1 - arg : arg + 1, 25, 25); break;
             case CE_ROOT:  blink(1, 120, 0); break;
             case CE_NOTE:  flickerUntil_ = now() + 0.04; break;
+            case CE_STONE: flickerUntil_ = now() + 0.25; break;   // a longer flash
             case CE_STRESS: blink(arg ? 4 : 1, 40, 40); break;
             case CE_CC:    // a MIDI CC moved this value: its knob waits until it's moved (as TouchPulsar)
                 if (arg >= 0 && arg < M_COUNT) knob_[arg].Hold(ctl_.value[arg], phys[physOf(arg)]->Value());

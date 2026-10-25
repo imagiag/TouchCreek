@@ -113,7 +113,7 @@ bool BubbleScheduler::Make(Rng& rngP, int z, BubblePool& pool, int off, const Ev
     if (ev && ev->rise >= 0) rise = ev->rise;
     float pan = ck::ZONE_PAN[z] + ck::ZONE_JITTER[z] * u7;
     if (ev && ev->pan >= -1) pan = ev->pan;
-    return pool.Spawn(f0, amp, tau, attack, rise, pan, off);
+    return pool.Spawn(f0, amp, tau, attack, rise, pan, off, ev && ev->radiusMm > 0);
 }
 
 } // namespace creek

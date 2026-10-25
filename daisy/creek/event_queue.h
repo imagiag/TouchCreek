@@ -6,7 +6,7 @@
 
 namespace creek {
 
-enum EventType : uint8_t { EV_BUBBLE = 0, EV_SPLASH = 1, EV_DROP = 2 };
+enum EventType : uint8_t { EV_BUBBLE = 0, EV_SPLASH = 1, EV_DROP = 2, EV_STONE = 3 };
 
 // Fields left at their "unset" value are drawn randomly from the zone's model.
 struct Event {

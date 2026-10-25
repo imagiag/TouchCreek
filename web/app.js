@@ -76,6 +76,7 @@ function handleEvents() {
     else if (e.type === CC.EV_OCT) blink(e.arg < 0 ? 1 - e.arg : e.arg + 1, 25, 25);
     else if (e.type === CC.EV_ROOT) blink(1, 120, 0);
     else if (e.type === CC.EV_NOTE) led.flickerUntil = performance.now() + 40;
+    else if (e.type === CC.EV_STONE) led.flickerUntil = performance.now() + 250;
     else if (e.type === CC.EV_STRESS) blink(e.arg ? 4 : 1, 40, 40);
     else if (e.type === CC.EV_CC) take[e.arg].hold(ctl.value[e.arg], physPos[PHYS_OF[e.arg]]);   // knob waits until moved
   }
@@ -104,6 +105,8 @@ setInterval(() => {
   ctl.setRightSwitch(sw.hold === 2);       // Latch in Notes, Hold elsewhere
   for (const d of ctl.drops) if (node) node.port.postMessage({ type: 'trigger', ev: { type: 2, radiusMm: 3000 / d.hz, amp: 0.25 + 0.75 * d.vel } });
   ctl.drops.length = 0;
+  for (const v of ctl.stones) if (node) node.port.postMessage({ type: 'trigger', ev: { type: 3, amp: 0.3 + 0.7 * v } });
+  ctl.stones.length = 0;
   handleEvents();
   ctl.compute(macros);
   const key = JSON.stringify(macros);
@@ -228,7 +231,8 @@ function drawBoard() {
   for (const p of PADS) {
     const e = padEls[p.id];
     let html = `P${String(p.id).padStart(2, '0')}`, cls = 'idle';
-    if (ctl.mode === CC.MODE_PRESETS) {
+    if (p.id === CC.P_STONE) { html += '<small>stone</small>'; cls = ''; }
+    else if (ctl.mode === CC.MODE_PRESETS) {
       const k = p.id - CC.PAD_PRESET0;
       if (k >= 0 && k < CREEK_PRESETS.length) { html += `<small>${CREEK_PRESETS[k].name}</small>`; cls = k === ctl.preset ? 'sel' : ''; }
     } else if (ctl.mode === CC.MODE_NOTES) {
@@ -373,6 +377,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.repeat) return;
   else if (e.key === 'd' || e.key === 'D') sw.mode = (sw.mode + 1) % 3;
   else if (e.key === 'h' || e.key === 'H') sw.hold = sw.hold === 2 ? 0 : 2;
+  else if (e.key === 's' || e.key === 'S') ctl.padDown(CC.P_STONE, 0.8);
   else if (ctl.mode === CC.MODE_PRESETS && n >= 1 && n <= 4) ctl.padDown(CC.PAD_PRESET0 + n - 1, 0.7);
   else if (ctl.mode === CC.MODE_NOTES && n >= 1 && n <= 7) ctl.padDown(CC.PAD_NOTE0 + n - 1, 0.7);
   else if (ctl.mode === CC.MODE_NOTES && (e.key === 'z' || e.key === 'x')) ctl.padDown(e.key === 'x' ? CC.P_OCT_UP : CC.P_OCT_DN, 0.7);
@@ -383,6 +388,7 @@ document.addEventListener('keyup', (e) => {
   const n = Number(e.key);
   if (n >= 1 && n <= 7) ctl.padUp(CC.PAD_NOTE0 + n - 1);
   if (e.key === 'z' || e.key === 'x') ctl.padUp(e.key === 'x' ? CC.P_OCT_UP : CC.P_OCT_DN);
+  if (e.key === 's' || e.key === 'S') ctl.padUp(CC.P_STONE);
   if (n >= 1 && n <= 6) { ctl.padUp(CC.PAD_PRESET0 + n - 1); ctl.padUp(CC.PAD_ALL); }
 });
 buildBoard(); frame();

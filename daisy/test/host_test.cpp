@@ -191,6 +191,12 @@ static void engineTests() {
         for (size_t i = (size_t)(4 * SR); i < L1.size(); i++) if (fabsf(L1[i]) > 1e-4f || fabsf(R1[i]) > 1e-4f) last = i;
         const float t = last / SR - 4.f;
         CHECK(t < 3.f, "Flow 0: below -80 dBFS after %.2f s (< 3 s)", t);
+        // also with the deepest, longest-ringing bubbles (Scale fully up, Decay 4x)
+        auto deep = scenario::parse("seconds 8\nat 0 set flow 0.9 roughness 0.8 scale 1 aeration 0.9 decay 1\nat 4 set flow 0\n", SR);
+        render(eng, deep, 48, L1, R1);
+        size_t lastD = 0;
+        for (size_t i = (size_t)(4 * SR); i < L1.size(); i++) if (fabsf(L1[i]) > 1e-4f || fabsf(R1[i]) > 1e-4f) lastD = i;
+        CHECK(lastD / SR - 4.f < 3.f, "Flow 0 at full Scale + Decay: silent after %.2f s (< 3 s)", lastD / SR - 4.f);
     }
 
     // --- Aeration 0 removes bubbles; Aeration raises count; Scale lowers pitch ---
@@ -382,6 +388,37 @@ static void engineTests() {
         CHECK(fabsf(am.attack - ck::TUNE_ATTACK_SEC) < 1e-3f && fabsf(am.release - ck::TUNE_RELEASE_SEC) < 1e-3f, "Attack / Release default to the old pour feel");
     }
 
+    // --- throw a stone ---
+    {
+        eng.Init(SR, 1);
+        Macros sm; sm.flow = 0.5f; sm.roughness = 0.5f; sm.scale = 0.5f; sm.aeration = 0.5f; sm.freeFlow = 0.f; eng.SetMacros(sm);
+        std::vector<float> a(48), b(48);
+        for (int i = 0; i < 1000; i++) eng.Process(a.data(), b.data(), 48);
+        Stats s0; eng.GetStats(s0);
+        Event st; st.type = EV_STONE; st.amp = 1.f; eng.Trigger(st);
+        double lowE = 0;
+        for (int i = 0; i < 1000; i++) {
+            eng.Process(a.data(), b.data(), 48);
+            if (i < 200) for (int j = 1; j < 48; j++) lowE += (a[j] + a[j - 1]) * (a[j] + a[j - 1]);   // crude low-pass energy
+        }
+        Stats s1; eng.GetStats(s1);
+        for (int i = 0; i < 4000; i++) eng.Process(a.data(), b.data(), 48);
+        Stats s2; eng.GetStats(s2);
+        for (int i = 0; i < 1000; i++) eng.Process(a.data(), b.data(), 48);
+        Stats s3; eng.GetStats(s3);
+        CHECK(s0.births == 0, "still water before the stone");
+        CHECK(s1.births - s0.births >= 30 && s1.stones == 1, "a stone into still water: burst of %u bubbles in 1 s", s1.births - s0.births);
+        CHECK(lowE > 1e-3, "the stone's plop has low-frequency energy (%.2g)", lowE);
+        CHECK(s3.births - s2.births <= 3, "the disturbance settles back to still water (%u bubbles in second 6)", s3.births - s2.births);
+        Controls sc; Macros scm; float sv;
+        for (Mode md : {MODE_PRESETS, MODE_NOTES, MODE_DIAG}) {
+            sc.SetMode(md); sc.PadDown(kPadStone, 0.9f); sc.PadUp(kPadStone);
+            CHECK(sc.PopStone(sv) && sv == 0.9f, "P01 throws a stone in mode %d", (int)md);
+        }
+        sc.Midi(0xB0, 29, 64); CHECK(sc.PopStone(sv) && fabsf(sv - 64 / 127.f) < 1e-4f, "CC 29 throws a stone");
+        sc.Compute(scm); CHECK(!scm.tune, "a stone is not a note");
+    }
+
     // --- stress: finite, protected peaks, DC ---
     {
         auto st = load("stress");
@@ -402,8 +439,8 @@ static void engineTests() {
         writeF32("stress", L1, R1);
     }
     // --- reference renders for the JS comparison ---
-    for (const char* k : {"trickle", "rocky", "cascade", "deeper", "single_bubble", "presets_walk", "notes", "notes_pour", "sweep_tone"}) {
-        auto sc = load(k, strcmp(k, "presets_walk") && strcmp(k, "single_bubble") && strcmp(k, "notes") && strcmp(k, "notes_pour") && strcmp(k, "sweep_tone") ? 10.f : -1.f);
+    for (const char* k : {"trickle", "rocky", "cascade", "deeper", "single_bubble", "presets_walk", "notes", "notes_pour", "sweep_tone", "stones"}) {
+        auto sc = load(k, strcmp(k, "presets_walk") && strcmp(k, "single_bubble") && strcmp(k, "notes") && strcmp(k, "notes_pour") && strcmp(k, "sweep_tone") && strcmp(k, "stones") ? 10.f : -1.f);
         render(eng, sc, 48, L1, R1);
         writeF32(k, L1, R1);
     }

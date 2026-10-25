@@ -13,6 +13,7 @@
 //   Notes:       P03..P09 play the scale (tap = tuned drop, hold = the creek's
 //                bubbles gather onto the held notes), P00 / P02 octave,
 //                P11 + P00 / P02 / P03..P09 = scale, P10 + note pad = root
+//   P01 (every mode): throw a stone (velocity = size); MIDI CC 29 does the same
 //   MIDI (any channel): notes play like note pads (drop + pour, chromatic), velocity = drop level,
 //                sustain pedal holds notes, pitch bend +-2, mod wheel / aftertouch = Surge,
 //                CCs for every knob, CC 14/15 scale/root, Program Change 1-4 = presets
@@ -38,12 +39,12 @@ extern const Scale kScales[kNumScales];
 
 enum MacroIndex { M_FLOW = 0, M_ROUGH, M_SCALE, M_AER, M_LEVEL, M_WIDTH, M_FREE, M_VARIETY, M_DECAY, M_CUTOFF, M_RES, M_TONE, M_ATTACK, M_RELEASE, M_COUNT };
 enum Mode { MODE_PRESETS = 0, MODE_NOTES, MODE_DIAG };
-enum ControlEvent : uint8_t { CE_NONE = 0, CE_PRESET, CE_LAYER, CE_ALL, CE_MODE, CE_SCALE, CE_OCT, CE_ROOT, CE_NOTE, CE_STRESS, CE_CC };
+enum ControlEvent : uint8_t { CE_NONE = 0, CE_PRESET, CE_LAYER, CE_ALL, CE_MODE, CE_SCALE, CE_OCT, CE_ROOT, CE_NOTE, CE_STRESS, CE_CC, CE_STONE };
 constexpr int kMidiKey = 128;        // held keys: pads 0..11, MIDI notes 128 + note
 constexpr float kBendSemis = 2.f;
 int CcToMacro(int cc);               // -1 if the CC is not a knob
 
-constexpr int kPadOctDn = 0, kPadOctUp = 2, kPadRoot = 10, kPadScale = 11;
+constexpr int kPadOctDn = 0, kPadStone = 1, kPadOctUp = 2, kPadRoot = 10, kPadScale = 11;
 constexpr int kPadPreset0 = 3, kPadNote0 = 3, kPadLayer0 = 3, kPadAll = 8, kPadStress = 9;
 constexpr int kBaseMidi = 72;        // P03, root C, octave 0 = C5
 constexpr int kMaxHeld = 4;
@@ -73,6 +74,7 @@ public:
     void Compute(Macros& m) const;
     bool PopEvent(ControlEvent& type, int8_t& arg);
     bool PopDrop(Drop& d);
+    bool PopStone(float& vel);        // stones to throw (P01 / CC 29), velocity 0..1
     int PadMidi(int pad) const;
     uint32_t ScaleMask() const;
 
@@ -101,6 +103,10 @@ private:
     void keepHeld(bool (*keep)(const Controls&, int));
     void push(ControlEvent t, int8_t a);
     void pushDrop(float hz, float vel);
+    void throwStone(float vel);
+    static constexpr int kStones = 4;
+    float stones_[kStones];
+    int sR_ = 0, sW_ = 0;
     float rnd();
     void stressTick(double t);
     float stressV_[4] = {1, 1, 1, 1};

@@ -49,6 +49,8 @@ int main(int argc, char** argv) {
         }
         if (phase == 1) for (int k = 0; k < 4; k++) ctl.SetKnob(k, 1.f);
         if (phase == 2 && fmod(pt, 2.0) < (double)B / sr) { const int p = (int)(pt / 2.0) % 4; ctl.PadDown(kPadPreset0 + p, .7f); ctl.PadUp(kPadPreset0 + p); }
+        if ((phase == 2 || phase == 4) && pt < 54.0 && b % 1500 == 0) { ctl.PadDown(kPadStone, (float)rand() / (float)RAND_MAX); ctl.PadUp(kPadStone); }   // stones
+        if (phase == 1 && b % 3000 == 0) { ctl.PadDown(kPadStone, 1.f); ctl.PadUp(kPadStone); }                                  // a full stone every 3 s at maximum
         if (phase == 3 && b % 20 == 0) for (int k = 0; k < 4; k++) ctl.SetKnob(k, (float)rand() / (float)RAND_MAX);
         if (phase == 4) {
             for (int k = 0; k < 4; k++) ctl.SetKnob(k, k == M_SCALE ? 0.5f : 0.8f);
@@ -59,6 +61,8 @@ int main(int argc, char** argv) {
 
         Macros m; ctl.Compute(m);
         eng.SetMacros(m);
+        float sv;
+        while (ctl.PopStone(sv)) { Event e; e.type = EV_STONE; e.amp = 0.3f + 0.7f * sv; eng.Trigger(e); }
         Drop d;
         while (ctl.PopDrop(d)) { Event e; e.type = EV_DROP; e.radiusMm = 3000.f / d.hz; e.amp = 0.25f + 0.75f * d.vel; eng.Trigger(e); }
 

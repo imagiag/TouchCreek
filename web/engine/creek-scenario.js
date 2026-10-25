@@ -11,6 +11,7 @@
 //   at 1.5 bubble zone 0 radius 2 amp 1 rise 0 pan 0
 //   every 0 5 0.25 bubble radius 1 repeat a bubble from t0 (incl.) to t1 (excl.)
 //   at 2 drop hz 880 amp 1         note-mode tuned drop (optional pan)
+//   at 3 stone amp 1               throw a stone (P01)
 //   at 2 tune 523.25 659.26        held notes tuning the creek (up to 4 Hz values; 'at 3 tune' = off)
 // Times in seconds; '#' starts a comment.
 
@@ -40,6 +41,7 @@ function csParse(text, sr) {
       if (op === 'preset') sc.points.push({ s, order: order++, op, name: w[3] });
       else if (op === 'set') sc.points.push({ s, order: order++, op, v: kv(w.slice(3), CS_KEYS) });
       else if (op === 'bubble') sc.points.push({ s, order: order++, op, v: kv(w.slice(3), CS_BUBBLE_KEYS) });
+      else if (op === 'stone') sc.points.push({ s, order: order++, op, v: kv(w.slice(3), ['amp']) });
       else if (op === 'drop') sc.points.push({ s, order: order++, op, v: kv(w.slice(3), ['hz', 'amp', 'pan']) });
       else if (op === 'tune') sc.points.push({ s, order: order++, op, hz: w.slice(3, 7).map(Number) });
       else throw new Error('unknown op ' + op);
@@ -74,6 +76,7 @@ function csRun(sc, eng, sr, block, presets, onBlock) {
       if (p.op === 'preset') { const q = presets.find((x) => x.key === p.name); m.flow = q.flow; m.roughness = q.roughness; m.scale = q.scale; m.aeration = q.aeration; changed = true; }
       else if (p.op === 'set') { Object.assign(m, p.v); changed = true; }
       else if (p.op === 'tune') { for (let k = 0; k < 4; k++) m.tuneHz[k] = p.hz[k] || 0; changed = true; }
+      else if (p.op === 'stone') eng.trigger({ type: 3, amp: p.v.amp || 0.8 });
       else if (p.op === 'drop') eng.trigger({ type: 2, radiusMm: 3000 / p.v.hz, amp: p.v.amp || 0.7, pan: p.v.pan === undefined ? -2 : p.v.pan });
       else eng.trigger({ zone: p.v.zone === undefined ? 1 : p.v.zone, radiusMm: p.v.radius || 0, amp: p.v.amp || 0, tauSec: p.v.tau || 0,
         rise: p.v.rise === undefined ? -1 : p.v.rise, pan: p.v.pan === undefined ? -2 : p.v.pan });

@@ -22,6 +22,7 @@ const CK = {
   J_DECAY_SEC: 0.3, J_CAP: 0.6,       // splash entrainment impulse (Phase 2)
   E_GATE: 0.004,            // below this energy the scene fades to silence
   E_GATE_FULL: 0.012,       // full level above this energy
+  GATE_FADE_SEC: 0.15,      // as the scene gate closes, the creek's own ringing voices fade this fast (drops / stones untouched)
 
   // ---- spatial ----
   ZONE_PAN: [0.0, -0.35, 0.35],       // -1 left .. +1 right
@@ -34,7 +35,7 @@ const CK = {
   RETIRE_DB: -80,           // relative to the event's start level
   RETIRE_ABS_DB: -100,      // absolute (before output gain)
   MAX_BIRTHS_PER_MICRO: 4,
-  QUEUE_SIZE: 64,           // pending events (splash children, Trigger())
+  QUEUE_SIZE: 96,           // pending events (splash children, stone bursts, Trigger())
 
   // radius -> pitch: f0 = 3 / r  (r in metres) [van den Doel]
   R_MIN_MM: 0.4, R_MAX_MM: 6.0,
@@ -132,6 +133,20 @@ const CK = {
   SURF_SPLASH: 1.5,         // splashes briefly raise surface activity
   SURF_BOOST_SEC: 0.4,
   SURF_VOICES: 10,
+
+  // ---- throw a stone (P01): deep plop, bubble burst, a disturbance that settles ----
+  STONE_PLOP_HZ: [70, 130], // impact tone (divided by the Scale radius multiplier)
+  STONE_PLOP_GLIDE: -0.45,
+  STONE_PLOP_TAU_SEC: [0.09, 0.18],
+  STONE_PLOP_GAIN: 0.35,
+  STONE_BUBBLES: [10, 24],  // burst size (by stone size) ...
+  STONE_SPREAD_SEC: 0.35,   // ... spread over this time, getting quieter
+  STONE_RADIUS_MM: [1.2, 7],// burst bubbles are larger than the creek's own (x Scale)
+  STONE_BUBBLE_AMP: [0.18, 0.62],
+  STONE_J: 0.45,            // entrainment impulse into every zone
+  STONE_SURGE_SEC: 2.0,     // the disturbance settles over this time ...
+  STONE_SURGE_RATE: 2.0,    // ... raising every event rate by up to (1 + 2) x, even in still water
+  STONE_SURFACE: 2.0,       // ripples: surface ticks
 
   // ---- note mode: tuned drops and creek tuning ----
   DROP_GAIN: 0.55,          // drop level at full velocity (x BUBBLE_GAIN)

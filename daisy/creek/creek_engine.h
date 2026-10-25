@@ -50,7 +50,7 @@ struct Stats {
     uint32_t births, drops, steals, queueDrops, limited;
     int active, maxActive;
     float meanF, sumLog2F, peak, rate, gate, eddy, splashRate, surfaceRate;
-    uint32_t splashes, surface;
+    uint32_t splashes, surface, stones;
     float E[ck::ZONES], T[ck::ZONES], B[ck::ZONES];
 };
 
@@ -72,6 +72,9 @@ private:
     void controlTick();
     void renderSegment(float* L, float* R, int n);
     void drop(const Event& e, int off);
+    void stone(const Event& e, int off);
+    float kStone_ = 0, stoneS_ = 0, creekFade_ = 1;
+    uint32_t stones_ = 0;
     float kTuneA_ = 0, kTuneR_ = 0, freeS_ = 1, activity_ = 1;
 
     float sr_ = 48000;
