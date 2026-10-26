@@ -1,5 +1,7 @@
 # This is TouchCreek
 
+🌐 **[creek.imagiag.com](https://creek.imagiag.com)** · **[Download the latest firmware](https://github.com/imagiag/TouchCreek/releases/latest)**
+
 A sample-free procedural creek for the Synthux Touch synthesizer and Daisy Seed, from a quiet trickle to a lively shallow stream. Nothing is recorded: hundreds of tiny bubbles per second, slow eddies, small splashes, fine surface ticks and the low rumble of dense bubbling, all driven by one slowly changing creek state. Switch to Notes and play it: tap a pad for a tuned drop, hold it and the water pours onto the note.
 
 Each bubble is a short decaying tone whose pitch comes from its size, f₀ ≈ 3 / r (Kees van den Doel, *Physically-based Models for Liquid Sounds*, 2005): small bubbles are high, big ones low.
@@ -7,7 +9,7 @@ Each bubble is a short decaying tone whose pitch comes from its size, f₀ ≈ 3
 The full manual with tables is [manual.html](manual.html).
 
 ## Quick Install
-Download the newest file from [releases/](releases/) (see its README for what each version changes) and flash it with the [Daisy web programmer](https://flash.daisy.audio/) in Chrome or Edge:
+Download the newest file from the [latest release](https://github.com/imagiag/TouchCreek/releases/latest) or [releases/](releases/) (see its README for what each version changes) and flash it with the [Daisy web programmer](https://flash.daisy.audio/) in Chrome or Edge:
 - **Unplugged**: hold BOOT while plugging in USB
 - **Already powered**: hold BOOT, tap RESET, release BOOT
 
