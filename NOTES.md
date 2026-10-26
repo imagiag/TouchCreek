@@ -50,6 +50,7 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - 2026-10-26 (user): noise wash dropped for good (the cloud covers the low body) and its code removed from both engines (FlowBed, Svf/Hp1, BED_* constants). Layer 0 and streams 3-6 stay reserved so ids and masks don't move; Diagnostics P03 is free. Flash 127784 -> 127496 B.
 - 2026-10-26 (user, on hardware, v17): cloud "sounds good, definitely better than the noise we dropped"; stays untuned in Notes mode (very low anyway, no need to follow the played notes).
 - 2026-10-26 (user): TouchPulsar's ping-pong delay, free time (no tempo): Time P11 + S30 (30 ms-2.4 s exp, default 0.375 s), Amount P11 + S32 (as TouchPulsar), CC 108 / 109. Delay class (layers.cpp / CrDelay): mono mix -> left line, lines cross-feed through a 4.5 kHz one-pole, fb 0.8 x amt, wet 0.6 x min(1, 2 amt), 50 ms time glide, after the cloud and before OutputStage (filter + limiter). Lines 2 x 120000 floats in SDRAM (DSY_SDRAM_BSS), host harnesses pass static arrays; without lines the delay is skipped. Delay costs 1.1 KB flash. v18-delay.
+- 2026-10-26 (user): the manual (daisy/manual.html, daisy/README.md) names the instrument **TouchCreek**; everything else stays Creek (firmware files CreekTouch-vN-<what>.bin, USB MIDI name, emulator, code).
 
 ## Parked ideas
 - Tune the stone (P01) by ear: user says it needs tuning (2026-10-25), details to come. Knobs in creek-config.js STONE_* (plop pitch/length/gain, burst size/spread/radii/level, surge time/rate, ripples).
