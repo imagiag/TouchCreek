@@ -41,7 +41,8 @@ main { display: grid; grid-template-columns: auto minmax(300px, 1fr); gap: 20px;
 .pad.sel { box-shadow: 0 0 0 3px rgba(95,195,180,.6); }
 .pad.muted { filter: saturate(.2) brightness(.45); }
 .pad.layer-on { box-shadow: 0 0 0 3px rgba(95,195,180,.6); }
-.pad.down { border-color: #ffd58a; }
+.pad.down, .pad.mod { border-color: #ffd58a; }
+.pad.mod { background: rgba(255, 213, 138, .12); }
 
 .knob { position: absolute; transform: translate(-50%, -50%); width: 15%; aspect-ratio: 1; touch-action: none; cursor: ns-resize; }
 .knob.idle { opacity: .45; cursor: default; }

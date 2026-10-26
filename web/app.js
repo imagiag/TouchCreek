@@ -42,7 +42,7 @@ class Takeover {
 const CONTROLS = KNOBS.concat(FADERS);
 const PHYS_OF = [];                                    // macro -> physical control
 for (const c of CONTROLS) { PHYS_OF[c.m] = c.p; if (c.alt !== undefined) PHYS_OF[c.alt] = c.p; if (c.alt11 !== undefined) PHYS_OF[c.alt11] = c.p; }
-// layers (as the firmware): P11 held = filter on the faders, P10 held = Width on S34
+// layers (as the firmware): P11 held = filter on the faders, P10 held = Width on S30; P11 also delay on S30 / S32, Tone, Attack, Release
 function macroFor(c) {
   if (c.alt11 !== undefined && ctl.touched[CC.P_SCALE]) return c.alt11;
   if (c.alt !== undefined && ctl.touched[CC.P_ROOT]) return c.alt;
@@ -125,19 +125,33 @@ function arc(a0, a1, r) {
   const [x0, y0] = p(a0), [x1, y1] = p(a1);
   return `M${x0.toFixed(2)},${y0.toFixed(2)} A${r * 0.9},${r * 0.9} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(2)},${y1.toFixed(2)}`;
 }
+const mouseMods = new Set();   // P10 / P11 latched by a mouse click
+function releaseMouseMods() { for (const m of mouseMods) ctl.padUp(m); mouseMods.clear(); }
 function buildBoard() {
   for (const p of PADS) {
     const e = el('div', 'pad' + (p.small ? ' small' : ''), board);
     e.style.left = p.x + '%'; e.style.top = p.y + '%';
     e._lbl = el('div', 'lbl', e);
     // velocity: pen pressure when available, otherwise where you hit the pad (top = hard), like TouchPulsar
+    // mouse: a click on P10 / P11 latches the modifier (one pointer can't hold two pads), so the
+    // pads show what they do with it; it lets go after the next pad, or when clicked again
+    const isMod = p.id === CC.P_ROOT || p.id === CC.P_SCALE;
     e.addEventListener('pointerdown', (ev) => {
-      ev.preventDefault(); e.setPointerCapture(ev.pointerId); e.classList.add('down'); ensureAudio();
+      ev.preventDefault(); ensureAudio();
+      if (isMod && ev.pointerType === 'mouse') {
+        if (mouseMods.has(p.id)) { mouseMods.delete(p.id); ctl.padUp(p.id); } else { mouseMods.add(p.id); ctl.padDown(p.id, 0.7); }
+        return;
+      }
+      e.setPointerCapture(ev.pointerId); e.classList.add('down');
       const r = e.getBoundingClientRect();
       const vel = ev.pointerType === 'pen' && ev.pressure > 0 ? ev.pressure : clamp(1 - (ev.clientY - r.top) / r.height, 0.1, 1);
       ctl.padDown(p.id, vel);
     });
-    const up = () => { if (!e.classList.contains('down')) return; e.classList.remove('down'); ctl.padUp(p.id); };
+    const up = () => {
+      if (!e.classList.contains('down')) return;
+      e.classList.remove('down'); ctl.padUp(p.id);
+      if (!isMod) releaseMouseMods();
+    };
     e.addEventListener('pointerup', up); e.addEventListener('pointercancel', up);
     padEls[p.id] = e;
   }
@@ -257,6 +271,7 @@ function drawBoard() {
     }
     if (e._html !== html) { e._lbl.innerHTML = html; e._html = html; }
     e.classList.remove('idle', 'sel', 'muted', 'layer-on'); if (cls) e.classList.add(cls);
+    e.classList.toggle('mod', (p.id === CC.P_ROOT || p.id === CC.P_SCALE) && !!ctl.touched[p.id]);   // held modifier (keys, mouse latch)
   }
   $('led').classList.toggle('on', ledState(performance.now()));
   $('dMode').textContent = ['PRESETS', 'NOTES', 'DIAGNOSTICS'][ctl.mode]; $('dMode').classList.toggle('diag', ctl.mode !== CC.MODE_PRESETS);
@@ -264,8 +279,10 @@ function drawBoard() {
   $('dPreset').textContent = ctl.mode === CC.MODE_DIAG ? 'layers ' + CC_LAYER_NAMES.slice(1).map((n, l) => ((ctl.diagMask >> (l + 1)) & 1 ? n[0] : '·')).join('') + (ctl.diagMask & CK_CLOUD_BIT ? 'C' : '·')
     : ctl.mode === CC.MODE_NOTES ? `${ctl.scaleName()} · oct ${ctl.oct > 0 ? '+' : ''}${ctl.oct}` : CREEK_PRESETS[ctl.preset].name;
   $('hint').textContent = !running ? 'Press Start audio, then play the panel.'
-    : ctl.mode === CC.MODE_DIAG ? (ctl.stress ? 'Stress test running: worst-case settings and note bursts. Tap P09 to stop.' : 'Diagnostics: P03–P07 mute / unmute layers, P08 all on.')
-    : ctl.mode === CC.MODE_NOTES ? 'Tap a note for a drop, hold it to tune the creek. Hit a pad higher up = louder.'
+    : ctl.mode === CC.MODE_DIAG ? (ctl.stress ? 'Stress test running: worst-case settings and note bursts. Tap P09 to stop.' : 'Diagnostics: P04–P07 and P09 (cloud) mute / unmute layers, P08 all on.')
+    : ctl.mode === CC.MODE_NOTES && ctl.touched[CC.P_SCALE] ? 'P11 held: tap a note pad to pick that scale, P00 / P02 previous / next. Knobs: second layer (P11).'
+    : ctl.mode === CC.MODE_NOTES && ctl.touched[CC.P_ROOT] ? 'P10 held: tap a note pad to make it the root. S30 = Width.'
+    : ctl.mode === CC.MODE_NOTES ? 'Tap a note for a drop, hold it to tune the creek. Hit a pad higher up = louder. Hold W (or click P11) for scales, Q / Shift (or click P10) for the root.'
     : 'P03–P06 recall presets. Knobs pick up once moved.';
 }
 const midiName = (m) => CC.NOTE_NAMES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
@@ -428,6 +445,8 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'd' || e.key === 'D') sw.mode = (sw.mode + 1) % 3;
   else if (e.key === 'h' || e.key === 'H') sw.hold = sw.hold === 2 ? 0 : 2;
   else if (e.key === 's' || e.key === 'S') ctl.padDown(CC.P_STONE, 0.8);
+  else if (e.key === 'Shift' || e.key === 'q' || e.key === 'Q') ctl.padDown(CC.P_ROOT, 0.7);    // hold = P10 (as TouchPulsar)
+  else if (e.key === 'w' || e.key === 'W') ctl.padDown(CC.P_SCALE, 0.7);                         // hold = P11
   else if (ctl.mode === CC.MODE_PRESETS && n >= 1 && n <= 4) ctl.padDown(CC.PAD_PRESET0 + n - 1, 0.7);
   else if (ctl.mode === CC.MODE_NOTES && n >= 1 && n <= 7) ctl.padDown(CC.PAD_NOTE0 + n - 1, 0.7);
   else if (ctl.mode === CC.MODE_NOTES && (e.key === 'z' || e.key === 'x')) ctl.padDown(e.key === 'x' ? CC.P_OCT_UP : CC.P_OCT_DN, 0.7);
@@ -440,6 +459,9 @@ document.addEventListener('keyup', (e) => {
   if (n >= 1 && n <= 7) ctl.padUp(CC.PAD_NOTE0 + n - 1);
   if (e.key === 'z' || e.key === 'x') ctl.padUp(e.key === 'x' ? CC.P_OCT_UP : CC.P_OCT_DN);
   if (e.key === 's' || e.key === 'S') ctl.padUp(CC.P_STONE);
+  if ((e.key === 'Shift' || e.key === 'q' || e.key === 'Q') && !mouseMods.has(CC.P_ROOT)) ctl.padUp(CC.P_ROOT);
+  if ((e.key === 'w' || e.key === 'W') && !mouseMods.has(CC.P_SCALE)) ctl.padUp(CC.P_SCALE);
   if (n >= 1 && n <= 6) { ctl.padUp(CC.PAD_PRESET0 + n - 1); ctl.padUp(CC.PAD_ALL); }
 });
+window.addEventListener('blur', () => { releaseMouseMods(); ctl.padUp(CC.P_ROOT); ctl.padUp(CC.P_SCALE); });
 buildBoard(); frame();
