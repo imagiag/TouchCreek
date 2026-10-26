@@ -704,6 +704,45 @@ class CrSpatialMixer {
 }
 
 // =============================================================================
+// Ping-pong delay (TouchPulsar's): the mix (mono) goes into the left line, each
+// line feeds the other through a gentle low-pass, so echoes alternate L / R and
+// get darker. Time glides when changed. Amount sets feedback and echo level.
+// =============================================================================
+class CrDelay {
+  init(sr) {
+    this.sr = sr; this.N = Math.round(CK.DELAY_BUFFER_SEC * sr);
+    this.bufL = new Float32Array(this.N); this.bufR = new Float32Array(this.N);
+    this.dK = 1 - Math.fround(Math.exp(Math.fround(-1 / Math.fround(CK.DELAY_GLIDE_SEC * sr))));   // as the C++ (float expf)
+    this.lpK = Math.fround(1 - Math.exp(-2 * Math.PI * CK.DELAY_LP_HZ / sr));
+    this.time = CK.DELAY_DEFAULT_SEC; this.amt = 0;
+    this.reset();
+  }
+  reset() { this.bufL.fill(0); this.bufR.fill(0); this.w = 0; this.lpL = 0; this.lpR = 0; this.len = this.target(); }
+  target() { return Math.min(Math.max(this.time, 0.01) * this.sr, this.N - 4); }
+  tap(buf, d) {
+    let pos = this.w - d; if (pos < 0) pos += this.N;
+    const pi = Math.floor(pos), f = Math.fround(pos - pi), pj = pi + 1 === this.N ? 0 : pi + 1;
+    return Math.fround(buf[pi] + Math.fround(Math.fround(buf[pj] - buf[pi]) * f));
+  }
+  process(L, R, off, n) {
+    const t = this.target(), dK = this.dK, lpK = this.lpK, fb = Math.fround(CK.DELAY_FB * this.amt), wet = Math.fround(CK.DELAY_WET * Math.min(1, this.amt * 2));
+    const bL = this.bufL, bR = this.bufR, N = this.N;
+    let lpL = this.lpL, lpR = this.lpR;
+    for (let i = off; i < off + n; i++) {
+      this.len += (t - this.len) * dK;
+      const rL = this.tap(bL, this.len), rR = this.tap(bR, this.len);
+      lpL = Math.fround(lpL + Math.fround(Math.fround(rL - lpL) * lpK)); lpR = Math.fround(lpR + Math.fround(Math.fround(rR - lpR) * lpK));
+      const oL = L[i], oR = R[i];
+      bL[this.w] = Math.fround(Math.fround((oL + oR) * 0.5) + Math.fround(fb * lpR));
+      bR[this.w] = Math.fround(fb * lpL);
+      this.w = this.w + 1 === N ? 0 : this.w + 1;
+      L[i] = oL + rL * wet; R[i] = oR + rR * wet;
+    }
+    this.lpL = lpL; this.lpR = lpR;
+  }
+}
+
+// =============================================================================
 // OutputStage: DC blocker (~25 Hz), smoothed gain, linked peak limiter with
 // instant attack and smooth release; output never exceeds LIMIT_CEIL.
 // =============================================================================
@@ -780,6 +819,8 @@ class CreekMacros {
     this.release = CK.TUNE_RELEASE_SEC; // note pour tail (s)
     this.cutoff = 1;              // low-pass: 0 = 30 Hz .. 1 = 18 kHz (open)
     this.resonance = 0;           // 0 = Q 0.7 .. 1 = Q 20
+    this.delayTime = CK.DELAY_DEFAULT_SEC;   // ping-pong delay time (s)
+    this.delayAmt = 0;            // 0 = no echoes .. 1 = long feedback
   }
 }
 
@@ -790,7 +831,7 @@ class CreekEngine {
     this.flow = new CrFlowState(); this.queue = new CrEventQueue(CK.QUEUE_SIZE);
     this.sched = new CrBubbleScheduler(); this.pool = new CrBubblePool();
     this.mixer = new CrSpatialMixer(); this.out = new CrOutputStage();
-    this.eddies = new CrEddies(); this.falls = new CrFalls(); this.surface = new CrSurface(); this.cloud = new CrCloud();
+    this.eddies = new CrEddies(); this.falls = new CrFalls(); this.surface = new CrSurface(); this.cloud = new CrCloud(); this.delay = new CrDelay();
     this.tmpEvent = new CrEvent();
     this.bufL = []; this.bufR = [];
     for (let l = 0; l < CK_LAYERS; l++) { this.bufL.push(new Float32Array(CK.MICRO)); this.bufR.push(new Float32Array(CK.MICRO)); }
@@ -799,7 +840,7 @@ class CreekEngine {
   }
   init(sr, seed) {
     this.sr = sr;
-    this.pool.init(sr); this.mixer.init(sr); this.out.init(sr);
+    this.pool.init(sr); this.mixer.init(sr); this.out.init(sr); this.delay.init(sr);
     this.kStone = Math.exp(-1 / (CK.CONTROL_HZ * CK.STONE_SURGE_SEC));
     this.kTuneA = 1 - Math.exp(-1 / (CK.CONTROL_HZ * CK.TUNE_ATTACK_SEC));
     this.kTuneR = 1 - Math.exp(-1 / (CK.CONTROL_HZ * CK.TUNE_RELEASE_SEC));
@@ -818,7 +859,7 @@ class CreekEngine {
     this.surface.init(this.sr, this.rng[CR_S_SURFACE]);
     this.cloud.init(this.sr, this.rng[CR_S_CLOUD]);
     this.sched.rateMul.fill(1); this.sched.radMul.fill(1);
-    this.mixer.init(this.sr); this.out.reset();
+    this.mixer.init(this.sr); this.out.reset(); this.delay.reset();
     this.applyMacros(true);
     this.snapNext = true;      // the first setMacros() after a reset jumps instead of gliding
   }
@@ -838,6 +879,7 @@ class CreekEngine {
     m.tone = fin(v.tone, 0, 1, m.tone);
     m.attack = fin(v.attack, 0.001, 10, m.attack); m.release = fin(v.release, 0.005, 20, m.release);
     m.cutoff = fin(v.cutoff, 0, 1, m.cutoff); m.resonance = fin(v.resonance, 0, 1, m.resonance);
+    m.delayTime = fin(v.delayTime, 0.01, CK.DELAY_BUFFER_SEC, m.delayTime); m.delayAmt = fin(v.delayAmt, 0, 1, m.delayAmt);
     if (v.scaleMask !== undefined) m.scaleMask = (v.scaleMask & 0xFFF) || 0xFFF;
     this.applyMacros(this.snapNext);
     this.snapNext = false;
@@ -851,6 +893,8 @@ class CreekEngine {
     if (snap) this.cloud.g = this.cloud.target;
     this.out.setGain(m.gain);
     this.out.setFilter(m.cutoff, m.resonance);
+    this.delay.time = m.delayTime; this.delay.amt = m.delayAmt;
+    if (snap) this.delay.len = this.delay.target();
     if (snap) { this.out.fcLog = this.out.fcT; this.out.micro(); }
     if (snap) { this.mixer.w = m.width; this.out.g = m.gain; this.mixer.g.set(this.mixer.target); }
     const sc = this.sched;
@@ -962,6 +1006,7 @@ class CreekEngine {
     this.surface.pool.render(bl[CK_L_SURFACE], br[CK_L_SURFACE], n);
     this.mixer.mix(bl, br, L, R, off, n);
     this.cloud.render(this.rng[CR_S_CLOUD], s, L, R, off, n);
+    this.delay.process(L, R, off, n);
     this.out.process(L, R, off, n);
   }
   // note mode: a tuned drop = one bubble at the note plus a few quieter

@@ -37,7 +37,9 @@ At power-up the creek plays whatever the knobs and faders are set to; the second
   - Hold P10 + S30 - **Width** (see Knobs)
   - Notes: hold P10 + P03...P09 - set the **root key** to that pad's current note (the scale type stays)
 - **P11** - Modifier:
+  - Hold P11 + S30 - **Delay time**: 30 ms–2.4 s (default 0.375 s); changes glide, like tape
   - Hold P11 + S31 - **Tone**: dark ↔ bright (noon = default)
+  - Hold P11 + S32 - **Delay amount** (as TouchPulsar): 0 = off; more = more and longer echoes (feedback up to 0.8), bouncing left ↔ right and getting darker
   - Hold P11 + S33 - **Attack**: how quickly a held note's pour swells in, 4 ms–3 s (default 0.25 s)
   - Hold P11 + S34 - **Release**: how long the pour keeps going after you let go, 20 ms–4 s (default 0.6 s)
   - Hold P11 + right fader (S37) - **Filter cutoff** (30 Hz–18 kHz; fully up = open)
@@ -48,9 +50,9 @@ At power-up the creek plays whatever the knobs and faders are set to; the second
 Diagnostic mutes are smooth (20 ms), don't change what the other layers do, and are remembered; in Presets and Notes all layers always play.
 
 ### Knobs (clockwise)
-- S30 **Free flow** (Notes) | How much the creek plays by itself. Fully left = still water, only your notes sound. Presets and Diagnostics always flow | Hold P10: **Width** (mono fully left, natural at noon, wider fully right)
+- S30 **Free flow** (Notes) | How much the creek plays by itself. Fully left = still water, only your notes sound. Presets and Diagnostics always flow | Hold P10: **Width** (mono fully left, natural at noon, wider fully right) · Hold P11: **Delay time** (30 ms–2.4 s (default 0.375 s); changes glide, like tape)
 - S31 **Scale** | Fine shallow trickle → larger stream body. Bubbles get 0.6× to 1.8× bigger over most of the knob (typical pitch about 3 kHz → 1.3 kHz); the last quarter bends up to 8× for bass, the deepest bubbles around 60 Hz ringing longer. Splashes get lower, eddies get slower | Hold P11: **Tone** - dark ↔ bright, wide: noon = default mix; turning left brings in more and more of the big, low bubbles and, near the end, makes them all up to an octave lower; right does the same towards small, high ones (at mid Scale the average pitch goes from about 350 Hz to 7.5 kHz)
-- S32 **Aeration** | Sparse bubbling → bubbly white water. Fully left = no bubbles at all
+- S32 **Aeration** | Sparse bubbling → bubbly white water. Fully left = no bubbles at all | Hold P11: **Delay amount** (0 = off; more = more and longer echoes (feedback up to 0.8), bouncing left ↔ right and getting darker)
 - S33 **Flow** | Still → trickle → lively creek. More bubbles and splashes (0.2 → 4 per second). Fully left: silence within about 1.5 s | Hold P11: **Attack** (4 ms–3 s)
 - S34 **Decay** | How long every bubble, drop, splash and tick rings. Noon = default; left shorter (down to ¼), right longer (up to 4×) | Hold P11: **Release** (20 ms–4 s; the pour's tail, still on the notes you played)
 - S35 **Variety** (Notes) | Noon = default (the held note, in the octave nearest each bubble's own size). Left: more and more exactly the held note (fully left = one note). Right: more and more other notes of the active scale, up to an octave around the held note
@@ -77,6 +79,7 @@ Everything you hear is made of short decaying tones; there is no noise in the so
 - **Eddies**: Two to four overlapping slow swells (0.3–3 s; slower with larger Scale, deeper with Roughness) in the rock wake. No sound of their own: each makes the left side surge with more, slightly bigger and lower bubbles, then settle.
 - **Small Waterfalls**: At the drop, 0.2–4 times a second as Flow rises: a quick fizz of 3–7 tiny bubbles (2.5–10 kHz) within 20 ms, then 2–8 bubbles settling over the next tenth of a second (more with Aeration), plus a short burst of extra air. (Before v16 this started with a low falling plop, which sounded artificial.) Overlapping splashes share a limited energy, so they never swamp the creek.
 - **Surface Detail**: Sparse, very short, quiet high ticks (2–9 kHz), more near the drop, at turbulence peaks and right after splashes, in loose bursts rather than a steady crackle. In Notes mode the ticks and the falls' fizz are tuned to the held notes (in their own high octaves; Variety spreads them over the scale), and stay on the last played notes after you let go, until you play new ones.
+- **Ping-pong Delay** (from TouchPulsar): Echoes of the whole creek bounce left ↔ right and get darker with each repeat. **Time** (P11 + S30) is free, 30 ms–2.4 s (no tempo: short = slap and space, long = separate echoes); changes glide like tape. **Amount** (P11 + S32) sets echo level and feedback together; 0 = off (the power-up setting). After the creek and the cloud, before the filter and the output limiter.
 - **Bubble Cloud**: Dense bubbling also rings as one body: a soft, low rumble (about 40–400 Hz) under the rock wake and the drop. It comes in around Small cascade density (silent in a trickle), gets lower as the water gets denser and as Scale grows (down to ~40 Hz), and splashes give it a push. A cheap approximation of coupled bubble clouds (after Xue et al. 2023), not a physical solver. Diagnostics P09 mutes it.
 - **Attack & Release**: Both on P11 (P11 + S33, P11 + S34; ranges and CCs as TouchPulsar): how quickly a held note's pour swells in (4 ms – 3 s) and how long it keeps pouring and settling after you let go (20 ms – 4 s).
 - **Tone**: P11 + S31 shifts the creek darker or brighter over a wide range (noon = default): first the mix (more big or more small bubbles), then near the ends all bubbles move up to an octave.
@@ -146,6 +149,8 @@ Creek appears as a USB MIDI device (listed as **Creek**) when connected via the 
 | 28 | **Tone** (P11 + S31) |
 | 72 | **Release** (P11 + S34) |
 | 107 | **Attack** (P11 + S33) |
+| 108 | **Delay time** (P11 + S30) |
+| 109 | **Delay amount** (P11 + S32) |
 | 29 | **Throw a stone** (P01; value = size) |
 | 64 | **Sustain** |
 | 102 | **Filter Cutoff** (P11 + S37) |

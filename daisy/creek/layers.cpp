@@ -199,4 +199,42 @@ void Cloud::Render(Rng& rng, const BubbleScheduler& sched, float* L, float* R, i
     g = gg; nK_ = 0;
 }
 
+// ---------------------------------------------------------------- ping-pong delay
+CREEK_SMALL void Delay::SetBuffers(float* l, float* r, size_t len) {
+    l_ = l; r_ = r; n_ = (l && r && len > 8) ? len : 0;
+    Reset();
+}
+
+CREEK_SMALL void Delay::Reset() {
+    for (size_t i = 0; i < n_; i++) { l_[i] = 0.f; r_[i] = 0.f; }
+    w_ = 0; lpL_ = lpR_ = 0.f; len_ = n_ ? target() : 0.0;
+}
+
+float Delay::tap(const float* b, double d) const {
+    double pos = (double)w_ - d;
+    if (pos < 0) pos += (double)n_;
+    const size_t pi = (size_t)pos;
+    const float f = (float)(pos - (double)pi);
+    const size_t pj = pi + 1 == n_ ? 0 : pi + 1;
+    return b[pi] + (b[pj] - b[pi]) * f;
+}
+
+void Delay::Process(float* L, float* R, int n) {
+    if (!n_) return;
+    const double t = target();
+    const float fb = ck::DELAY_FB * amt, wet = ck::DELAY_WET * fminf(1.f, amt * 2.f);
+    float lpL = lpL_, lpR = lpR_;
+    for (int i = 0; i < n; i++) {
+        len_ += (t - len_) * dK_;
+        const float rL = tap(l_, len_), rR = tap(r_, len_);
+        lpL += (rL - lpL) * lpK_; lpR += (rR - lpR) * lpK_;
+        const float oL = L[i], oR = R[i];
+        l_[w_] = (oL + oR) * 0.5f + fb * lpR;
+        r_[w_] = fb * lpL;
+        w_ = w_ + 1 == n_ ? 0 : w_ + 1;
+        L[i] = oL + rL * wet; R[i] = oR + rR * wet;
+    }
+    lpL_ = lpL; lpR_ = lpR;
+}
+
 } // namespace creek

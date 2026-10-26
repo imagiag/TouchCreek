@@ -20,8 +20,8 @@ const PADS = [
 ];
 // physical controls (p = S30..S37 -> 0..7) -> macro (CC.M_*); alt = macro while P10 is held
 const KNOBS = [
-  { id: 'S30', p: 0, x: 21.2, y: 49.5, m: CC.M_FREE, alt: CC.M_WIDTH }, { id: 'S31', p: 1, x: 21.2, y: 35.5, m: CC.M_SCALE, alt11: CC.M_TONE },
-  { id: 'S32', p: 2, x: 40.8, y: 35.5, m: CC.M_AER }, { id: 'S33', p: 3, x: 60.3, y: 35.5, m: CC.M_FLOW, alt11: CC.M_ATTACK },
+  { id: 'S30', p: 0, x: 21.2, y: 49.5, m: CC.M_FREE, alt: CC.M_WIDTH, alt11: CC.M_DTIME }, { id: 'S31', p: 1, x: 21.2, y: 35.5, m: CC.M_SCALE, alt11: CC.M_TONE },
+  { id: 'S32', p: 2, x: 40.8, y: 35.5, m: CC.M_AER, alt11: CC.M_DAMT }, { id: 'S33', p: 3, x: 60.3, y: 35.5, m: CC.M_FLOW, alt11: CC.M_ATTACK },
   { id: 'S34', p: 4, x: 79.2, y: 35.5, m: CC.M_DECAY, alt11: CC.M_RELEASE }, { id: 'S35', p: 5, x: 79.2, y: 49.5, m: CC.M_VARIETY },
 ];
 const FADERS = [{ id: 'S36', p: 6, x: 6.5, y: 42, m: CC.M_LEVEL, alt11: CC.M_RES }, { id: 'S37', p: 7, x: 93.5, y: 42, m: CC.M_ROUGH, alt11: CC.M_CUTOFF }];
@@ -29,7 +29,7 @@ const SWITCHES = [ // pos 0 = up, 1 = centre, 2 = down
   { k: 'mode', id: 'S09/10', x: 37.8, y: 66, names: ['PRESETS', 'NOTES', 'DIAG'] },
   { k: 'hold', id: 'S07/08', x: 53.5, y: 72.5, names: ['LIVE', 'LIVE', 'HOLD'], notesNames: ['LIVE', 'LIVE', 'LATCH'] },
 ];
-const MACRO_NAMES = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width', 'Free flow', 'Variety', 'Decay', 'Cutoff', 'Resonance', 'Tone', 'Attack', 'Release'];
+const MACRO_NAMES = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width', 'Free flow', 'Variety', 'Decay', 'Cutoff', 'Resonance', 'Tone', 'Attack', 'Release', 'Delay time', 'Delay amount'];
 
 // ------------------------------------------------------------------ hardware glue (as creek_ui.cpp)
 // Soft pickup: after a preset recall a macro knob only writes again once it
@@ -201,6 +201,8 @@ function fmt(m, v) {
   if (m === CC.M_SCALE) return crScaleMul(v).toFixed(2) + '×';
   if (m === CC.M_CUTOFF) { const hz = CK.FILTER_HZ[0] * Math.pow(CK.FILTER_HZ[1] / CK.FILTER_HZ[0], v); return v > 0.995 ? 'open' : hz >= 1000 ? (hz / 1000).toFixed(1) + ' kHz' : Math.round(hz) + ' Hz'; }
   if (m === CC.M_RES) return 'Q ' + (CK.FILTER_Q[0] + v * v * (CK.FILTER_Q[1] - CK.FILTER_Q[0])).toFixed(1);
+  if (m === CC.M_DTIME) { const s = ccSec(v, CK.DELAY_RANGE_SEC); return s < 1 ? Math.round(s * 1000) + ' ms' : s.toFixed(2) + ' s'; }
+  if (m === CC.M_DAMT) return v < 0.005 ? 'off' : Math.round(v * 100) + '%';
   if (m === CC.M_TONE) return Math.abs(v - 0.5) < 0.02 ? 'default' : v < 0.5 ? `dark ${Math.round((0.5 - v) * 200)}%` : `bright ${Math.round((v - 0.5) * 200)}%`;
   if (m === CC.M_ATTACK || m === CC.M_RELEASE) { const s = ccSec(v, m === CC.M_ATTACK ? CK.ATTACK_RANGE_SEC : CK.RELEASE_RANGE_SEC); return s < 1 ? Math.round(s * 1000) + ' ms' : s.toFixed(2) + ' s'; }
   if (m === CC.M_DECAY) return '×' + Math.pow(2, CK.DECAY_OCT * (2 * v - 1)).toFixed(2);
@@ -218,8 +220,11 @@ function drawBoard() {
     e.classList.toggle('waiting', waiting);
     e.classList.toggle('altl', m !== c.m);
     if (e._b.textContent !== MACRO_NAMES[m]) e._b.textContent = MACRO_NAMES[m];
-    const layer = c.alt !== undefined ? ['P10', c.alt] : c.alt11 !== undefined ? ['P11', c.alt11] : null;
-    const idTxt = !layer ? c.id : m === c.m ? `${c.id} · ${layer[0]}: ${MACRO_NAMES[layer[1]]}` : `${layer[0]} + ${c.id}`;
+    const layers = [];   // modifier layers of this control: P10 and / or P11
+    if (c.alt !== undefined) layers.push(['P10', c.alt]);
+    if (c.alt11 !== undefined) layers.push(['P11', c.alt11]);
+    const cur = layers.find((l) => l[1] === m);
+    const idTxt = !layers.length ? c.id : cur ? `${cur[0]} + ${c.id}` : `${c.id} · ${layers.map((l) => `${l[0]}: ${MACRO_NAMES[l[1]]}`).join(' · ')}`;
     if (e._id.textContent !== idTxt) e._id.textContent = idTxt;
     e._s.textContent = waiting ? 'pick up ↕' : fmt(m, v);
   }

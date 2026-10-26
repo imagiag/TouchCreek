@@ -36,6 +36,7 @@ int CcToMacro(int cc) {
         case 28: return M_TONE;
         case 102: return M_CUTOFF; case 103: return M_RES;   // as TouchPulsar
         case 107: return M_ATTACK; case 72: return M_RELEASE; // as TouchPulsar
+        case 108: return M_DTIME; case 109: return M_DAMT;    // delay, as TouchPulsar
         default: return -1;
     }
 }
@@ -47,6 +48,7 @@ Controls::Controls() {
     value[M_FREE] = 1.f; value[M_VARIETY] = 0.5f; value[M_DECAY] = 0.5f;
     value[M_CUTOFF] = 1.f; value[M_RES] = 0.f;   // filter open at power-up
     value[M_TONE] = 0.5f;
+    value[M_DTIME] = SecToKnob(ck::DELAY_DEFAULT_SEC, ck::DELAY_RANGE_SEC); value[M_DAMT] = 0.f;   // delay off
     value[M_ATTACK] = SecToKnob(ck::TUNE_ATTACK_SEC, ck::ATTACK_RANGE_SEC);    // default pour feel
     value[M_RELEASE] = SecToKnob(ck::TUNE_RELEASE_SEC, ck::RELEASE_RANGE_SEC);
     for (int k = 0; k < 4; k++) glideFrom_[k] = glideTo_[k] = 0;
@@ -298,6 +300,7 @@ void Controls::Compute(Macros& m) const {
     m.scaleMask = ScaleMask();
     m.cutoff = value[M_CUTOFF]; m.resonance = value[M_RES];
     m.tone = value[M_TONE];
+    m.delayTime = KnobToSec(value[M_DTIME], ck::DELAY_RANGE_SEC); m.delayAmt = value[M_DAMT];
     m.attack = KnobToSec(value[M_ATTACK], ck::ATTACK_RANGE_SEC); m.release = KnobToSec(value[M_RELEASE], ck::RELEASE_RANGE_SEC);
 }
 

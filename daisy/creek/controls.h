@@ -37,7 +37,7 @@ constexpr int kNumScales = 7;
 struct Scale { const char* name; int8_t semis[7]; };
 extern const Scale kScales[kNumScales];
 
-enum MacroIndex { M_FLOW = 0, M_ROUGH, M_SCALE, M_AER, M_LEVEL, M_WIDTH, M_FREE, M_VARIETY, M_DECAY, M_CUTOFF, M_RES, M_TONE, M_ATTACK, M_RELEASE, M_COUNT };
+enum MacroIndex { M_FLOW = 0, M_ROUGH, M_SCALE, M_AER, M_LEVEL, M_WIDTH, M_FREE, M_VARIETY, M_DECAY, M_CUTOFF, M_RES, M_TONE, M_ATTACK, M_RELEASE, M_DTIME, M_DAMT, M_COUNT };
 enum Mode { MODE_PRESETS = 0, MODE_NOTES, MODE_DIAG };
 enum ControlEvent : uint8_t { CE_NONE = 0, CE_PRESET, CE_LAYER, CE_ALL, CE_MODE, CE_SCALE, CE_OCT, CE_ROOT, CE_NOTE, CE_STRESS, CE_CC, CE_STONE };
 constexpr int kMidiKey = 128;        // held keys: pads 0..11, MIDI notes 128 + note

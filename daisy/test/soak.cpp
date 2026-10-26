@@ -20,6 +20,8 @@ int main(int argc, char** argv) {
     const float sr = 48000.f;
     const int B = 48;
     static CreekEngine eng;
+    static float dl[2][120000];
+    eng.SetDelayBuffers(dl[0], dl[1], CreekEngine::DelayLen(sr));
     eng.Init(sr, 11);
     Controls ctl;
     float L[B], R[B];
@@ -36,7 +38,7 @@ int main(int argc, char** argv) {
     const auto t0 = std::chrono::steady_clock::now();
 
     // Phases, each 60 s, repeating: 0 stress test, 1 all maximum, 2 preset corners every 2 s,
-    // 3 random knob jumps every 20 ms, 4 notes: chords + drops, 5 Flow 0 for 5 s (stuck-voice check) then max
+    // 3 random knob + delay jumps every 20 ms, 4 notes: chords + drops with delay (1: full delay at maximum), 5 Flow 0 for 5 s (stuck-voice check) then max
     for (long b = 0; b < blocks; b++) {
         const double t = (double)b * B / sr;
         const int phase = (int)(t / 60.0) % 6;
@@ -46,12 +48,16 @@ int main(int argc, char** argv) {
             ctl.SetMode(phase == 0 ? MODE_DIAG : (phase == 4 ? MODE_NOTES : MODE_PRESETS));
             if (phase == 0 && !ctl.stress) ctl.PadDown(kPadStress, 0.7f), ctl.PadUp(kPadStress);
             ctl.SetKnob(M_LEVEL, 0.7071f); ctl.SetKnob(M_WIDTH, 0.5f);
+            ctl.SetKnob(M_DAMT, phase == 1 ? 1.f : phase == 4 ? 0.7f : 0.f);   // delay: full at maximum, on for notes, else off
+            ctl.SetKnob(M_DTIME, phase == 1 ? 1.f : 0.5f);
         }
         if (phase == 1) for (int k = 0; k < 4; k++) ctl.SetKnob(k, 1.f);
         if (phase == 2 && fmod(pt, 2.0) < (double)B / sr) { const int p = (int)(pt / 2.0) % 4; ctl.PadDown(kPadPreset0 + p, .7f); ctl.PadUp(kPadPreset0 + p); }
         if ((phase == 2 || phase == 4) && pt < 54.0 && b % 1500 == 0) { ctl.PadDown(kPadStone, (float)rand() / (float)RAND_MAX); ctl.PadUp(kPadStone); }   // stones
         if (phase == 1 && b % 3000 == 0) { ctl.PadDown(kPadStone, 1.f); ctl.PadUp(kPadStone); }                                  // a full stone every 3 s at maximum
-        if (phase == 3 && b % 20 == 0) for (int k = 0; k < 4; k++) ctl.SetKnob(k, (float)rand() / (float)RAND_MAX);
+        if (phase == 3 && b % 20 == 0) { for (int k = 0; k < 4; k++) ctl.SetKnob(k, (float)rand() / (float)RAND_MAX);
+            if (pt < 50.0) { ctl.SetKnob(M_DTIME, (float)rand() / (float)RAND_MAX); ctl.SetKnob(M_DAMT, (float)rand() / (float)RAND_MAX); }   // delay jumps (glides)
+            else ctl.SetKnob(M_DAMT, 0.f); }
         if (phase == 4) {
             for (int k = 0; k < 4; k++) ctl.SetKnob(k, k == M_SCALE ? 0.5f : 0.8f);
             if (b % 100 == 0) { const int p = 3 + rand() % 7; ctl.PadDown(p, (float)rand() / (float)RAND_MAX); if (rand() % 3) ctl.PadUp(p); }

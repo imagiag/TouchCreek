@@ -158,6 +158,15 @@ const CK = {
   VARIETY_STEPS: 7,         // Variety fully right: up to +- this many scale steps from the held note
   DECAY_OCT: 2,             // Decay knob: decay times x 2^(+-2) = 0.25x .. 4x, noon = 1x
 
+  // ---- ping-pong delay (as TouchPulsar, free time instead of tempo sync) ----
+  DELAY_RANGE_SEC: [0.03, 2.4], // Time knob (P11 + S30), exponential
+  DELAY_DEFAULT_SEC: 0.375,     // power-up time (TouchPulsar's dotted 1/8 at 120 BPM)
+  DELAY_BUFFER_SEC: 2.5,        // line length (firmware: external SDRAM)
+  DELAY_GLIDE_SEC: 0.05,        // time changes glide, like tape
+  DELAY_LP_HZ: 4500,            // repeats get darker
+  DELAY_FB: 0.8,                // feedback at full Amount (P11 + S32) ...
+  DELAY_WET: 0.6,               // ... and echo level (full from half Amount); Amount 0 = no echoes
+
   // ---- low-pass filter (as TouchPulsar: P11 + faders) ----
   FILTER_HZ: [30, 18000],   // cutoff range (exponential); fully up = open
   FILTER_Q: [0.707, 20],    // resonance: Q = 0.707 + r^2 * 19.3

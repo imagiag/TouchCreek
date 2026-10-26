@@ -9,7 +9,7 @@ CREEK_SMALL void CreekEngine::Init(float sampleRate, uint32_t seed) {
     sr_ = sampleRate;
     srInt_ = (uint32_t)lroundf(sampleRate);
     for (int l = 0; l < ck::LAYERS; l++) { pL_[l] = bufL_[l]; pR_[l] = bufR_[l]; }
-    pool_.Init(sr_); mixer_.Init(sr_); out_.Init(sr_);
+    pool_.Init(sr_); mixer_.Init(sr_); out_.Init(sr_); delay_.Init(sr_);
     kStone_ = expf(-1.f / (ck::CONTROL_HZ * ck::STONE_SURGE_SEC));
     kTuneA_ = 1.f - expf(-1.f / (ck::CONTROL_HZ * ck::TUNE_ATTACK_SEC));
     kTuneR_ = 1.f - expf(-1.f / (ck::CONTROL_HZ * ck::TUNE_RELEASE_SEC));
@@ -29,7 +29,7 @@ CREEK_SMALL void CreekEngine::Reset(uint32_t seed) {
     falls_.Init(sr_, rng_[S_FALLS]);
     surface_.Init(sr_, rng_[S_SURFACE]);
     cloud_.Init(sr_, rng_[S_CLOUD]);
-    mixer_.Init(sr_); out_.Reset();
+    mixer_.Init(sr_); out_.Reset(); delay_.Reset();
     applyMacros(true);
     snapNext_ = true;   // the first SetMacros() after a reset jumps instead of gliding
 }
@@ -48,6 +48,7 @@ CREEK_SMALL void CreekEngine::SetMacros(const Macros& v) {
     m.tone = fin(v.tone, 0.f, 1.f, m.tone);
     m.attack = fin(v.attack, 0.001f, 10.f, m.attack); m.release = fin(v.release, 0.005f, 20.f, m.release);
     m.cutoff = fin(v.cutoff, 0.f, 1.f, m.cutoff); m.resonance = fin(v.resonance, 0.f, 1.f, m.resonance);
+    m.delayTime = fin(v.delayTime, 0.01f, ck::DELAY_BUFFER_SEC, m.delayTime); m.delayAmt = fin(v.delayAmt, 0.f, 1.f, m.delayAmt);
     m.scaleMask = (v.scaleMask & 0xFFFu) ? (v.scaleMask & 0xFFFu) : 0xFFFu;
     applyMacros(snapNext_);
     snapNext_ = false;
@@ -63,6 +64,8 @@ CREEK_SMALL void CreekEngine::applyMacros(bool snap) {
     out_.gTarget = m.gain;
     out_.SetFilter(m.cutoff, m.resonance);
     if (snap) out_.SnapFilter();
+    delay_.time = m.delayTime; delay_.amt = m.delayAmt;
+    if (snap) delay_.Snap();
     if (snap) { mixer_.w = m.width; out_.g = m.gain; for (int l = 0; l < ck::LAYERS; l++) mixer_.g[l] = mixer_.target[l]; }
     // held notes; after release the last ones stay, so the release tail keeps their pitches
     bool anyNote = false;
@@ -185,6 +188,7 @@ void CreekEngine::renderSegment(float* L, float* R, int n) {
     surface_.pool.Render(bufL_[L_SURFACE], bufR_[L_SURFACE], n);
     mixer_.Mix(pL_, pR_, L, R, n);
     cloud_.Render(rng_[S_CLOUD], sched_, L, R, n);
+    delay_.Process(L, R, n);
     out_.Process(L, R, n);
 }
 

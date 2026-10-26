@@ -137,7 +137,9 @@
     </ul></td></tr>
   <tr><td class="id">P11</td><td colspan="3">Modifier:
     <ul>
+      <li>Hold P11 + S30: <b>Delay time</b>: 30&nbsp;ms–2.4&nbsp;s (default 0.375&nbsp;s); changes glide, like tape</li>
       <li>Hold P11 + S31: <b>Tone</b>: dark ↔ bright (noon = default)</li>
+      <li>Hold P11 + S32: <b>Delay amount</b> (as TouchPulsar): 0 = off; more = more and longer echoes, bouncing left ↔ right and getting darker</li>
       <li>Hold P11 + S33: <b>Attack</b>: how quickly a held note's pour swells in, 4&nbsp;ms–3&nbsp;s (default 0.25&nbsp;s). </li>
       <li>Hold P11 + S34: <b>Release</b>: how long the pour keeps going after you let go, 20&nbsp;ms–4&nbsp;s (default 0.6&nbsp;s)</li>
       <li>Hold P11 + right fader (S37): <b>Filter cutoff</b> (30&nbsp;Hz–18&nbsp;kHz; fully up = open)</li>
@@ -151,9 +153,9 @@
 <h3 id="knobs">Knobs (clockwise)</h3>
 <table>
   <tr><th>Knob</th><th>Main</th><th>Hold P10 / Hold P11</th></tr>
-  <tr><td class="id">S30</td><td><b>Free flow</b> (Notes): how much the creek plays by itself. Fully left = still water, only your notes sound. Presets and Diagnostics always flow</td><td><span class="to">Width</span>: mono fully left, natural at noon, wider fully right (as TouchPulsar). The low body of the creek stays centred</td></tr>
+  <tr><td class="id">S30</td><td><b>Free flow</b> (Notes): how much the creek plays by itself. Fully left = still water, only your notes sound. Presets and Diagnostics always flow</td><td><span class="to">Width</span>: mono fully left, natural at noon, wider fully right (as TouchPulsar). The low body of the creek stays centred<br><b>P11</b>: <b>Delay time</b>, 30&nbsp;ms–2.4&nbsp;s</td></tr>
   <tr><td class="id">S31</td><td><b>Scale</b>: fine shallow trickle → larger stream body. Bubbles get 0.6× to 1.8× bigger over most of the knob, so the typical pitch falls (about 3&nbsp;kHz → 1.3&nbsp;kHz); the last quarter bends up to 8× for bass, the deepest bubbles around 60&nbsp;Hz ringing longer. Splashes get lower, eddies get slower</td><td><b style="color:#8b5fd6">Hold P11: Tone</b>: dark ↔ bright, wide. Noon = default mix; turning left brings in more and more of the big, low bubbles and, near the end, makes them all up to an octave lower; right does the same towards small, high ones (at mid Scale the average pitch goes from about 350&nbsp;Hz to 7.5&nbsp;kHz)</td></tr>
-  <tr><td class="id">S32</td><td><b>Aeration</b>: sparse bubbling → bubbly white water. Fully left = no bubbles at all</td><td></td></tr>
+  <tr><td class="id">S32</td><td><b>Aeration</b>: sparse bubbling → bubbly white water. Fully left = no bubbles at all</td><td><b>P11</b>: <b>Delay amount</b>, 0 = off</td></tr>
   <tr><td class="id">S33</td><td><b>Flow</b>: still → trickle → lively creek. More bubbles and more splashes at the drop (0.2 → 4 per second). Fully left: the creek fades to silence within about 1.5&nbsp;s</td><td><b style="color:#8b5fd6">Hold P11: Attack</b>: 4&nbsp;ms–3&nbsp;s, how quickly a held note's pour swells in (default 0.25&nbsp;s)</td></tr>
   <tr><td class="id">S34</td><td><b>Decay</b>: how long every bubble, drop, splash and tick rings. Noon = default; left shorter (down to ¼), right longer (up to 4×)</td><td><b style="color:#8b5fd6">Hold P11: Release</b>: 20&nbsp;ms–4&nbsp;s, how long the pour keeps going and settles after you let go (default 0.6&nbsp;s); the tail stays on the notes you played</td></tr>
   <tr><td class="id">S35</td><td><b>Variety</b> (Notes): how the tuned bubbles spread. Noon = default (the held note, in the octave nearest each bubble's own size). Left: more and more exactly the held note (fully left = one note). Right: more and more other notes of the active scale, up to an octave around the held note</td><td></td></tr>
@@ -194,6 +196,7 @@
   <li><b>Eddies</b>: two to four overlapping slow swells (0.3–3&nbsp;s; slower with larger Scale, deeper with Roughness) in the rock wake. They have no sound of their own: each one makes the left side surge with more, slightly bigger and lower bubbles, then settle.</li>
   <li><b>Small waterfalls</b>: at the drop, 0.2–4 times a second as Flow rises: a quick fizz of 3–7 tiny bubbles (2.5–10&nbsp;kHz) within 20&nbsp;ms, then 2–8 bubbles settling over the next tenth of a second (more with Aeration), and a short burst of extra air in the drop. Rougher water gives more uneven splashes. Overlapping splashes share a limited energy, so they never swamp the creek.</li>
   <li><b>Surface detail</b>: sparse, very short, quiet high ticks (2–9&nbsp;kHz), more near the drop, at turbulence peaks and right after splashes, in loose bursts rather than a steady crackle. In Notes mode the ticks and the falls' fizz are tuned to the held notes (in their own high octaves; Variety spreads them over the scale), and stay on the last played notes after you let go, until you play new ones.</li>
+  <li><b>Ping-pong delay</b> (from TouchPulsar): echoes of the whole creek bounce left ↔ right and get darker with each repeat. <b>Time</b> (P11 + S30) is free, 30&nbsp;ms–2.4&nbsp;s (no tempo: short = slap and space, long = separate echoes); changes glide like tape. <b>Amount</b> (P11 + S32) sets echo level and feedback together; 0 = off (the power-up setting). After the creek and the cloud, before the filter and the output limiter.</li>
   <li><b>Bubble cloud</b>: dense bubbling also rings as one body: a soft, low rumble (about 40–400&nbsp;Hz) under the rock wake and the drop. It comes in around Small cascade density (silent in a trickle), gets lower as the water gets denser and as Scale grows (down to ~40&nbsp;Hz), and splashes give it a push. A cheap approximation of coupled bubble clouds (after Xue et al. 2023), not a physical solver. Diagnostics P09 mutes it.</li>
   <li><b>Filter</b>: hold P11 and move the faders: right = cutoff, left = resonance. A smooth 12&nbsp;dB/oct low-pass on both channels (the same one as TouchPulsar), before the output limiter, so strong resonance can't clip. At power-up it's fully open.</li>
   <li><b>Throw a stone</b> (P01, any mode; MIDI CC 29): a deep plop that falls in pitch (lower with larger Scale), a burst of larger bubbles spreading out from the centre over a third of a second, and a disturbance that settles over 2–3&nbsp;s: air in every part of the creek, more bubbling and splashing, ripples of surface ticks. In still water (Free flow at zero) it stirs the water up and lets it go still again. Pad velocity sets the size of the stone.</li>
@@ -272,7 +275,8 @@
   <tr><td class="id">14</td><td><b>Scale</b> select (0–127 across the 7 scales)</td><td class="id">26</td><td>S34 <b>Decay</b></td></tr>
   <tr><td class="id">15</td><td><b>Root</b> (0–127 across C … B)</td><td class="id">27</td><td><span class="to">Width</span> (P10 + S30)</td></tr>
   <tr><td class="id">28</td><td><b>Tone</b> (P11 + S31)</td><td class="id">72</td><td><b>Release</b> (P11 + S34)</td></tr>
-  <tr><td class="id">107</td><td><b>Attack</b> (P11 + S33)</td><td></td><td></td></tr>
+  <tr><td class="id">107</td><td><b>Attack</b> (P11 + S33)</td><td class="id">108</td><td><b>Delay time</b> (P11 + S30)</td></tr>
+  <tr><td class="id">109</td><td><b>Delay amount</b> (P11 + S32)</td><td></td><td></td></tr>
   <tr><td class="id">20</td><td>S33 <b>Flow</b></td><td class="id">64</td><td><b>Sustain</b></td></tr>
   <tr><td class="id">21</td><td>S37 <b>Roughness</b></td><td class="id">102</td><td><b>Filter Cutoff</b> (P11 + S37)</td></tr>
   <tr><td class="id">22</td><td>S31 <b>Scale</b> (bubble size)</td><td class="id">103</td><td><b>Filter Resonance</b> (P11 + S36)</td></tr>

@@ -16,6 +16,7 @@ static int g_pass = 0, g_fail = 0;
 
 static const float SR = 48000.f;
 static CreekEngine eng, eng2;
+static float dlA[2][120000], dlB[2][120000];   // ping-pong delay lines (2.5 s at 48 kHz)
 static const char* kDir = "../../scenarios/";
 
 static scenario::Scenario load(const char* name, float secs = -1) {
@@ -446,9 +447,31 @@ static void engineTests() {
                st.seconds, st.seconds / el, s.maxActive, s.steals, s.drops, s.queueDrops, s.limited);
         writeF32("stress", L1, R1);
     }
+    // --- ping-pong delay ---
+    {
+        // one drop into still water: echoes every 300 ms, alternating left / right, each quieter
+        auto sc = scenario::parse("seconds 3\nat 0 set flow 0 delay 0.5 delaytime 0.3\nat 0.5 drop hz 880 amp 1\n", SR);
+        render(eng, sc, 48, L1, R1);
+        auto pk = [&](const std::vector<float>& x, int k) { float p = 0; const long a = (long)((0.5f + 0.3f * k) * SR) + 2000, b = a + (long)(0.2f * SR);
+            for (long i = a; i < b; i++) p = fmaxf(p, fabsf(x[i])); return p; };
+        const float l1 = pk(L1, 1), r1 = pk(R1, 1), l2 = pk(L1, 2), r2 = pk(R1, 2), l3 = pk(L1, 3);
+        CHECK(l1 > 4 * r1 && r2 > 4 * l2 && l3 > 4 * pk(R1, 3), "delay: echoes alternate L / R (%.3f/%.3f, %.3f/%.3f)", l1, r1, l2, r2);
+        CHECK(r2 < l1 && l3 < r2, "delay: each echo is quieter");
+        // Amount 0 = exact bypass
+        auto a0 = scenario::parse("seconds 4\nat 0 preset rocky\nat 0 set delay 0 delaytime 0.3\n", SR), a1 = scenario::parse("seconds 4\nat 0 preset rocky\n", SR);
+        render(eng, a0, 48, L1, R1); render(eng, a1, 48, L2, R2);
+        CHECK(L1 == L2 && R1 == R2, "delay: Amount 0 leaves the sound untouched");
+        // full Amount at full Flow: feedback stays bounded and dies away after Flow 0
+        auto mx = scenario::parse("seconds 14\nat 0 set flow 1 roughness 1 aeration 1 scale 0.5 delay 1 delaytime 0.3\nat 8 set flow 0\n", SR);
+        render(eng, mx, 48, L1, R1);
+        float peak = 0; for (size_t i = 0; i < L1.size(); i++) peak = fmaxf(peak, fmaxf(fabsf(L1[i]), fabsf(R1[i])));
+        const double during = rmsOf(L1, (size_t)(6 * SR), (size_t)(8 * SR)), tail = rmsOf(L1, (size_t)(13 * SR), L1.size());
+        CHECK(peak <= 0.892f, "delay at full Amount stays under the limiter ceiling (peak %.3f)", peak);
+        CHECK(tail < 0.05 * during, "delay feedback dies away after Flow 0 (%.0f dB down after 5 s)", 20 * log10(during / tail));
+    }
     // --- reference renders for the JS comparison ---
-    for (const char* k : {"trickle", "rocky", "cascade", "deeper", "single_bubble", "presets_walk", "notes", "notes_pour", "sweep_tone", "stones"}) {
-        auto sc = load(k, strcmp(k, "presets_walk") && strcmp(k, "single_bubble") && strcmp(k, "notes") && strcmp(k, "notes_pour") && strcmp(k, "sweep_tone") && strcmp(k, "stones") ? 10.f : -1.f);
+    for (const char* k : {"trickle", "rocky", "cascade", "deeper", "single_bubble", "presets_walk", "notes", "notes_pour", "sweep_tone", "stones", "delay"}) {
+        auto sc = load(k, strcmp(k, "presets_walk") && strcmp(k, "single_bubble") && strcmp(k, "notes") && strcmp(k, "notes_pour") && strcmp(k, "sweep_tone") && strcmp(k, "stones") && strcmp(k, "delay") ? 10.f : -1.f);
         render(eng, sc, 48, L1, R1);
         writeF32(k, L1, R1);
     }
@@ -457,6 +480,7 @@ static void engineTests() {
 }
 
 int main() {
+    eng.SetDelayBuffers(dlA[0], dlA[1], CreekEngine::DelayLen(SR)); eng2.SetDelayBuffers(dlB[0], dlB[1], CreekEngine::DelayLen(SR));
     controlsTests();
     engineTests();
     printf("%d passed, %d failed\n", g_pass, g_fail);

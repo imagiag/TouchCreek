@@ -59,6 +59,8 @@ int main(int argc, char** argv) {
     }
 
     static creek::CreekEngine eng;
+    static float dl[2][120000];
+    eng.SetDelayBuffers(dl[0], dl[1], creek::CreekEngine::DelayLen(sr));
     eng.Init(sr, sc.seed);
     std::vector<float> L, R;
     double worst = 0; long lim = 0;

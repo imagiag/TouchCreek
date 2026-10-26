@@ -38,6 +38,9 @@ static constexpr uint32_t kSeed = 1;   // fixed: the same creek every power-up (
 DaisySeed hw;
 Touch touch;
 creek::CreekEngine engine;
+static constexpr size_t kDelayCap = 120000;            // 2.5 s ping-pong delay (as TouchPulsar), external SDRAM
+static float DSY_SDRAM_BSS delayL[kDelayCap];
+static float DSY_SDRAM_BSS delayR[kDelayCap];
 CreekUI ui(touch, engine);
 
 #if CREEK_MONITOR
@@ -91,6 +94,7 @@ int main(void) {
     for (int i = 0; i < 40; i++) { touch.Process(); System::Delay(3); } // let MPR121 baselines settle
 
     engine.Init(hw.AudioSampleRate(), kSeed);
+    { const size_t n = creek::CreekEngine::DelayLen(hw.AudioSampleRate()); engine.SetDelayBuffers(delayL, delayR, n < kDelayCap ? n : kDelayCap); }
 #if !CREEK_MONITOR
     PatchUsbIdentity();                // before USB MIDI starts in ui.Init
 #endif

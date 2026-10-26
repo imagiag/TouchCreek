@@ -28,7 +28,7 @@ const CREEK_PRESETS = [
   { key: 'deeper',  name: 'Deeper run',    flow: 0.65, roughness: 0.35, scale: 0.80, aeration: 0.40 },
 ];
 const CC = {
-  M_FLOW: 0, M_ROUGH: 1, M_SCALE: 2, M_AER: 3, M_LEVEL: 4, M_WIDTH: 5, M_FREE: 6, M_VARIETY: 7, M_DECAY: 8, M_CUTOFF: 9, M_RES: 10, M_TONE: 11, M_ATTACK: 12, M_RELEASE: 13, M_COUNT: 14,
+  M_FLOW: 0, M_ROUGH: 1, M_SCALE: 2, M_AER: 3, M_LEVEL: 4, M_WIDTH: 5, M_FREE: 6, M_VARIETY: 7, M_DECAY: 8, M_CUTOFF: 9, M_RES: 10, M_TONE: 11, M_ATTACK: 12, M_RELEASE: 13, M_DTIME: 14, M_DAMT: 15, M_COUNT: 16,
   MODE_PRESETS: 0, MODE_NOTES: 1, MODE_DIAG: 2,
   P_OCT_DN: 0, P_STONE: 1, P_OCT_UP: 2, P_ROOT: 10, P_SCALE: 11,
   PAD_PRESET0: 3,           // P03..P06
@@ -43,7 +43,7 @@ const CC = {
   EV_NONE: 0, EV_PRESET: 1, EV_LAYER: 2, EV_ALL: 3, EV_MODE: 4, EV_SCALE: 5, EV_OCT: 6, EV_ROOT: 7, EV_NOTE: 8, EV_STRESS: 9, EV_CC: 10, EV_STONE: 11,
   MIDI_KEY: 128,            // held keys: pads 0..11, MIDI notes 128 + note
   // CC -> macro (CC 1 / channel pressure = Surge, 64 sustain, 14 scale, 15 root, 120/123 all notes off)
-  CC_MAP: { 7: 4, 20: 0, 21: 1, 22: 2, 23: 3, 24: 6, 25: 7, 26: 8, 27: 5, 28: 11, 102: 9, 103: 10, 107: 12, 72: 13 },   // 102/103/107/72 as TouchPulsar
+  CC_MAP: { 7: 4, 20: 0, 21: 1, 22: 2, 23: 3, 24: 6, 25: 7, 26: 8, 27: 5, 28: 11, 102: 9, 103: 10, 107: 12, 72: 13, 108: 14, 109: 15 },   // 102/103/107/72/108/109 as TouchPulsar
   BEND_SEMIS: 2,
   // same scales as TouchPulsar (semitones above the root for P03..P09)
   SCALES: [
@@ -79,6 +79,7 @@ class CreekControls {
     this.value[CC.M_FREE] = 1; this.value[CC.M_VARIETY] = 0.5; this.value[CC.M_DECAY] = 0.5;
     this.value[CC.M_CUTOFF] = 1; this.value[CC.M_RES] = 0;   // filter open at power-up
     this.value[CC.M_TONE] = 0.5;
+    this.value[CC.M_DTIME] = ccFromSec(CK.DELAY_DEFAULT_SEC, CK.DELAY_RANGE_SEC); this.value[CC.M_DAMT] = 0;   // delay off
     this.value[CC.M_ATTACK] = ccFromSec(CK.TUNE_ATTACK_SEC, CK.ATTACK_RANGE_SEC);     // default pour feel
     this.value[CC.M_RELEASE] = ccFromSec(CK.TUNE_RELEASE_SEC, CK.RELEASE_RANGE_SEC);
     this.glideFrom = new Float32Array(4); this.glideTo = new Float32Array(4);
@@ -275,6 +276,7 @@ class CreekControls {
     m.scaleMask = this.scaleMask();
     m.cutoff = this.value[CC.M_CUTOFF]; m.resonance = this.value[CC.M_RES];
     m.tone = this.value[CC.M_TONE];
+    m.delayTime = ccSec(this.value[CC.M_DTIME], CK.DELAY_RANGE_SEC); m.delayAmt = this.value[CC.M_DAMT];
     m.attack = ccSec(this.value[CC.M_ATTACK], CK.ATTACK_RANGE_SEC); m.release = ccSec(this.value[CC.M_RELEASE], CK.RELEASE_RANGE_SEC);
     return m;
   }

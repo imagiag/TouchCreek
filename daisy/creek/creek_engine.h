@@ -46,6 +46,8 @@ struct Macros {
     float release = ck::TUNE_RELEASE_SEC; // note pour tail (s)
     float cutoff = 1.f;    // low-pass: 0 = 30 Hz .. 1 = 18 kHz (open)
     float resonance = 0.f; // 0 = Q 0.7 .. 1 = Q 20
+    float delayTime = ck::DELAY_DEFAULT_SEC;   // ping-pong delay time (s)
+    float delayAmt = 0.f;  // 0 = no echoes .. 1 = long feedback
 };
 
 struct Stats {
@@ -69,6 +71,10 @@ public:
     void Process(float* left, float* right, size_t frames);
 
     void GetStats(Stats& s) const;
+    // ping-pong delay lines (owned by the caller, e.g. SDRAM; DelayLen(sr) samples each).
+    // Cleared here and on Reset; without them the delay is skipped.
+    void SetDelayBuffers(float* l, float* r, size_t len) { delay_.SetBuffers(l, r, len); }
+    static size_t DelayLen(float sr) { return (size_t)lroundf(ck::DELAY_BUFFER_SEC * sr); }
     const BubblePool& Pool() const { return pool_; }
     float SampleRate() const { return sr_; }
     uint32_t Seed() const { return seed_; }
@@ -103,6 +109,7 @@ private:
     Falls falls_;
     Surface surface_;
     Cloud cloud_;
+    Delay delay_;
     SpatialMixer mixer_;
     OutputStage out_;
 

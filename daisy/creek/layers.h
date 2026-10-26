@@ -1,6 +1,7 @@
 // Phase 2 layers (mirrors creek-engine.js): eddies, small waterfalls, surface
 // detail, plus the Hazard event stream they use. All noise-free for now.
 #pragma once
+#include <stddef.h>
 #include "config.h"
 #include "dsp.h"
 #include "flow_state.h"
@@ -108,6 +109,27 @@ private:
     Hazard hz_;
     Drift drift_;
     float sr_ = 48000, kB_ = 0, lnHz_ = 1;
+};
+
+// Ping-pong delay (TouchPulsar's): the mix (mono) goes into the left line, each
+// line feeds the other through a gentle low-pass, so echoes alternate L / R and
+// get darker. Time glides when changed. Lines are owned by the caller (SDRAM on
+// the Daisy); without them the delay is skipped.
+class Delay {
+public:
+    void Init(float sr) { sr_ = sr; dK_ = 1.0 - (double)expf(-1.f / (ck::DELAY_GLIDE_SEC * sr)); lpK_ = 1.f - expf(-2.f * kPi * ck::DELAY_LP_HZ / sr); }   // float expf: no double libm (flash)
+    void SetBuffers(float* l, float* r, size_t len);
+    void Reset();
+    void Snap() { len_ = target(); }
+    void Process(float* L, float* R, int n);
+    float time = ck::DELAY_DEFAULT_SEC, amt = 0;
+private:
+    double target() const { const double t = (double)fmaxf(time, 0.01f) * sr_; return t < (double)(n_ - 4) ? t : (double)(n_ - 4); }
+    float tap(const float* b, double d) const;
+    float* l_ = nullptr; float* r_ = nullptr;
+    size_t n_ = 0, w_ = 0;
+    double len_ = 0, dK_ = 0;
+    float sr_ = 48000, lpK_ = 0, lpL_ = 0, lpR_ = 0;
 };
 
 } // namespace creek

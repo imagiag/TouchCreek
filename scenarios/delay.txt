@@ -1,0 +1,11 @@
+# Ping-pong delay (P11 + S30 time, P11 + S32 amount) on the rocky creek, plus
+# a few drops to hear the echoes alternate; the time changes (glides) at 6 s.
+seconds 12
+seed 1
+at 0 preset rocky
+at 0 set delay 0.6 delaytime 0.3
+at 1 drop hz 880 amp 1
+at 3 drop hz 660 amp 1
+at 6 set delaytime 0.7
+at 7 drop hz 990 amp 1
+ramp 9 11 delay 0.6 1

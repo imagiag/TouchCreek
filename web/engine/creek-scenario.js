@@ -7,6 +7,7 @@
 //   seed 1                         engine seed
 //   at 0 preset trickle            preset macros (trickle rocky cascade deeper)
 //   at 4 set flow 0 hold 1         set macros: flow roughness scale aeration gain width mask hold
+//                                  (also freeflow variety decay scalemask tone tunedetail delaytime [s] delay [amount])
 //   ramp 0 20 flow 0 1             linear from t0 to t1 (updated every 48 samples)
 //   at 1.5 bubble zone 0 radius 2 amp 1 rise 0 pan 0
 //   every 0 5 0.25 bubble radius 1 repeat a bubble from t0 (incl.) to t1 (excl.)
@@ -15,7 +16,7 @@
 //   at 2 tune 523.25 659.26        held notes tuning the creek (up to 4 Hz values; 'at 3 tune' = off)
 // Times in seconds; '#' starts a comment.
 
-const CS_KEYS = ['flow', 'roughness', 'scale', 'aeration', 'gain', 'width', 'mask', 'hold', 'freeflow', 'variety', 'decay', 'scalemask', 'tone', 'tunedetail'];
+const CS_KEYS = ['flow', 'roughness', 'scale', 'aeration', 'gain', 'width', 'mask', 'hold', 'freeflow', 'variety', 'decay', 'scalemask', 'tone', 'tunedetail', 'delaytime', 'delay'];
 const CS_BUBBLE_KEYS = ['zone', 'radius', 'amp', 'tau', 'rise', 'pan'];
 const CS_RAMP_STEP = 48;
 
@@ -65,7 +66,7 @@ function csParse(text, sr) {
 function csRun(sc, eng, sr, block, presets, onBlock) {
   const n = Math.floor(sc.seconds * sr), L = new Float32Array(n), R = new Float32Array(n);
   const m = { flow: 0.2, roughness: 0.25, scale: 0.2, aeration: 0.3, gain: 1, width: 1, mask: 63, hold: 0, tuneHz: [0, 0, 0, 0],
-    freeflow: 1, variety: 0.5, decay: 0.5, scalemask: 4095, tone: 0.5, tunedetail: 0 };
+    freeflow: 1, variety: 0.5, decay: 0.5, scalemask: 4095, tone: 0.5, tunedetail: 0, delaytime: 0.375, delay: 0 };
   eng.reset(sc.seed);
   let pi = 0, pos = 0;
   const bl = new Float32Array(block), br = new Float32Array(bl.length);
@@ -86,7 +87,7 @@ function csRun(sc, eng, sr, block, presets, onBlock) {
     }
     if (changed) eng.setMacros({ flow: m.flow, roughness: m.roughness, scale: m.scale, aeration: m.aeration, gain: m.gain, width: m.width, mask: m.mask | 0, hold: !!m.hold,
       tuneHz: m.tuneHz.slice(), tune: m.tuneHz.some((h) => h > 0) ? 1 : 0,
-      freeFlow: m.freeflow, variety: m.variety, decay: m.decay, scaleMask: m.scalemask | 0, tone: m.tone, tuneDetail: m.tunedetail ? 1 : 0 });
+      freeFlow: m.freeflow, variety: m.variety, decay: m.decay, scaleMask: m.scalemask | 0, tone: m.tone, tuneDetail: m.tunedetail ? 1 : 0, delayTime: m.delaytime, delayAmt: m.delay });
     const rampOn = sc.ramps.some((r) => pos <= r.s1 + CS_RAMP_STEP);
     let next = rampOn ? Math.min(n, (Math.floor(pos / CS_RAMP_STEP) + 1) * CS_RAMP_STEP) : n;
     if (pi < sc.points.length && sc.points[pi].s < next) next = sc.points[pi].s;
