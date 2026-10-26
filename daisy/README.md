@@ -1,4 +1,4 @@
-# This is Creek
+# This is TouchCreek
 
 A sample-free procedural creek for the Synthux Touch synthesizer and Daisy Seed, from a quiet trickle to a lively shallow stream. Nothing is recorded: hundreds of tiny bubbles per second, slow eddies, small splashes, fine surface ticks and the low rumble of dense bubbling, all driven by one slowly changing creek state. Switch to Notes and play it: tap a pad for a tuned drop, hold it and the water pours onto the note.
 
@@ -123,7 +123,7 @@ The onboard LED provides visual feedback:
 - **Diagnostics**: 2 blinks = layer on, 1 blink = layer muted, 3 quick blinks = all on (monitor build: stress test = 4 quick blinks, then fast blinking while it runs).
 
 ### MIDI
-Creek appears as a USB MIDI device (listed as **Creek**) when connected via the Daisy Seed's USB port to a computer, DAW, iPad or USB-MIDI host. A keyboard plugged straight into the Touch won't work (both are USB devices), so route it through the computer or a host box. It listens on all MIDI channels.
+TouchCreek appears as a USB MIDI device (listed as **Creek**) when connected via the Daisy Seed's USB port to a computer, DAW, iPad or USB-MIDI host. A keyboard plugged straight into the Touch won't work (both are USB devices), so route it through the computer or a host box. It listens on all MIDI channels.
 
 - **Notes**: Play like the note pads, in every mode: a tuned drop on press, the water pours onto the note while held. Fully chromatic, separate from the pad scale. Up to 4 held notes (pads and MIDI together). In Notes mode, Free flow and Latch apply.
 - **Velocity**: Drop level. **Channel aftertouch**: Surge.
