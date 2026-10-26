@@ -53,6 +53,7 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - 2026-10-26 (user): the manual (daisy/manual.html, daisy/README.md) names the instrument **TouchCreek**; everything else stays Creek (firmware files CreekTouch-vN-<what>.bin, USB MIDI name, emulator, code).
 
 ## Parked ideas
+- **Open (licence):** `daisy/touch/` drivers and `daisy/touch.jpeg` come from Synthux's TouchString, which has no licence file. User asked Hieroglyphic (for TouchPulsar, same code), waiting for the reply (2026-10-26). If OK / MIT: add it to CREDITS.md and a licence file next to the drivers; if not: write own drivers and replace the photo (both projects).
 - Tune the stone (P01) by ear: user says it needs tuning (2026-10-25), details to come. Knobs in creek-config.js STONE_* (plop pitch/length/gain, burst size/spread/radii/level, surge time/rate, ripples).
 - Clock / beat (user, 2026-10-26; not started): today everything is random-timed (hazard scheduler, random eddy lengths), no tempo or MIDI clock. Ideas: pour follows a tempo (MIDI clock or tap) with Roughness loosening it from tight to random; drips on the beat; eddies swell per bar. Needs flash first.
 - Bubbles following the notes: leave as is for now, revisit after listening to v16 (user, 2026-10-26).
