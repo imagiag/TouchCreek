@@ -47,6 +47,7 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - 2026-10-26 (user, debugging artefacts): monitor shows layers (voices per layer, eddy/gate/activity, mutes, held) via CREEKL and every press/knob/switch via CREEKE (numbers; page names them). Emulator has a Monitor button and broadcasts the same lines (BroadcastChannel 'creek-monitor'). Debug firmware: releases/CreekTouch-v15-monitor-debug.bin (124.9/128 KB).
 - 2026-10-26 (user): falls plop "sounds artificial": replaced by EV_FIZZ (3–7 bubbles 0.3–1.2 mm within 20 ms, FALLS_FIZZ_*). In Notes mode (`tuneDetail`) surface ticks and fizz are tuned via tunedMidi(keepOctave) and stay on the last played notes; bubbles unchanged (user: revisit after listening). Determinism: queue processed in (at, seq) order, voices summed in birth order, integer delays/counts, per-zone RNG streams; compare threshold 0.98. v16: 126.7/128 KB, monitor 127.9/128 KB.
 - 2026-10-26 (user, after listening to the web prototype: "it's OK"): bubble cloud in the firmware (v17-cloud). Cloud class (layers.cpp / CrCloud): one damped mode (Q 4) for wake and drop, kicked by every bubble born in the zone (random sign, own stream S_CLOUD) and by splashes; strength = smoothstep of zone rate / ZONE_RATE_W over CLOUD_RATE [20, 110]; pitch 260 Hz x (1 - 0.35 d) / scaleMul^0.7, drift +-12 %, 40-400 Hz. Mask bit 5 (kCloudBit, default on; Diagnostics P09 mutes; monitor build keeps P09 = stress). Rendered after the mixer. Small cascade: ~13 dB under the mix, energy below 300 Hz +8 dB. Flash: setup / control-rate code now Os (CREEK_SMALL), 127784 B = 97.5 %. Not tuned to notes (yet).
+- 2026-10-26 (user): noise wash idea dropped for good; the cloud covers the low body. (Code still there, off via BED_ON = 0, not compiled into the firmware.)
 - 2026-10-26 (user, on hardware, v17): cloud "sounds good, definitely better than the noise we dropped"; stays untuned in Notes mode (very low anyway, no need to follow the played notes).
 
 ## Parked ideas
@@ -54,7 +55,6 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - Clock / beat (user, 2026-10-26; not started): today everything is random-timed (hazard scheduler, random eddy lengths), no tempo or MIDI clock. Ideas: pour follows a tempo (MIDI clock or tap) with Roughness loosening it from tight to random; drips on the beat; eddies swell per bar. Needs flash first.
 - Bubbles following the notes: leave as is for now, revisit after listening to v16 (user, 2026-10-26).
 - Right switch: up and centre both = live, so one position is free for a future mode (ideas: notes + presets together, a second knob layer, Hold + Latch together). User: keep as is for now (2026-10-25).
-- Revisit the flow noise / wash (user wants it figured out later): e.g. noise only as very soft, heavily modulated gurgle at high Roughness, or a noise splash transient.
 - Optional subtle ambience (disabled for evaluation).
 - Free knob layers: P10 + S31-S35 and P10 + faders; P11 + S30, S32, S35.
 - Before publishing: refresh REPORT.md (still v5-era) and regenerate renders; GitHub repo (MIT, no PDFs); website via Codex (coordinate here).
