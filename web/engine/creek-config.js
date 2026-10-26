@@ -122,6 +122,20 @@ const CK = {
   FALLS_ENERGY_K: 1.5,
   FALLS_VOICES: 10,
 
+  // ---- bubble cloud (experiment, web only for now): low damped collective modes in dense bubbling ----
+  // One mode each for the rock wake and the drop (brief: "one or two low, damped collective modes").
+  // Every bubble born in the zone kicks its mode; strength fades in with the zone's bubble rate.
+  CLOUD_RATE: [20, 110],    // zone bubble rate (per second, / ZONE_RATE_W): mode starts .. full
+  CLOUD_HZ: 260,            // mode pitch at the start density, Scale 1x ...
+  CLOUD_DENSE_DROP: 0.35,   // ... up to 35 % lower when fully dense (more air in the water)
+  CLOUD_SCALE_EXP: 0.7,     // ... and lower with a bigger stream (Scale)
+  CLOUD_HZ_RANGE: [40, 400],
+  CLOUD_DRIFT: 0.12,        // slow random pitch wander (+-)
+  CLOUD_Q: 4,               // heavily damped: a rumble, not a tone
+  CLOUD_GAIN: 0.4,          // kick size (x the zone's bubble level)
+  CLOUD_SPLASH: 1.5,          // a splash kicks the drop's mode this many times harder
+  CLOUD_PAN: 0.5,           // zone pans x this (low sound: narrower)
+
   // ---- surface detail: sparse, quiet, short high ticks ----
   SURF_RATE: [2, 40],       // events per second, low .. high turbulence
   SURF_HZ: [2000, 9000],

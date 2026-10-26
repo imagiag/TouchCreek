@@ -53,7 +53,7 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - Bubbles following the notes: leave as is for now, revisit after listening to v16 (user, 2026-10-26).
 - Right switch: up and centre both = live, so one position is free for a future mode (ideas: notes + presets together, a second knob layer, Hold + Latch together). User: keep as is for now (2026-10-25).
 - Revisit the flow noise / wash (user wants it figured out later): e.g. noise only as very soft, heavily modulated gurgle at high Roughness, or a noise splash transient.
-- Collective low modes during dense bubble clusters (brief, after baseline passes).
+- Collective low modes ("Cloud"): web prototype since 2026-10-26, waiting for the user's listening notes. CrCloud in creek-engine.js: one damped mode (Q 4) for wake and drop, kicked by every bubble born in the zone (random sign) and by splashes; strength = smoothstep of zone rate / ZONE_RATE_W over CLOUD_RATE [20, 110]; pitch 260 Hz x (1 - 0.35 d) / scaleMul^0.7, drift +-12 %, 40-400 Hz. Mask bit 5 (emulator Cloud button, diagnostics P09), off by default, so C++ / tests unchanged; config.h not regenerated yet. Small cascade: cloud ~13 dB under the mix, energy below 300 Hz +8 dB. Port = ~0.5-1 KB flash.
 - Optional subtle ambience (disabled for evaluation).
 - Free knob layers: P10 + S31-S35 and P10 + faders; P11 + S30, S32, S35.
 - Before publishing: refresh REPORT.md (still v5-era) and regenerate renders; GitHub repo (MIT, no PDFs); website via Codex (coordinate here).
