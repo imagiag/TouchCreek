@@ -43,9 +43,14 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - 2026-10-25 (user): Attack and Release on the same modifier: P11 + S33 / P11 + S34 (P10 = Width S30, Tone S31).
 - 2026-10-25 (user): release file names always say what changed: CreekTouch-vN-<what>.bin (v12/v13 were plain by mistake; don't rename old ones).
 - 2026-10-25 (user): Tone -> P11 + S31 and much wider (skew range 6, plus radius shift up to 1 oct dark / 0.6 oct bright near the ends, |t|^2). P10 now only Width (S30).
+- 2026-10-25 (user): P01 = throw a stone (EV_STONE: plop via falls pool, 10-24 explicit larger bubbles over 0.35 s, J in all zones, stoneS surge squared, scaled down at high Flow; CC 29). Creek voices fade when the scene gate closes (GATE_FADE_SEC 0.15) so Flow 0 is silent < 3 s even at Scale 1 + Decay 4x. Flash 123.7/128 KB.
+- 2026-10-26 (user, debugging artefacts): monitor shows layers (voices per layer, eddy/gate/activity, mutes, held) via CREEKL and every press/knob/switch via CREEKE (numbers; page names them). Emulator has a Monitor button and broadcasts the same lines (BroadcastChannel 'creek-monitor'). Debug firmware: releases/CreekTouch-v15-monitor-debug.bin (124.9/128 KB).
+- 2026-10-26 (user): falls plop "sounds artificial": replaced by EV_FIZZ (3–7 bubbles 0.3–1.2 mm within 20 ms, FALLS_FIZZ_*). In Notes mode (`tuneDetail`) surface ticks and fizz are tuned via tunedMidi(keepOctave) and stay on the last played notes; bubbles unchanged (user: revisit after listening). Determinism: queue processed in (at, seq) order, voices summed in birth order, integer delays/counts, per-zone RNG streams; compare threshold 0.98. v16: 126.7/128 KB, monitor 127.9/128 KB.
 
 ## Parked ideas
 - Tune the stone (P01) by ear: user says it needs tuning (2026-10-25), details to come. Knobs in creek-config.js STONE_* (plop pitch/length/gain, burst size/spread/radii/level, surge time/rate, ripples).
+- Clock / beat (user, 2026-10-26; not started): today everything is random-timed (hazard scheduler, random eddy lengths), no tempo or MIDI clock. Ideas: pour follows a tempo (MIDI clock or tap) with Roughness loosening it from tight to random; drips on the beat; eddies swell per bar. Needs flash first.
+- Bubbles following the notes: leave as is for now, revisit after listening to v16 (user, 2026-10-26).
 - Right switch: up and centre both = live, so one position is free for a future mode (ideas: notes + presets together, a second knob layer, Hold + Latch together). User: keep as is for now (2026-10-25).
 - Revisit the flow noise / wash (user wants it figured out later): e.g. noise only as very soft, heavily modulated gurgle at high Roughness, or a noise splash transient.
 - Collective low modes during dense bubble clusters (brief, after baseline passes).
@@ -53,7 +58,4 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 - Free knob layers: P10 + S31-S35 and P10 + faders; P11 + S30, S32, S35.
 - Before publishing: refresh REPORT.md (still v5-era) and regenerate renders; GitHub repo (MIT, no PDFs); website via Codex (coordinate here).
 - Listener test (brief: 4 of 5 recognise water unprompted); optional 30-min stress run on hardware (monitor build).
-- Flash ~6 KB free (v14 = 121.9/128 KB): next big feature needs LTO / trimming or the Daisy bootloader.
-- 2026-10-25 (user): P01 = throw a stone (EV_STONE: plop via falls pool, 10-24 explicit larger bubbles over 0.35 s, J in all zones, stoneS surge squared, scaled down at high Flow; CC 29). Creek voices fade when the scene gate closes (GATE_FADE_SEC 0.15) so Flow 0 is silent < 3 s even at Scale 1 + Decay 4x. Flash 123.7/128 KB.
-- 2026-10-26 (user, debugging artefacts): monitor shows layers (voices per layer, eddy/gate/activity, mutes, held) via CREEKL and every press/knob/switch via CREEKE (numbers; page names them). Emulator has a Monitor button and broadcasts the same lines (BroadcastChannel 'creek-monitor'). Debug firmware: releases/CreekTouch-v15-monitor-debug.bin (124.9/128 KB).
-- 2026-10-26 (user): falls plop "sounds artificial": replaced by EV_FIZZ (3–7 bubbles 0.3–1.2 mm within 20 ms, FALLS_FIZZ_*). In Notes mode (`tuneDetail`) surface ticks and fizz are tuned via tunedMidi(keepOctave) and stay on the last played notes; bubbles unchanged (user: revisit after listening). Determinism: queue processed in (at, seq) order, voices summed in birth order, integer delays/counts, per-zone RNG streams; compare threshold 0.98. v16: 126.7/128 KB, monitor 127.9/128 KB.
+- Flash ~1.3 KB free (v16 = 126.7/128 KB): next big feature needs LTO / trimming or the Daisy bootloader.
