@@ -290,6 +290,7 @@ void Controls::Compute(Macros& m) const {
     const float bendMul = exp2f(bend / 12.f);
     for (int k = 0; k < 4; k++) m.tuneHz[k] = k < nHeld ? MidiToHz(KeyMidi(held[k])) * bendMul : 0.f;
     m.tune = nHeld > 0;
+    m.tuneDetail = mode == MODE_NOTES;   // ticks + splash fizz follow the last-played notes
     m.freeFlow = mode == MODE_NOTES ? value[M_FREE] : 1.f;   // presets / diagnostics always flow
     m.variety = value[M_VARIETY]; m.decay = value[M_DECAY];
     m.scaleMask = ScaleMask();

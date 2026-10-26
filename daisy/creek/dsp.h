@@ -8,6 +8,15 @@ namespace creek {
 constexpr float kTwoPi = 6.283185307179586f;
 constexpr float kPi = 3.14159265358979f;
 
+// Delay in samples for a random u in [0, 1) across [ms0, ms1): integer-exact, same double
+// maths as crDelay() in the JS engine, so both queue delayed events at the same sample.
+// (all values are >= 0: casts do the rounding / flooring, no double libm needed on the Daisy)
+inline uint32_t DelaySamples(double u, double ms0, double ms1, double sr) {
+    const uint32_t a = (uint32_t)(ms0 * sr / 1000.0 + 0.5), span = (uint32_t)((ms1 - ms0) * sr / 1000.0 + 0.5);
+    return a + (uint32_t)(u * (double)span);
+}
+// Event counts: lo + (hi - lo) x rounded, in double maths identical to crCount() in the JS engine
+inline int CountLerp(double lo, double hi, double x) { return (int)(lo + (hi - lo) * x + 0.5); }
 inline float Clamp(float x, float lo, float hi) { return x < lo ? lo : (x > hi ? hi : x); }
 inline float Lerp(float a, float b, float t) { return a + (b - a) * t; }
 
@@ -34,7 +43,12 @@ inline uint32_t StreamSeed(uint32_t seed, uint32_t stream) { return Hash(seed + 
 
 // stream ids (fixed: muting a layer never shifts another layer's randomness)
 enum Stream { S_DRIFT, S_BTIME, S_BPARAM, S_NOISE_C, S_NOISE_L, S_NOISE_R, S_BED_DRIFT,
-              S_EDDY, S_FALLS, S_SURFACE, S_TRIGGER, S_COUNT };
+              S_EDDY, S_FALLS, S_SURFACE, S_TRIGGER,
+              S_BTIME1, S_BTIME2, S_BPARAM1, S_BPARAM2, S_FCHILD, S_COUNT };
+// each zone has its own bubble timing and parameter streams, so a one-sample timing
+// difference in one zone can't reshuffle the others' random draws
+constexpr int kZoneBTime[3] = {S_BTIME, S_BTIME1, S_BTIME2};
+constexpr int kZoneBParam[3] = {S_BPARAM, S_BPARAM1, S_BPARAM2};
 
 // Smooth bounded random drift in [-1, 1]: random targets, smoothstep between them.
 struct Drift {

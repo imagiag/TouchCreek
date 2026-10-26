@@ -2,6 +2,7 @@
 seconds 16
 seed 5
 at 0 preset rocky
+at 0 set tunedetail 1
 at 1 drop hz 523.25 amp 0.8
 at 1.5 drop hz 659.26 amp 0.6
 at 2 drop hz 783.99 amp 0.9

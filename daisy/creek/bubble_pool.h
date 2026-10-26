@@ -43,6 +43,8 @@ private:
     float zr_[N], zi_[N], c_[N], s_[N], damp_[N], w0_[N], rise_[N], riseInc_[N];
     float att_[N], ka_[N], gl_[N], gr_[N], fade_[N], fadeStep_[N];
     int32_t life_[N], age_[N], start_[N];
+    int ord_[N], nOrd_ = 0;    // voices in birth order: summing order doesn't depend on slots / block size
+    void compact() { int k = 0; for (int i = 0; i < nOrd_; i++) if (on_[ord_[i]]) ord_[k++] = ord_[i]; nOrd_ = k; }
 };
 
 } // namespace creek

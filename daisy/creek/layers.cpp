@@ -54,7 +54,8 @@ void Falls::Update(const FlowState& fs, float activity) {
     energy_ *= kE_;
 }
 
-void Falls::Run(Rng& rng, int n, FlowState& fs, float scaleMul, EventQueue& q, uint64_t sample, Surface& surf) {
+void Falls::Run(Rng& rng, int n, FlowState& fs, const BubbleScheduler& sched, EventQueue& q, uint64_t sample, Surface& surf, bool tuneOn) {
+    const float scaleMul = sched.ScaleMul();
     hz_.Run(rng, n);
     const float A = fs.m[3], E = fs.E[2], R = fs.m[1];
     for (int b = 0; b < hz_.n; b++) {
@@ -66,12 +67,24 @@ void Falls::Run(Rng& rng, int n, FlowState& fs, float scaleMul, EventQueue& q, u
         energy_ += a;
         count++;
         const float pan = ck::ZONE_PAN[2] + ck::ZONE_JITTER[2] * u5;
-        const float f = Lerp(ck::FALLS_PLOP_HZ[0], ck::FALLS_PLOP_HZ[1], u1) / scaleMul;
-        pool.Spawn(f, a * ck::FALLS_PLOP_GAIN, Lerp(ck::FALLS_TAU_SEC[0], ck::FALLS_TAU_SEC[1], u2),
-                   Lerp(ck::FALLS_ATTACK_SEC[0], ck::FALLS_ATTACK_SEC[1], u3), ck::FALLS_PLOP_GLIDE, pan, off);
+        (void)u2; (void)u3;
+        // impact: a quick fizz of small bubbles (played by this layer's voices, so P06 mutes it)
+        const int nf = CountLerp(ck::FALLS_FIZZ[0], ck::FALLS_FIZZ[1], u1);
+        const float lnR = logf(ck::FALLS_FIZZ_RADIUS_MM[1] / ck::FALLS_FIZZ_RADIUS_MM[0]);
+        for (int k = 0; k < (int)ck::FALLS_FIZZ[1]; k++) {
+            const float d = rng.Uni(), rr = rng.Uni(), fa = rng.Uni(), pj = rng.Bip(), uA = rng.Uni(), uB = rng.Uni();
+            if (k >= nf) continue;
+            float rMm = ck::FALLS_FIZZ_RADIUS_MM[0] * expf(lnR * rr) * scaleMul;
+            if (tuneOn) rMm = 3000.f / (440.f * exp2f((sched.tunedMidi(69.f + 12.f * log2f(3000.f / rMm / 440.f), uA, uB, true) - 69.f) / 12.f));
+            Event c;
+            c.type = EV_FIZZ; c.zone = 2; c.radiusMm = rMm; c.tauSec = 0; c.rise = 0;
+            c.amp = a * ck::FALLS_FIZZ_GAIN * ck::BUBBLE_GAIN * Lerp(0.4f, 1.f, fa) * (1.f - 0.5f * d);
+            c.pan = Clamp(pan + 0.1f * pj, -1.f, 1.f);
+            q.Push(c, sample + (uint64_t)off + DelaySamples(d, 0.0, ck::FALLS_FIZZ_MS, sr_));
+        }
         fs.AddSplash(2, a * ck::FALLS_SPLASH_J);
         surf.boost += a * ck::SURF_SPLASH;
-        const int nc = A > 0.02f ? (int)fminf(ck::FALLS_CHILDREN[1], roundf(Lerp(ck::FALLS_CHILDREN[0], ck::FALLS_CHILDREN[1], A * u4))) : 0;
+        const int nc = A > 0.02f ? (int)fminf(ck::FALLS_CHILDREN[1], (float)CountLerp(ck::FALLS_CHILDREN[0], ck::FALLS_CHILDREN[1], (double)A * (double)u4)) : 0;
         for (int k = 0; k < (int)ck::FALLS_CHILDREN[1]; k++) {
             const float d = rng.Uni(), ca = rng.Uni(), pj = rng.Bip();
             if (k >= nc) continue;
@@ -79,7 +92,7 @@ void Falls::Run(Rng& rng, int n, FlowState& fs, float scaleMul, EventQueue& q, u
             c.type = EV_BUBBLE; c.zone = 2; c.radiusMm = 0; c.tauSec = 0; c.rise = -1;
             c.amp = a * ck::FALLS_CHILD_GAIN * Lerp(ck::FALLS_CHILD_AMP[0], ck::FALLS_CHILD_AMP[1], ca);
             c.pan = Clamp(pan + 0.12f * pj, -1.f, 1.f);
-            q.Push(c, sample + (uint64_t)off + (uint64_t)lroundf(Lerp(ck::FALLS_CHILD_MS[0], ck::FALLS_CHILD_MS[1], d) * 0.001f * sr_));
+            q.Push(c, sample + (uint64_t)off + DelaySamples(d, ck::FALLS_CHILD_MS[0], ck::FALLS_CHILD_MS[1], sr_));
         }
     }
 }
@@ -104,15 +117,17 @@ void Surface::Update(const FlowState& fs, Rng& rng, float dt, float eddy, float 
     boost *= kB_;
 }
 
-void Surface::Run(Rng& rng, int n) {
+void Surface::Run(Rng& rng, int n, const BubbleScheduler& sched, bool tuneOn) {
     hz_.Run(rng, n);
     for (int b = 0; b < hz_.n; b++) {
         const float u0 = rng.Uni(), u1 = rng.Uni(), u2 = rng.Uni(), u3 = rng.Uni(), u4 = rng.Uni(), u5 = rng.Bip(), u6 = rng.Bip();
+        const float uA = rng.Uni(), uB = rng.Uni();
         const int z = u0 < ck::SURF_ZONE_W[0] ? 0 : (u0 < ck::SURF_ZONE_W[0] + ck::SURF_ZONE_W[1] ? 1 : 2);
-        const float f = ck::SURF_HZ[0] * expf(lnHz_ * u1);
+        float f = ck::SURF_HZ[0] * expf(lnHz_ * u1);
+        if (tuneOn) f = 440.f * exp2f((sched.tunedMidi(69.f + 12.f * log2f(f / 440.f), uA, uB, true) - 69.f) / 12.f);
         const float amp = ck::SURF_GAIN * powf(10.f, -ck::SURF_DB_RANGE * powf(u2, ck::SURF_SKEW) / 20.f);
         pool.Spawn(f, amp, Lerp(ck::SURF_TAU_SEC[0], ck::SURF_TAU_SEC[1], u3), Lerp(ck::SURF_ATTACK_SEC[0], ck::SURF_ATTACK_SEC[1], u4),
-                   0.08f * u5, ck::ZONE_PAN[z] + ck::ZONE_JITTER[z] * u6, hz_.off[b]);
+                   tuneOn ? 0.f : 0.08f * u5, ck::ZONE_PAN[z] + ck::ZONE_JITTER[z] * u6, hz_.off[b]);
         count++;
     }
 }

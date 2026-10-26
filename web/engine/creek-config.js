@@ -107,11 +107,12 @@ const CK = {
   // ---- small waterfalls at the drop: a soft plop, then bubbly settling ----
   FALLS_RATE: [0.2, 4.0],   // parent events per second as the drop's energy rises
   FALLS_RATE_EXP: 0.8,
-  FALLS_PLOP_HZ: [150, 420],// impact tone (divided by the Scale radius multiplier)
-  FALLS_PLOP_GLIDE: -0.3,   // falls in pitch
-  FALLS_ATTACK_SEC: [0.002, 0.008],
-  FALLS_TAU_SEC: [0.012, 0.06],
-  FALLS_PLOP_GAIN: 0.2,
+  FALLS_FIZZ: [3, 7],       // impact = a quick fizz of small bubbles (no tonal plop) ...
+  FALLS_FIZZ_MS: 20,        // ... within this time of the impact ...
+  FALLS_FIZZ_RADIUS_MM: [0.3, 1.2], // ... small (x Scale) ...
+  FALLS_FIZZ_GAIN: 0.5,     // ... at this level (x splash size x BUBBLE_GAIN) ...
+  FALLS_FIZZ_TAU_MUL: 0.7,  // ... and a little shorter than creek bubbles
+  FALLS_ATTACK_SEC: [0.002, 0.008],   // (used by the stone's plop)
   FALLS_CHILDREN: [2, 8],   // bubble children when Aeration permits ...
   FALLS_CHILD_MS: [10, 120],// ... spread over this window
   FALLS_CHILD_AMP: [0.25, 0.8],
@@ -119,7 +120,7 @@ const CK = {
   FALLS_SPLASH_J: 0.25,     // entrainment impulse into the drop zone
   FALLS_ENERGY_SEC: 0.3,    // overlapping splashes share a bounded energy budget
   FALLS_ENERGY_K: 1.5,
-  FALLS_VOICES: 4,
+  FALLS_VOICES: 10,
 
   // ---- surface detail: sparse, quiet, short high ticks ----
   SURF_RATE: [2, 40],       // events per second, low .. high turbulence

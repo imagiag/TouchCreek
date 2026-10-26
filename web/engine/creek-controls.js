@@ -267,6 +267,7 @@ class CreekControls {
     const bendMul = Math.pow(2, this.bend / 12);
     for (let k = 0; k < 4; k++) m.tuneHz[k] = k < this.held.length ? ccHz(this.keyMidi(this.held[k])) * bendMul : 0;
     m.tune = this.held.length > 0 ? 1 : 0;
+    m.tuneDetail = this.mode === CC.MODE_NOTES ? 1 : 0;   // ticks + splash fizz follow the last-played notes
     m.freeFlow = this.mode === CC.MODE_NOTES ? this.value[CC.M_FREE] : 1;   // presets / diagnostics always flow
     m.variety = this.value[CC.M_VARIETY]; m.decay = this.value[CC.M_DECAY];
     m.scaleMask = this.scaleMask();

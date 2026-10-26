@@ -6,7 +6,7 @@
 
 namespace creek {
 
-enum EventType : uint8_t { EV_BUBBLE = 0, EV_SPLASH = 1, EV_DROP = 2, EV_STONE = 3 };
+enum EventType : uint8_t { EV_BUBBLE = 0, EV_SPLASH = 1, EV_DROP = 2, EV_STONE = 3, EV_FIZZ = 4 };
 
 // Fields left at their "unset" value are drawn randomly from the zone's model.
 struct Event {
@@ -19,17 +19,19 @@ struct Event {
     float pan = -2;       // < -1 = zone default + jitter
     float delaySec = 0;
     uint64_t at = 0;      // absolute sample (set by the engine)
+    uint32_t seq = 0;     // push order (ties at the same sample play in this order)
 };
 
 class EventQueue {
 public:
     Event ev[ck::QUEUE_SIZE];
     bool used[ck::QUEUE_SIZE];
-    uint32_t drops = 0;
+    uint32_t drops = 0, seq = 0;
+    int due[ck::QUEUE_SIZE];
 
-    void Reset() { for (int i = 0; i < ck::QUEUE_SIZE; i++) used[i] = false; drops = 0; }
+    void Reset() { for (int i = 0; i < ck::QUEUE_SIZE; i++) used[i] = false; drops = 0; seq = 0; }
     bool Push(const Event& e, uint64_t at) {
-        for (int i = 0; i < ck::QUEUE_SIZE; i++) if (!used[i]) { ev[i] = e; ev[i].at = at; used[i] = true; return true; }
+        for (int i = 0; i < ck::QUEUE_SIZE; i++) if (!used[i]) { ev[i] = e; ev[i].at = at; ev[i].seq = ++seq; used[i] = true; return true; }
         drops++;
         return false;
     }

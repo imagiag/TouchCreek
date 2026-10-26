@@ -1,8 +1,8 @@
-# Note mode with Free flow 0: still water, held notes pour. Variety from one note (0) to the whole scale (1). C major pentatonic.
+# Note mode (ticks and splash fizz follow the notes) with Free flow 0: still water, held notes pour. Variety from one note (0) to the whole scale (1). C major pentatonic.
 seconds 16
 seed 9
 at 0 preset rocky
-at 0 set freeflow 0 variety 0 scalemask 661
+at 0 set freeflow 0 variety 0 scalemask 661 tunedetail 1
 at 1 tune 523.25
 at 1 drop hz 523.25 amp 0.8
 at 4 tune

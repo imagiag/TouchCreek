@@ -5,11 +5,11 @@
 
 namespace creek {
 
-void BubbleScheduler::Init(float sr, Rng& rngT) {
+void BubbleScheduler::Init(float sr, Rng* const* rngT) {
     sr_ = sr;
     lnRmin_ = logf(ck::R_MIN_MM); lnRspan_ = logf(ck::R_MAX_MM) - logf(ck::R_MIN_MM);
     lnTauSpan_ = logf(ck::TAU_MAX / ck::TAU_MIN);
-    for (int z = 0; z < ck::ZONES; z++) { acc_[z] = 0; thr_[z] = -logf(rngT.UniPos()); inc_[z] = 0; rate[z] = 0; }
+    for (int z = 0; z < ck::ZONES; z++) { acc_[z] = 0; thr_[z] = -logf(rngT[z]->UniPos()); inc_[z] = 0; rate[z] = 0; }
     over = 0; nBorn = 0; ampScale_ = 0; scaleMul_ = 1; nTune = 0; tuneAmt = 0; freeFlow = 1.f; activity = 1.f;
     for (int z = 0; z < ck::ZONES; z++) { rateMul[z] = 1; radMul[z] = 1; }
 }
@@ -27,7 +27,7 @@ void BubbleScheduler::Update(const FlowState& fs, float S) {
     ampScale_ = ck::BUBBLE_GAIN / sqrtf(1.f + total / ck::DENSITY_REF);
 }
 
-void BubbleScheduler::Run(Rng& rngT, int n) {
+void BubbleScheduler::Run(Rng* const* rngT, int n) {
     nBorn = 0;
     for (int z = 0; z < ck::ZONES; z++) {
         const float inc = inc_[z];
@@ -37,7 +37,7 @@ void BubbleScheduler::Run(Rng& rngT, int n) {
             acc += inc;
             if (acc >= thr_[z]) {
                 acc -= thr_[z];
-                thr_[z] = -logf(rngT.UniPos());
+                thr_[z] = -logf(rngT[z]->UniPos());
                 if (nBorn < ck::MAX_BIRTHS_PER_MICRO) { bornZone[nBorn] = z; bornOff[nBorn] = i; nBorn++; }
                 else over++;
             }
@@ -64,7 +64,7 @@ static int stepScale(int n, int d, uint32_t mask) {
 // Pitch for a tuned bubble (MIDI). Default: the held note in the octave nearest
 // the bubble's own pitch. Variety left of noon pulls it onto the held note
 // itself (fully left: one note); right of noon moves it up to +-7 scale steps.
-float BubbleScheduler::tunedMidi(float m0, float uA, float uB) const {
+float BubbleScheduler::tunedMidi(float m0, float uA, float uB, bool keepOctave) const {
     int best = 0; float bd = 1e9f, bc = 0;
     for (int k = 0; k < nTune; k++) {
         const float t = tuneMidi[k], c = t + 12.f * roundf((m0 - t) / 12.f), d = fabsf(c - m0);
@@ -72,7 +72,7 @@ float BubbleScheduler::tunedMidi(float m0, float uA, float uB) const {
     }
     const float v = variety;
     if (v < 0.5f) {
-        if (uA < (0.5f - v) * 2.f) bc = tuneMidi[best];
+        if (!keepOctave && uA < (0.5f - v) * 2.f) bc = tuneMidi[best];
     } else if (v > 0.5f) {
         const float r = (v - 0.5f) * 2.f;
         if (uA < r) {

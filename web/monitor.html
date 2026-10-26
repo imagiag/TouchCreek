@@ -168,7 +168,7 @@ function drawLayers() {
     row('Bubbles', 'the creek\'s own', L2.a / 24, `${r(L2.a)} voices · ${r(s.b)}/s`, mute(1)) +
     row('Played', 'drops, stones', L2.u / 8, `${r(L2.u)} voices`, false) +
     row('Eddies', 'wake swells', L2.e / 100, `${r(L2.e)} %`, mute(2)) +
-    row('Falls', 'splash plops', L2.f / 4, `${r(L2.f)} voices · ${r(s.f)}/s`, mute(3)) +
+    row('Falls', 'splash fizz', L2.f / 4, `${r(L2.f)} voices · ${r(s.f)}/s`, mute(3)) +
     row('Surface', 'high ticks', L2.t / 10, `${r(L2.t)} voices · ${r(s.t)}/s`, mute(4));
   $('state').innerHTML = `mode <b>${MODES[L2.o] || '?'}</b> · held notes <b>${L2.h}</b> · scene gate <b>${L2.g}%</b> · event rate <b>${L2.y}%</b>` +
     (L2.y > 100 ? ' <span class="tag">stone surge</span>' : '') + ` · stones <b>${L2.n}</b>`;

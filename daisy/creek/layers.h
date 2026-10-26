@@ -6,6 +6,7 @@
 #include "flow_state.h"
 #include "bubble_pool.h"
 #include "event_queue.h"
+#include "bubble_scheduler.h"
 
 namespace creek {
 
@@ -59,7 +60,8 @@ class Falls {
 public:
     void Init(float sr, Rng& rng);
     void Update(const FlowState& fs, float activity);       // control tick
-    void Run(Rng& rng, int n, FlowState& fs, float scaleMul, EventQueue& q, uint64_t sample, Surface& surf);
+    // tuneOn: Notes mode with notes played: the impact fizz follows the last-played notes
+    void Run(Rng& rng, int n, FlowState& fs, const BubbleScheduler& sched, EventQueue& q, uint64_t sample, Surface& surf, bool tuneOn);
     BubblePool pool;
     float rate = 0;
     uint32_t count = 0;
@@ -74,7 +76,7 @@ class Surface {
 public:
     void Init(float sr, Rng& rng);
     void Update(const FlowState& fs, Rng& rng, float dt, float eddy, float activity);  // control tick
-    void Run(Rng& rng, int n);
+    void Run(Rng& rng, int n, const BubbleScheduler& sched, bool tuneOn);   // tuneOn: ticks follow the last-played notes
     BubblePool pool;
     float rate = 0, boost = 0;
     uint32_t count = 0;

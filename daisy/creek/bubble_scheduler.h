@@ -13,9 +13,9 @@ namespace creek {
 
 class BubbleScheduler {
 public:
-    void Init(float sr, Rng& rngT);
+    void Init(float sr, Rng* const* rngT);             // rngT[z]: per-zone timing streams
     void Update(const FlowState& fs, float S);   // control tick
-    void Run(Rng& rngT, int n);                  // births in the next n samples
+    void Run(Rng* const* rngT, int n);                 // births in the next n samples
     bool Make(Rng& rngP, int z, BubblePool& pool, int off, const Event* ev);
     float TauFor(float rMm) const;     // decay time of a bubble of this radius
 
@@ -35,8 +35,12 @@ public:
     int bornZone[ck::MAX_BIRTHS_PER_MICRO], bornOff[ck::MAX_BIRTHS_PER_MICRO];
     uint32_t over = 0;
 
+    // pitch (MIDI) for a tuned event: held / last-played notes, shaped by Variety
+    // keepOctave (surface ticks, splash fizz): stay in their own register, so Variety's
+    // "one note" side doesn't pull them down onto the held note's octave
+    float tunedMidi(float m0, float uA, float uB, bool keepOctave = false) const;
+
 private:
-    float tunedMidi(float m0, float uA, float uB) const;
     float sr_ = 48000;
     float acc_[ck::ZONES], thr_[ck::ZONES], inc_[ck::ZONES];
     float lnRmin_ = 0, lnRspan_ = 1, lnTauSpan_ = 1;

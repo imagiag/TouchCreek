@@ -37,6 +37,7 @@ void BubblePool::FadeCreek(float k) {
         zr_[v] *= k; zi_[v] *= k;
         if (zr_[v] * zr_[v] + zi_[v] * zi_[v] < t2) { on_[v] = 0; fading_[v] = 0; }   // inaudible: free the voice
     }
+    compact();
 }
 
 bool BubblePool::Spawn(float f0, float amp, float tau, float attack, float rise, float pan, int off, bool user) {
@@ -58,6 +59,7 @@ bool BubblePool::Spawn(float f0, float amp, float tau, float attack, float rise,
     const float w = fminf(kTwoPi * f0 / sr_, wMax_ / (1.f + fmaxf(0.f, rise)));
     const float r = expf(-1.f / (tau * sr_));
     on_[v] = 1; fading_[v] = 0; fade_[v] = 1.f; fadeStep_[v] = 0; user_[v] = user ? 1 : 0;
+    ord_[nOrd_++] = v;
     zr_[v] = amp; zi_[v] = 0;
     damp_[v] = r; w0_[v] = w;
     c_[v] = r * cosf(w); s_[v] = r * sinf(w);
@@ -92,7 +94,8 @@ void BubblePool::Micro() {
 }
 
 void BubblePool::Render(float* L, float* R, int n) {
-    for (int v = 0; v < n_; v++) {
+    for (int q = 0; q < nOrd_; q++) {
+        const int v = ord_[q];
         if (!on_[v]) continue;
         float zr = zr_[v], zi = zi_[v], att = att_[v], fade = fade_[v];
         const float c = c_[v], s = s_[v], ka = ka_[v], gl = gl_[v], gr = gr_[v], fs = fadeStep_[v];
@@ -110,6 +113,7 @@ void BubblePool::Render(float* L, float* R, int n) {
         life_[v] -= done; age_[v] += done; start_[v] = 0;
         if (life_[v] <= 0 || fade <= 0.f) { on_[v] = 0; fading_[v] = 0; }
     }
+    compact();
 }
 
 } // namespace creek

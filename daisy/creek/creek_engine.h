@@ -39,6 +39,7 @@ struct Macros {
     float variety = 0.5f;  // tuned pitches: 0 one note .. 0.5 default .. 1 across the scale
     float decay = 0.5f;    // decay times: 0 = 1/4 .. 0.5 = 1x .. 1 = 4x
     uint32_t scaleMask = 0xFFF; // active scale as pitch classes (bit 0 = C)
+    bool tuneDetail = false; // Notes mode: surface ticks + splash fizz follow the last-played notes
     float tone = 0.5f;     // 0 dark (more big bubbles) .. 0.5 default .. 1 bright (more small ones)
     float attack = ck::TUNE_ATTACK_SEC;   // note pour swell-in time (s)
     float release = ck::TUNE_RELEASE_SEC; // note pour tail (s)
@@ -76,6 +77,7 @@ private:
     void drop(const Event& e, int off);
     void stone(const Event& e, int off);
     float kStone_ = 0, stoneS_ = 0, creekFade_ = 1;
+    bool tuneDetail_ = false;
     uint32_t stones_ = 0;
     float kTuneA_ = 0, kTuneR_ = 0, freeS_ = 1, activity_ = 1;
 
@@ -87,6 +89,8 @@ private:
     bool snapNext_ = true;
 
     Rng rng_[S_COUNT];
+    Rng* rngT_[3];   // per-zone bubble timing streams
+    Rng* rngP_[3];   // per-zone bubble parameter streams
     Macros macros_;
     FlowState flow_;
     EventQueue queue_;
