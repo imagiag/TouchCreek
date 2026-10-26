@@ -1,6 +1,6 @@
 # This is Creek
 
-A sample-free procedural creek for the Synthux Touch synthesizer and Daisy Seed, from a quiet trickle to a lively shallow stream. Nothing is recorded: hundreds of tiny bubbles per second, slow eddies, small splashes and fine surface ticks, all driven by one slowly changing creek state. Switch to Notes and play it: tap a pad for a tuned drop, hold it and the water pours onto the note.
+A sample-free procedural creek for the Synthux Touch synthesizer and Daisy Seed, from a quiet trickle to a lively shallow stream. Nothing is recorded: hundreds of tiny bubbles per second, slow eddies, small splashes, fine surface ticks and the low rumble of dense bubbling, all driven by one slowly changing creek state. Switch to Notes and play it: tap a pad for a tuned drop, hold it and the water pours onto the note.
 
 Each bubble is a short decaying tone whose pitch comes from its size, f₀ ≈ 3 / r (Kees van den Doel, *Physically-based Models for Liquid Sounds*, 2005): small bubbles are high, big ones low.
 
@@ -19,7 +19,7 @@ USB is **MIDI**; for measuring CPU there's a separate monitor build (see Emulato
 
 <img src="touch.jpeg" width="300"/>
 
-At power-up the creek plays whatever the knobs and faders are set to; the second-layer controls start at their defaults (natural width, default tone, attack and release, filter open). The **left switch** decides what the pads do.
+At power-up the creek plays whatever the knobs and faders are set to; the second-layer controls start at their defaults (natural width, default tone, attack and release, filter open, delay off). The **left switch** decides what the pads do.
 
 ### Pads
 - **P01** - **Throw a stone**, in every mode: a deep falling plop, a burst of larger bubbles spreading from the centre, and a disturbance that settles over 2–3 s (hit harder = bigger stone)
@@ -79,8 +79,8 @@ Everything you hear is made of short decaying tones; there is no noise in the so
 - **Eddies**: Two to four overlapping slow swells (0.3–3 s; slower with larger Scale, deeper with Roughness) in the rock wake. No sound of their own: each makes the left side surge with more, slightly bigger and lower bubbles, then settle.
 - **Small Waterfalls**: At the drop, 0.2–4 times a second as Flow rises: a quick fizz of 3–7 tiny bubbles (2.5–10 kHz) within 20 ms, then 2–8 bubbles settling over the next tenth of a second (more with Aeration), plus a short burst of extra air. (Before v16 this started with a low falling plop, which sounded artificial.) Overlapping splashes share a limited energy, so they never swamp the creek.
 - **Surface Detail**: Sparse, very short, quiet high ticks (2–9 kHz), more near the drop, at turbulence peaks and right after splashes, in loose bursts rather than a steady crackle. In Notes mode the ticks and the falls' fizz are tuned to the held notes (in their own high octaves; Variety spreads them over the scale), and stay on the last played notes after you let go, until you play new ones.
-- **Ping-pong Delay** (from TouchPulsar): Echoes of the whole creek bounce left ↔ right and get darker with each repeat. **Time** (P11 + S30) is free, 30 ms–2.4 s (no tempo: short = slap and space, long = separate echoes); changes glide like tape. **Amount** (P11 + S32) sets echo level and feedback together; 0 = off (the power-up setting). After the creek and the cloud, before the filter and the output limiter.
 - **Bubble Cloud**: Dense bubbling also rings as one body: a soft, low rumble (about 40–400 Hz) under the rock wake and the drop. It comes in around Small cascade density (silent in a trickle), gets lower as the water gets denser and as Scale grows (down to ~40 Hz), and splashes give it a push. A cheap approximation of coupled bubble clouds (after Xue et al. 2023), not a physical solver. Diagnostics P09 mutes it.
+- **Ping-pong Delay** (from TouchPulsar): Echoes of the whole creek bounce left ↔ right and get darker with each repeat. **Time** (P11 + S30) is free, 30 ms–2.4 s (no tempo: short = slap and space, long = separate echoes); changes glide like tape. **Amount** (P11 + S32) sets echo level and feedback together; 0 = off (the power-up setting). After the creek and the cloud, before the filter and the output limiter.
 - **Attack & Release**: Both on P11 (P11 + S33, P11 + S34; ranges and CCs as TouchPulsar): how quickly a held note's pour swells in (4 ms – 3 s) and how long it keeps pouring and settling after you let go (20 ms – 4 s).
 - **Tone**: P11 + S31 shifts the creek darker or brighter over a wide range (noon = default): first the mix (more big or more small bubbles), then near the ends all bubbles move up to an octave.
 - **Drops & Pouring**: Tapping a note drops one tuned bubble with 1–3 quieter followers; holding it pours the water onto the note in the rhythm of Flow, Roughness and Aeration. With **Free flow** down the creek is still and only your notes sound; **Variety** decides whether the pour sticks to one note or spreads across the scale; **Latch** keeps notes pouring hands-free.
@@ -109,7 +109,7 @@ Hold **P11** and tap a note pad to jump directly to a scale, or use **P00 / P02*
 | P05 | Small cascade | 0.75 | 0.80 | 0.50 | 0.85 |
 | P06 | Deeper run | 0.65 | 0.35 | 0.80 | 0.40 |
 
-Presets set the four sound knobs; everything else (Level, Width, Tone, Decay, Attack, Release, Free flow, Variety, filter) stays where it is.
+Presets set the four sound knobs; everything else (Level, Width, Tone, Decay, Attack, Release, Free flow, Variety, filter, delay) stays where it is.
 
 ### LED Indicator
 The onboard LED provides visual feedback:
@@ -161,7 +161,7 @@ Creek appears as a USB MIDI device (listed as **Creek**) when connected via the 
 
 ### Emulator & Monitor
 - **Browser emulator**: `python3 web/serve.py 8766`, then open http://localhost:8766. The same panel and the same engine (a JavaScript twin, tested against the firmware's), with pickup, layers and LED behaving as on the hardware. **Enable MIDI** plays it from a keyboard on your computer; **Render 30 s WAV** saves what you hear.
-- **Monitor** (also for debugging): the emulator's **Monitor** button opens it for the emulator; for the Touch, build it with `make monitor` in `daisy/` (USB sends the report instead of MIDI, and Diagnostics P09 becomes a stress test instead of the cloud mute), flash `build-monitor/CreekTouch-monitor.bin`, open http://localhost:8766/monitor.html in Chrome or Edge, plug in the Touch and click **Connect**. It shows which layers are sounding and how much (bubble voices and rate, played drops / stones, eddies, splash plops, surface ticks, mutes, held notes), the **last pressed** pad / knob / switch with its meaning, CPU load (average and worst 1 ms block), stack use, dropped events and limiter activity. For the worst case use Diagnostics + P09 (stress test); measured on the Touch it stays under 25 % (limit 70 %).
+- **Monitor** (also for debugging): the emulator's **Monitor** button opens it for the emulator; for the Touch, build it with `make monitor` in `daisy/` (USB sends the report instead of MIDI, and Diagnostics P09 becomes a stress test instead of the cloud mute), flash `build-monitor/CreekTouch-monitor.bin`, open http://localhost:8766/monitor.html in Chrome or Edge, plug in the Touch and click **Connect**. It shows which layers are sounding and how much (bubble voices and rate, played drops / stones, eddies, splash fizz, surface ticks, bubble cloud (emulator only), mutes, held notes), the **last pressed** pad / knob / switch with its meaning, CPU load (average and worst 1 ms block), stack use, dropped events and limiter activity. For the worst case use Diagnostics + P09 (stress test); measured on the Touch it stays under 25 % (limit 70 %).
 
 ## Project Structure
 ```
@@ -194,6 +194,7 @@ $ make program-dfu
 
 ## Credits
 - Bubble model: Kees van den Doel, *Physically-based Models for Liquid Sounds*, ACM Transactions on Applied Perception, vol. 2, no. 4, 2005.
+- Bubble cloud: after Xue, Aronson, Wang, Langlois and James, *Improved Water Sound Synthesis using Coupled Bubbles*, ACM Transactions on Graphics 42(4), 2023 (a cheap approximation, not their solver).
 - Sound design method: Andy Farnell, *Designing Sound*, MIT Press, 2010.
 - Touch drivers: Synthux Academy [TouchString](https://github.com/Synthux-Academy/TouchString). Hardware: [Touch 2](https://www.synthux.academy/store/simple-touch-2) by [Synthux Academy](https://www.synthux.academy/).
-- Filter and scale handling shared with TouchPulsar.
+- Filter, ping-pong delay and scale handling shared with TouchPulsar.
