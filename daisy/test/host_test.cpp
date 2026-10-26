@@ -48,13 +48,13 @@ static void controlsTests() {
     c.SetMode(MODE_DIAG);
     c.PadDown(kPadLayer0 + 1, .7f);   // mute bubbles
     Macros m; c.Compute(m);
-    CHECK(m.mask == (0x1Fu & ~2u), "diag: P04 mutes bubbles (mask %x)", m.mask);
+    CHECK(m.mask == (kAllLayers & ~2u), "diag: P04 mutes bubbles (mask %x)", m.mask);
     c.PadDown(kPadAll, .7f); c.Compute(m);
-    CHECK(m.mask == 0x1Fu, "diag: P08 restores all");
+    CHECK(m.mask == kAllLayers, "diag: P08 restores all");
     c.PadDown(kPadLayer0, .7f); c.SetMode(MODE_PRESETS); c.Compute(m);
-    CHECK(m.mask == 0x1Fu, "presets mode always plays all layers");
+    CHECK(m.mask == kAllLayers, "presets mode always plays all layers");
     c.SetMode(MODE_DIAG); c.Compute(m);
-    CHECK(m.mask == 0x1Eu, "diag mask remembered");
+    CHECK(m.mask == (kAllLayers & ~1u), "diag mask remembered");
 
     // notes
     Controls n; n.SetMode(MODE_NOTES);
@@ -130,7 +130,7 @@ static void controlsTests() {
     for (int i = 0; i < 500; i++) {                 // 2 s of 4 ms UI ticks
         st.Tick(10.0 + i * 0.004); Drop dd; while (st.PopDrop(dd)) nd++;
         Macros sm; st.Compute(sm); if (sm.flow != lastFlow) changes++; lastFlow = sm.flow;
-        if (sm.mask != 0x1Fu) { CHECK(false, "stress plays all layers"); break; }
+        if (sm.mask != kAllLayers) { CHECK(false, "stress plays all layers"); break; }
     }
     CHECK(nd >= 30 && nd <= 50, "stress: ~20 drops per second (%d in 2 s)", nd);
     CHECK(changes >= 2, "stress: settings jump (%d flow changes)", changes);
@@ -245,9 +245,9 @@ static void engineTests() {
             return rmsOf(L1, (size_t)SR, L1.size()) + rmsOf(R1, (size_t)SR, R1.size());
         };
         Stats all, bub, falls, surf, noEddy;
-        layerRms("rocky", 31, all);
+        layerRms("rocky", 63, all);
         const double rb = layerRms("rocky", 2, bub), rf = layerRms("rocky", 8, falls), rs = layerRms("rocky", 16, surf);
-        layerRms("rocky", 31 & ~4, noEddy);
+        layerRms("rocky", 63 & ~4, noEddy);
         CHECK(all.eddy > 0.2f, "eddies swell in the rock wake (max %.2f)", all.eddy);
         CHECK(noEddy.eddy == 0.f, "muting eddies removes them");
         const float spl = all.splashes / 20.f, sfr = all.surface / 20.f;
@@ -256,7 +256,13 @@ static void engineTests() {
         CHECK(rf > 1e-4 && rs > 1e-5, "falls and surface layers are audible (rms %g, %g)", rf, rs);
         CHECK(rs < 0.2 * rb, "surface detail does not dominate (%.1f dB under the bubbles)", 20 * log10(rb / rs));
         Stats tr, ca;
-        layerRms("trickle", 31, tr); layerRms("cascade", 31, ca);
+        layerRms("trickle", 63, tr); layerRms("cascade", 63, ca);
+        // bubble cloud: silent in a trickle, a low rumble well under the mix in a cascade
+        Stats cs;
+        const double cTr = layerRms("trickle", 32, cs), cCa = layerRms("cascade", 32, cs), mCa = layerRms("cascade", 63, cs);
+        CHECK(cTr < 1e-6, "cloud silent in a trickle (rms %g)", cTr);
+        CHECK(cCa > 0.05 * mCa && cCa < 0.5 * mCa, "cloud in a cascade: %.1f dB under the mix (6-26 dB)", 20 * log10(mCa / cCa));
+        CHECK(cs.cloud[0] > 0.2f && cs.cloudHz[0] > 100.f && cs.cloudHz[0] < 300.f, "cloud: dense wake mode at %.0f Hz (strength %.2f)", cs.cloudHz[0], cs.cloud[0]);
         CHECK(ca.splashes > 2 * tr.splashes && ca.surface > 2 * tr.surface, "more splashes and surface activity as the creek gets livelier");
         printf("rocky: bubbles %.0f/s, splashes %.1f/s, surface %.1f/s; layer rms bubbles %.1f, falls %.1f, surface %.1f dBFS\n",
                all.births / 20.f, spl, sfr, 20 * log10(rb / 2), 20 * log10(rf / 2), 20 * log10(rs / 2));

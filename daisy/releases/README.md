@@ -7,6 +7,7 @@ Flash these with https://flash.daisy.audio/ (hold BOOT while plugging in, or BOO
 
 | File | Date | Changes |
 |---|---|---|
+| `CreekTouch-v17-cloud.bin` | 2026-10-26 | **Bubble cloud**: dense bubbling now also rings as one body, a soft low rumble (about 40–400 Hz) under the rock wake and the drop. Silent in a trickle, comes in around Small cascade density, lower with denser water and bigger Scale; splashes push it. **Diagnostics P09** mutes it. Everything else as v16. |
 | `CreekTouch-v16-falls-fizz.bin` | 2026-10-26 | **Falls without the plop**: a splash now starts with a quick fizz of 3–7 tiny bubbles (2.5–10 kHz), then the bubbly settling as before. **Notes mode**: surface ticks and the splash fizz are tuned to the held notes (their own high octaves; Variety spreads them) and stay on the last played notes until you play new ones. Bubbles unchanged. The stone keeps its plop for now (stone tuning is parked). |
 | `CreekTouch-v16-monitor-debug.bin` | 2026-10-26 | **Debug build** (sound = v16-falls-fizz, USB = report instead of MIDI) for `web/monitor.html`, same report as v15-monitor-debug. Flash v16-falls-fizz again to get MIDI back. |
 | `CreekTouch-v15-monitor-debug.bin` | 2026-10-26 | **Debug build** (sound = v15-stone, USB = report instead of MIDI) for `web/monitor.html`: CPU, voices per layer (bubbles, played drops/stones, falls plops, surface ticks), eddies, scene gate, event rate, held notes, mutes, and **every pad press, knob move and switch change**. P09 stress test in Diagnostics. Flash v15-stone again to get MIDI back. |

@@ -245,7 +245,7 @@ function drawBoard() {
       }
     } else if (p.id === CC.PAD_ALL) { html += '<small>All on</small>'; cls = ''; }
     else if (p.id === CC.PAD_STRESS && ctl.stressEnabled) { html += '<small>Stress</small>'; cls = ctl.stress ? 'sel' : ''; }
-    else if (p.id === CC.PAD_STRESS && ctl.cloudEnabled) { html += '<small>Cloud</small>'; cls = ctl.cloud ? 'layer-on' : 'muted'; }
+    else if (p.id === CC.PAD_CLOUD) { html += '<small>Cloud</small>'; cls = ctl.diagMask & CK_CLOUD_BIT ? 'layer-on' : 'muted'; }
     else {
       const l = p.id - CC.PAD_LAYER0;
       if (l >= 0 && l < CK_LAYERS) { html += `<small>${CC_LAYER_NAMES[l]}</small>`; cls = (ctl.diagMask >> l) & 1 ? 'layer-on' : 'muted'; }
@@ -254,10 +254,9 @@ function drawBoard() {
     e.classList.remove('idle', 'sel', 'muted', 'layer-on'); if (cls) e.classList.add(cls);
   }
   $('led').classList.toggle('on', ledState(performance.now()));
-  if ($('cloudBtn').classList.contains('on') !== ctl.cloud) cloudBtn();
   $('dMode').textContent = ['PRESETS', 'NOTES', 'DIAGNOSTICS'][ctl.mode]; $('dMode').classList.toggle('diag', ctl.mode !== CC.MODE_PRESETS);
   $('dHold').textContent = ctl.latch ? 'LATCH' : ctl.hold ? 'HOLD' : 'LIVE'; $('dHold').classList.toggle('on', ctl.hold || ctl.latch);
-  $('dPreset').textContent = ctl.mode === CC.MODE_DIAG ? 'layers ' + CC_LAYER_NAMES.map((n, l) => ((ctl.diagMask >> l) & 1 ? n[0] : '·')).join('')
+  $('dPreset').textContent = ctl.mode === CC.MODE_DIAG ? 'layers ' + CC_LAYER_NAMES.map((n, l) => ((ctl.diagMask >> l) & 1 ? n[0] : '·')).join('') + (ctl.diagMask & CK_CLOUD_BIT ? 'C' : '·')
     : ctl.mode === CC.MODE_NOTES ? `${ctl.scaleName()} · oct ${ctl.oct > 0 ? '+' : ''}${ctl.oct}` : CREEK_PRESETS[ctl.preset].name;
   $('hint').textContent = !running ? 'Press Start audio, then play the panel.'
     : ctl.mode === CC.MODE_DIAG ? (ctl.stress ? 'Stress test running: worst-case settings and note bursts. Tap P09 to stop.' : 'Diagnostics: P03–P07 mute / unmute layers, P08 all on.')
@@ -409,11 +408,7 @@ function openTab(url, name) {
   if (blank) w.location.href = url; else w.focus();
 }
 $('monitorBtn').onclick = () => openTab('monitor.html', 'creek-monitor');
-// bubble cloud experiment (web only): low rumble in dense bubbling
-ctl.cloudEnabled = true;
-const cloudBtn = () => { $('cloudBtn').textContent = ctl.cloud ? 'Cloud: on' : 'Cloud: off'; $('cloudBtn').classList.toggle('on', ctl.cloud); };
-$('cloudBtn').onclick = () => { ctl.cloud = !ctl.cloud; cloudBtn(); };
-cloudBtn();
+
 window.name = window.name || 'creek-emulator';   // so the monitor's Emulator button switches back to this tab
 
 // ------------------------------------------------------------------ wiring

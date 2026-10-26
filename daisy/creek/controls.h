@@ -45,7 +45,7 @@ constexpr float kBendSemis = 2.f;
 int CcToMacro(int cc);               // -1 if the CC is not a knob
 
 constexpr int kPadOctDn = 0, kPadStone = 1, kPadOctUp = 2, kPadRoot = 10, kPadScale = 11;
-constexpr int kPadPreset0 = 3, kPadNote0 = 3, kPadLayer0 = 3, kPadAll = 8, kPadStress = 9;
+constexpr int kPadPreset0 = 3, kPadNote0 = 3, kPadLayer0 = 3, kPadAll = 8, kPadStress = 9, kPadCloud = 9;   // P09: stress test (monitor build) or cloud mute
 constexpr int kBaseMidi = 72;        // P03, root C, octave 0 = C5
 constexpr int kMaxHeld = 4;
 constexpr float kPresetGlideSec = 0.25f;
@@ -81,7 +81,7 @@ public:
     float value[M_COUNT];
     int preset = 0;
     Mode mode = MODE_PRESETS;
-    uint32_t diagMask = 0x1F;
+    uint32_t diagMask = kAllLayers;
     bool hold = false;
     bool touched[12];
     int scale = 4, root = 0, oct = 0;

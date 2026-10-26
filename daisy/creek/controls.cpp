@@ -139,9 +139,11 @@ void Controls::PadDown(int pad, float vel) {
     } else if (mode == MODE_DIAG) {
         const int l = pad - kPadLayer0;
         if (l >= 0 && l < ck::LAYERS) { diagMask ^= 1u << l; push(CE_LAYER, (int8_t)((diagMask >> l) & 1u)); }
-        else if (pad == kPadAll) { diagMask = 0x1F; push(CE_ALL, 0); }
+        else if (pad == kPadAll) { diagMask = kAllLayers; push(CE_ALL, 0); }
 #if CREEK_STRESS
         else if (pad == kPadStress) { stress = !stress; stressNext_ = 0; push(CE_STRESS, stress ? 1 : 0); }
+#else
+        else if (pad == kPadCloud) { diagMask ^= kCloudBit; push(CE_LAYER, (int8_t)((diagMask & kCloudBit) ? 1 : 0)); }
 #endif
     } else {
         const bool note = pad >= kPadNote0 && pad <= kPadNote0 + 6;
@@ -284,8 +286,8 @@ void Controls::Compute(Macros& m) const {
     if (surge > 0.f) {
         m.flow += surge * (1.f - m.flow); m.roughness += 0.6f * surge * (1.f - m.roughness); m.aeration += 0.4f * surge * (1.f - m.aeration);
     }
-    m.mask = mode == MODE_DIAG ? diagMask : 0x1Fu;
-    if (CREEK_STRESS && stress) { m.flow = stressV_[0]; m.roughness = stressV_[1]; m.scale = stressV_[2]; m.aeration = stressV_[3]; m.mask = 0x1Fu; }
+    m.mask = mode == MODE_DIAG ? diagMask : kAllLayers;
+    if (CREEK_STRESS && stress) { m.flow = stressV_[0]; m.roughness = stressV_[1]; m.scale = stressV_[2]; m.aeration = stressV_[3]; m.mask = kAllLayers; }
     m.hold = hold;
     const float bendMul = exp2f(bend / 12.f);
     for (int k = 0; k < 4; k++) m.tuneHz[k] = k < nHeld ? MidiToHz(KeyMidi(held[k])) * bendMul : 0.f;

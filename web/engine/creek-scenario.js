@@ -64,7 +64,7 @@ function csParse(text, sr) {
 // result is independent of `block`.
 function csRun(sc, eng, sr, block, presets, onBlock) {
   const n = Math.floor(sc.seconds * sr), L = new Float32Array(n), R = new Float32Array(n);
-  const m = { flow: 0.2, roughness: 0.25, scale: 0.2, aeration: 0.3, gain: 1, width: 1, mask: 31, hold: 0, tuneHz: [0, 0, 0, 0],
+  const m = { flow: 0.2, roughness: 0.25, scale: 0.2, aeration: 0.3, gain: 1, width: 1, mask: 63, hold: 0, tuneHz: [0, 0, 0, 0],
     freeflow: 1, variety: 0.5, decay: 0.5, scalemask: 4095, tone: 0.5, tunedetail: 0 };
   eng.reset(sc.seed);
   let pi = 0, pos = 0;

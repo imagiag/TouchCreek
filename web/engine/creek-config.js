@@ -122,7 +122,7 @@ const CK = {
   FALLS_ENERGY_K: 1.5,
   FALLS_VOICES: 10,
 
-  // ---- bubble cloud (experiment, web only for now): low damped collective modes in dense bubbling ----
+  // ---- bubble cloud: low damped collective modes in dense bubbling ----
   // One mode each for the rock wake and the drop (brief: "one or two low, damped collective modes").
   // Every bubble born in the zone kicks its mode; strength fades in with the zone's bubble rate.
   CLOUD_RATE: [20, 110],    // zone bubble rate (per second, / ZONE_RATE_W): mode starts .. full
@@ -197,5 +197,6 @@ const CK = {
 const CK_ZONES = 3;
 const CK_LAYERS = 5;        // flow, bubbles, eddies, waterfall, surface
 const CK_L_FLOW = 0, CK_L_BUBBLES = 1, CK_L_EDDIES = 2, CK_L_FALLS = 3, CK_L_SURFACE = 4;
+const CK_CLOUD_BIT = 0x20, CK_ALL_LAYERS = 0x3F;   // mask bit 5 = bubble cloud (rendered after the mixer, P09 in diagnostics)
 
-if (typeof module !== 'undefined') module.exports = { CK, CK_ZONES, CK_LAYERS, CK_L_FLOW, CK_L_BUBBLES, CK_L_EDDIES, CK_L_FALLS, CK_L_SURFACE };
+if (typeof module !== 'undefined') module.exports = { CK, CK_ZONES, CK_LAYERS, CK_L_FLOW, CK_L_BUBBLES, CK_L_EDDIES, CK_L_FALLS, CK_L_SURFACE, CK_CLOUD_BIT, CK_ALL_LAYERS };

@@ -5,6 +5,13 @@
 
 namespace creek {
 
+// setup and control-rate code is compiled for size (flash is tight); per-sample loops keep -O3
+#if defined(__GNUC__) && !defined(__clang__)
+#define CREEK_SMALL __attribute__((optimize("Os")))
+#else
+#define CREEK_SMALL
+#endif
+
 constexpr float kTwoPi = 6.283185307179586f;
 constexpr float kPi = 3.14159265358979f;
 
@@ -44,7 +51,7 @@ inline uint32_t StreamSeed(uint32_t seed, uint32_t stream) { return Hash(seed + 
 // stream ids (fixed: muting a layer never shifts another layer's randomness)
 enum Stream { S_DRIFT, S_BTIME, S_BPARAM, S_NOISE_C, S_NOISE_L, S_NOISE_R, S_BED_DRIFT,
               S_EDDY, S_FALLS, S_SURFACE, S_TRIGGER,
-              S_BTIME1, S_BTIME2, S_BPARAM1, S_BPARAM2, S_FCHILD, S_COUNT };
+              S_BTIME1, S_BTIME2, S_BPARAM1, S_BPARAM2, S_FCHILD, S_CLOUD, S_COUNT };
 // each zone has its own bubble timing and parameter streams, so a one-sample timing
 // difference in one zone can't reshuffle the others' random draws
 constexpr int kZoneBTime[3] = {S_BTIME, S_BTIME1, S_BTIME2};

@@ -53,6 +53,30 @@ private:
 
 class Surface;
 
+// Bubble cloud: dense bubbling also rings as one body, a low, heavily damped
+// collective mode (a cheap approximation motivated by Xue et al. 2023, not their
+// solver). One mode for the rock wake, one for the drop; every bubble born in the
+// zone kicks it with a random sign (and splashes kick the drop's harder), so it is
+// a soft low rumble that grows with density. Lower with denser water and Scale.
+class Cloud {
+public:
+    void Init(float sr, Rng& rng);
+    void Update(Rng& rng, const BubbleScheduler& sched, float dt);   // control tick
+    void AddKick(int zone, int off, float amp);
+    void Render(Rng& rng, const BubbleScheduler& sched, float* L, float* R, int n);   // adds to L / R
+    float target = 0, g = 0;    // mute (mask bit 5)
+    float d[2] = {0, 0}, kick[2] = {0, 0};
+    float Hz(int k) const { return expf(lf_[k]); }
+private:
+    static constexpr int kMaxKicks = 32;
+    float zr_[2], zi_[2], c_[2], s_[2], lf_[2];
+    Drift drift_[2];
+    int kOff_[kMaxKicks], kZ_[kMaxKicks];
+    float kA_[kMaxKicks];
+    int nK_ = 0;
+    float sr_ = 48000, kG_ = 0, kF_ = 0;
+};
+
 // Small waterfalls at the drop: a soft low "plop" (falling tone), an
 // entrainment impulse into the drop zone, and 2-8 bubble children (rendered
 // by the bubble bank) when Aeration permits. Bounded shared splash energy.
@@ -61,7 +85,7 @@ public:
     void Init(float sr, Rng& rng);
     void Update(const FlowState& fs, float activity);       // control tick
     // tuneOn: Notes mode with notes played: the impact fizz follows the last-played notes
-    void Run(Rng& rng, int n, FlowState& fs, const BubbleScheduler& sched, EventQueue& q, uint64_t sample, Surface& surf, bool tuneOn);
+    void Run(Rng& rng, int n, FlowState& fs, const BubbleScheduler& sched, EventQueue& q, uint64_t sample, Surface& surf, Cloud& cloud, bool tuneOn);
     BubblePool pool;
     float rate = 0;
     uint32_t count = 0;

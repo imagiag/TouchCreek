@@ -693,20 +693,20 @@ class CrSurface {
 }
 
 // =============================================================================
-// Bubble cloud (experiment, web only for now). Dense bubbling also rings as one
+// Bubble cloud. Dense bubbling also rings as one
 // body: a low, heavily damped collective mode. A cheap approximation motivated by
 // Xue et al. 2023 (coupled bubbles), not a reproduction of their solver. One mode
 // for the rock wake and one for the drop; each bubble born in the zone kicks it
 // with a random sign, so the result is a soft low rumble that grows with density.
 // Pitch: lower with more air in the water (denser) and with a bigger stream (Scale).
-// On / off: mask bit 5 (emulator: Cloud button, diagnostics P09).
+// On / off: mask bit 5 (diagnostics P09).
 // =============================================================================
 class CrCloud {
   constructor() {
     this.zr = new Float64Array(2); this.zi = new Float64Array(2); this.c = new Float64Array(2); this.s = new Float64Array(2);
     this.d = new Float32Array(2); this.kick = new Float32Array(2); this.lf = new Float64Array(2);
     this.drift = [new CrDrift(), new CrDrift()]; this.g = 0; this.target = 0;
-    this.kOff = new Int32Array(64); this.kZ = new Int32Array(64); this.kA = new Float32Array(64); this.nK = 0;
+    this.kOff = new Int32Array(32); this.kZ = new Int32Array(32); this.kA = new Float32Array(32); this.nK = 0;
   }
   init(sr, rng) {
     this.sr = sr; this.zr.fill(0); this.zi.fill(0); this.g = 0; this.d.fill(0); this.kick.fill(0);
@@ -866,7 +866,7 @@ class CrOutputStage {
 class CreekMacros {
   constructor() {
     this.flow = 0.2; this.roughness = 0.25; this.scale = 0.2; this.aeration = 0.3;   // "Quiet trickle"
-    this.gain = 1; this.width = 1; this.mask = 0x1F; this.hold = false;
+    this.gain = 1; this.width = 1; this.mask = CK_ALL_LAYERS; this.hold = false;
     this.tuneHz = [0, 0, 0, 0];   // note mode: held note pitches (0 = none)
     this.tune = 0;                // 1 while notes are held
     this.freeFlow = 1;            // note mode: how much the creek plays by itself (0 = still)
@@ -929,7 +929,7 @@ class CreekEngine {
     m.flow = fin(v.flow, 0, 1, m.flow); m.roughness = fin(v.roughness, 0, 1, m.roughness);
     m.scale = fin(v.scale, 0, 1, m.scale); m.aeration = fin(v.aeration, 0, 1, m.aeration);
     m.gain = fin(v.gain, 0, 4, m.gain); m.width = fin(v.width, 0, CK.WIDTH_MAX, m.width);
-    if (v.mask !== undefined) m.mask = v.mask & 0x3F;   // bit 5: bubble cloud (web experiment)
+    if (v.mask !== undefined) m.mask = v.mask & CK_ALL_LAYERS;
     if (v.hold !== undefined) m.hold = !!v.hold;
     if (v.tuneHz) for (let k = 0; k < 4; k++) { const h = v.tuneHz[k]; m.tuneHz[k] = typeof h === 'number' && isFinite(h) && h > 20 && h < 20000 ? h : 0; }
     if (v.tune !== undefined) m.tune = v.tune ? 1 : 0;

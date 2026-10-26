@@ -26,12 +26,13 @@
 namespace creek {
 
 enum Layer { L_FLOW = 0, L_BUBBLES, L_EDDIES, L_FALLS, L_SURFACE };
+constexpr uint32_t kCloudBit = 0x20, kAllLayers = 0x3F;   // mask bit 5 = bubble cloud (after the mixer)
 
 struct Macros {
     float flow = 0.20f, roughness = 0.25f, scale = 0.20f, aeration = 0.30f; // "Quiet trickle"
     float gain = 1.f;      // linear output gain
     float width = 1.f;     // 0 = mono .. ck::WIDTH_MAX
-    uint32_t mask = 0x1F;  // diagnostic layer mask (bit = layer on)
+    uint32_t mask = kAllLayers;  // diagnostic layer mask (bit = layer on)
     bool hold = false;     // hold the slow state (events keep going)
     float tuneHz[4] = {0, 0, 0, 0}; // note mode: held note pitches (0 = none)
     bool tune = false;     // true while notes are held
@@ -54,6 +55,8 @@ struct Stats {
     uint32_t splashes, surface, stones;
     int activeUser, activeFalls, activeSurface;   // voices: played (drops / stones), plops, surface ticks
     float activity;                               // event-rate gate (Free flow / pour / stone)
+    float cloud[2], cloudHz[2];                   // bubble cloud strength 0..1 and pitch (wake, drop)
+    bool cloudOn;
     float E[ck::ZONES], T[ck::ZONES], B[ck::ZONES];
 };
 
@@ -100,6 +103,7 @@ private:
     Eddies eddies_;
     Falls falls_;
     Surface surface_;
+    Cloud cloud_;
     SpatialMixer mixer_;
     OutputStage out_;
 

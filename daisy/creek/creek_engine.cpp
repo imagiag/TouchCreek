@@ -5,7 +5,7 @@
 
 namespace creek {
 
-void CreekEngine::Init(float sampleRate, uint32_t seed) {
+CREEK_SMALL void CreekEngine::Init(float sampleRate, uint32_t seed) {
     sr_ = sampleRate;
     srInt_ = (uint32_t)lroundf(sampleRate);
     for (int l = 0; l < ck::LAYERS; l++) { pL_[l] = bufL_[l]; pR_[l] = bufR_[l]; }
@@ -16,7 +16,7 @@ void CreekEngine::Init(float sampleRate, uint32_t seed) {
     Reset(seed);
 }
 
-void CreekEngine::Reset(uint32_t seed) {
+CREEK_SMALL void CreekEngine::Reset(uint32_t seed) {
     seed_ = seed;
     for (int i = 0; i < S_COUNT; i++) rng_[i].Seed(StreamSeed(seed, (uint32_t)i));
     for (int z = 0; z < 3; z++) { rngT_[z] = &rng_[kZoneBTime[z]]; rngP_[z] = &rng_[kZoneBParam[z]]; }
@@ -29,6 +29,7 @@ void CreekEngine::Reset(uint32_t seed) {
     eddies_.Init(rng_[S_EDDY]);
     falls_.Init(sr_, rng_[S_FALLS]);
     surface_.Init(sr_, rng_[S_SURFACE]);
+    cloud_.Init(sr_, rng_[S_CLOUD]);
     mixer_.Init(sr_); out_.Reset();
     applyMacros(true);
     snapNext_ = true;   // the first SetMacros() after a reset jumps instead of gliding
@@ -36,12 +37,12 @@ void CreekEngine::Reset(uint32_t seed) {
 
 static inline float fin(float x, float lo, float hi, float d) { return isfinite(x) ? Clamp(x, lo, hi) : d; }
 
-void CreekEngine::SetMacros(const Macros& v) {
+CREEK_SMALL void CreekEngine::SetMacros(const Macros& v) {
     Macros& m = macros_;
     m.flow = fin(v.flow, 0.f, 1.f, m.flow); m.roughness = fin(v.roughness, 0.f, 1.f, m.roughness);
     m.scale = fin(v.scale, 0.f, 1.f, m.scale); m.aeration = fin(v.aeration, 0.f, 1.f, m.aeration);
     m.gain = fin(v.gain, 0.f, 4.f, m.gain); m.width = fin(v.width, 0.f, ck::WIDTH_MAX, m.width);
-    m.mask = v.mask & 0x1Fu; m.hold = v.hold;
+    m.mask = v.mask & kAllLayers; m.hold = v.hold;
     for (int k = 0; k < 4; k++) { const float h = v.tuneHz[k]; m.tuneHz[k] = isfinite(h) && h > 20.f && h < 20000.f ? h : 0.f; }
     m.tune = v.tune; m.tuneDetail = v.tuneDetail;
     m.freeFlow = fin(v.freeFlow, 0.f, 1.f, m.freeFlow); m.variety = fin(v.variety, 0.f, 1.f, m.variety); m.decay = fin(v.decay, 0.f, 1.f, m.decay);
@@ -53,11 +54,13 @@ void CreekEngine::SetMacros(const Macros& v) {
     snapNext_ = false;
 }
 
-void CreekEngine::applyMacros(bool snap) {
+CREEK_SMALL void CreekEngine::applyMacros(bool snap) {
     const Macros& m = macros_;
     flow_.SetMacros(m.flow, m.roughness, m.scale, m.aeration, snap);
     flow_.hold = m.hold;
     mixer_.SetMask(m.mask, m.width);
+    cloud_.target = (m.mask & kCloudBit) ? 1.f : 0.f;
+    if (snap) cloud_.g = cloud_.target;
     out_.gTarget = m.gain;
     out_.SetFilter(m.cutoff, m.resonance);
     if (snap) out_.SnapFilter();
@@ -83,7 +86,7 @@ void CreekEngine::applyMacros(bool snap) {
     if (snap) freeS_ = m.freeFlow;
 }
 
-bool CreekEngine::Trigger(const Event& src) {
+CREEK_SMALL bool CreekEngine::Trigger(const Event& src) {
     Event e;
     e.type = src.type; e.zone = src.zone > 2 ? 2 : src.zone;
     e.radiusMm = src.radiusMm > 0 ? Clamp(src.radiusMm, 0.05f, 50.f) : 0.f;
@@ -111,6 +114,7 @@ void CreekEngine::controlTick() {
     sched_.Update(flow_, flow_.m[2]);
     falls_.Update(flow_, activity_);
     surface_.Update(flow_, rng_[S_SURFACE], flow_.dt, ed, activity_);
+    cloud_.Update(rng_[S_CLOUD], sched_, flow_.dt);
     const float tt = macros_.tune ? 1.f : 0.f;
     sched_.tuneAmt += (tt > sched_.tuneAmt ? kTuneA_ : kTuneR_) * (tt - sched_.tuneAmt);
     // Free flow: the creek plays by itself only this much; holding notes pours
@@ -148,7 +152,7 @@ void CreekEngine::renderSegment(float* L, float* R, int n) {
     // events: scheduled births, then queued events due in this segment
     sched_.Run(rngT_, n);
     for (int b = 0; b < sched_.nBorn; b++) sched_.Make(*rngP_[sched_.bornZone[b]], sched_.bornZone[b], pool_, sched_.bornOff[b], nullptr);
-    falls_.Run(rng_[S_FALLS], n, flow_, sched_, queue_, sample_, surface_, tuneDetail_);
+    falls_.Run(rng_[S_FALLS], n, flow_, sched_, queue_, sample_, surface_, cloud_, tuneDetail_);
     surface_.Run(rng_[S_SURFACE], n, sched_, tuneDetail_);
     const uint64_t end = sample_ + (uint64_t)n;
     // due events in time order (ties: queue order), so the result doesn't depend on the block size;
@@ -183,12 +187,13 @@ void CreekEngine::renderSegment(float* L, float* R, int n) {
     falls_.pool.Render(bufL_[L_FALLS], bufR_[L_FALLS], n);
     surface_.pool.Render(bufL_[L_SURFACE], bufR_[L_SURFACE], n);
     mixer_.Mix(pL_, pR_, L, R, n);
+    cloud_.Render(rng_[S_CLOUD], sched_, L, R, n);
     out_.Process(L, R, n);
 }
 
 // note mode: a tuned drop = one bubble at the note plus a few quieter
 // follow-up bubbles (same pitch or an octave up) over the next 12-90 ms
-void CreekEngine::drop(const Event& e, int o) {
+CREEK_SMALL void CreekEngine::drop(const Event& e, int o) {
     Rng& r = rng_[S_TRIGGER];
     const float rMm = e.radiusMm > 0 ? e.radiusMm : 3.f;
     const float u0 = r.Uni(), u1 = r.Bip();
@@ -209,7 +214,7 @@ void CreekEngine::drop(const Event& e, int o) {
 
 // throw a stone: a deep falling plop, a burst of larger bubbles spreading from the
 // centre over ~0.35 s, and a disturbance (air in every zone, more events) that settles
-void CreekEngine::stone(const Event& e, int o) {
+CREEK_SMALL void CreekEngine::stone(const Event& e, int o) {
     Rng& r = rng_[S_TRIGGER];
     const float amp = e.amp > 0 ? fminf(1.f, e.amp) : 0.8f;
     const float u0 = r.Uni(), u1 = r.Uni(), u2 = r.Uni(), u3 = r.Bip();
@@ -234,7 +239,7 @@ void CreekEngine::stone(const Event& e, int o) {
     stones_++;
 }
 
-void CreekEngine::GetStats(Stats& s) const {
+CREEK_SMALL void CreekEngine::GetStats(Stats& s) const {
     s.births = pool_.births; s.drops = pool_.drops + sched_.over; s.steals = pool_.steals;
     s.queueDrops = queue_.drops; s.limited = out_.limited; s.peak = out_.peak;
     s.active = pool_.Active(); s.maxActive = pool_.maxActive;
@@ -245,6 +250,8 @@ void CreekEngine::GetStats(Stats& s) const {
     s.splashRate = falls_.rate; s.surfaceRate = surface_.rate; s.stones = stones_;
     s.activeUser = pool_.ActiveUser(); s.activeFalls = falls_.pool.Active(); s.activeSurface = surface_.pool.Active();
     s.activity = activity_;
+    for (int k = 0; k < 2; k++) { s.cloud[k] = cloud_.d[k]; s.cloudHz[k] = cloud_.Hz(k); }
+    s.cloudOn = cloud_.target > 0.f;
     for (int z = 0; z < ck::ZONES; z++) { s.E[z] = flow_.E[z]; s.T[z] = flow_.T[z]; s.B[z] = flow_.B[z]; }
 }
 

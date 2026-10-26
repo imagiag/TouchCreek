@@ -6,12 +6,12 @@
 namespace creek {
 
 // ---------------------------------------------------------------- eddies
-void Eddies::Init(Rng& rng) {
+CREEK_SMALL void Eddies::Init(Rng& rng) {
     for (int k = 0; k < N; k++) { active_[k] = false; t_[k] = 0; dur_[k] = 1; peak_[k] = 0; wait_[k] = ck::EDDY_GAP_SEC[1] * rng.Uni(); }
     value = 0;
 }
 
-float Eddies::Tick(Rng& rng, float dt, float mul, float depth) {
+CREEK_SMALL float Eddies::Tick(Rng& rng, float dt, float mul, float depth) {
     float sum = 0;
     for (int k = 0; k < N; k++) {
         if (!active_[k]) {
@@ -39,7 +39,7 @@ float Eddies::Tick(Rng& rng, float dt, float mul, float depth) {
 }
 
 // ---------------------------------------------------------------- falls
-void Falls::Init(float sr, Rng& rng) {
+CREEK_SMALL void Falls::Init(float sr, Rng& rng) {
     sr_ = sr; hz_.Init(rng);
     pool.Configure(ck::FALLS_VOICES, ck::FALLS_VOICES + 2, false);
     pool.Init(sr);
@@ -47,14 +47,14 @@ void Falls::Init(float sr, Rng& rng) {
     kE_ = expf(-1.f / (ck::CONTROL_HZ * ck::FALLS_ENERGY_SEC));
 }
 
-void Falls::Update(const FlowState& fs, float activity) {
+CREEK_SMALL void Falls::Update(const FlowState& fs, float activity) {
     const float E = fs.E[2];
     const float lam = E > 0.002f ? Lerp(ck::FALLS_RATE[0], ck::FALLS_RATE[1], powf(E, ck::FALLS_RATE_EXP)) * fs.gate * activity : 0.f;
     hz_.SetRate(lam, sr_); rate = lam;
     energy_ *= kE_;
 }
 
-void Falls::Run(Rng& rng, int n, FlowState& fs, const BubbleScheduler& sched, EventQueue& q, uint64_t sample, Surface& surf, bool tuneOn) {
+void Falls::Run(Rng& rng, int n, FlowState& fs, const BubbleScheduler& sched, EventQueue& q, uint64_t sample, Surface& surf, Cloud& cloud, bool tuneOn) {
     const float scaleMul = sched.ScaleMul();
     hz_.Run(rng, n);
     const float A = fs.m[3], E = fs.E[2], R = fs.m[1];
@@ -67,7 +67,7 @@ void Falls::Run(Rng& rng, int n, FlowState& fs, const BubbleScheduler& sched, Ev
         energy_ += a;
         count++;
         const float pan = ck::ZONE_PAN[2] + ck::ZONE_JITTER[2] * u5;
-        (void)u2; (void)u3;
+        (void)u3;
         // impact: a quick fizz of small bubbles (played by this layer's voices, so P06 mutes it)
         const int nf = CountLerp(ck::FALLS_FIZZ[0], ck::FALLS_FIZZ[1], u1);
         const float lnR = logf(ck::FALLS_FIZZ_RADIUS_MM[1] / ck::FALLS_FIZZ_RADIUS_MM[0]);
@@ -83,6 +83,7 @@ void Falls::Run(Rng& rng, int n, FlowState& fs, const BubbleScheduler& sched, Ev
             q.Push(c, sample + (uint64_t)off + DelaySamples(d, 0.0, ck::FALLS_FIZZ_MS, sr_));
         }
         fs.AddSplash(2, a * ck::FALLS_SPLASH_J);
+        cloud.AddKick(2, off, (u2 < 0.5f ? -1.f : 1.f) * a * ck::CLOUD_SPLASH * cloud.kick[1]);
         surf.boost += a * ck::SURF_SPLASH;
         const int nc = A > 0.02f ? (int)fminf(ck::FALLS_CHILDREN[1], (float)CountLerp(ck::FALLS_CHILDREN[0], ck::FALLS_CHILDREN[1], (double)A * (double)u4)) : 0;
         for (int k = 0; k < (int)ck::FALLS_CHILDREN[1]; k++) {
@@ -98,7 +99,7 @@ void Falls::Run(Rng& rng, int n, FlowState& fs, const BubbleScheduler& sched, Ev
 }
 
 // ---------------------------------------------------------------- surface
-void Surface::Init(float sr, Rng& rng) {
+CREEK_SMALL void Surface::Init(float sr, Rng& rng) {
     sr_ = sr; hz_.Init(rng);
     pool.Configure(ck::SURF_VOICES, ck::SURF_VOICES + 2, false);
     pool.Init(sr);
@@ -108,7 +109,7 @@ void Surface::Init(float sr, Rng& rng) {
     lnHz_ = logf(ck::SURF_HZ[1] / ck::SURF_HZ[0]);
 }
 
-void Surface::Update(const FlowState& fs, Rng& rng, float dt, float eddy, float activity) {
+CREEK_SMALL void Surface::Update(const FlowState& fs, Rng& rng, float dt, float eddy, float activity) {
     const float d = drift_.Tick(rng, dt, 1.f);
     const float Tm = ck::SURF_ZONE_W[0] * fs.T[0] + ck::SURF_ZONE_W[1] * fs.T[1] + ck::SURF_ZONE_W[2] * fs.T[2];
     const float x = Clamp(1.6f * Tm + 0.3f * eddy + boost, 0.f, 1.f);
@@ -130,6 +131,72 @@ void Surface::Run(Rng& rng, int n, const BubbleScheduler& sched, bool tuneOn) {
                    tuneOn ? 0.f : 0.08f * u5, ck::ZONE_PAN[z] + ck::ZONE_JITTER[z] * u6, hz_.off[b]);
         count++;
     }
+}
+
+// ---------------------------------------------------------------- bubble cloud
+CREEK_SMALL void Cloud::Init(float sr, Rng& rng) {
+    sr_ = sr; g = 0; nK_ = 0;
+    for (int k = 0; k < 2; k++) {
+        zr_[k] = zi_[k] = 0; c_[k] = s_[k] = 0; d[k] = kick[k] = 0;
+        drift_[k].Init(rng, 0.5f, 3.f); lf_[k] = logf(ck::CLOUD_HZ);
+    }
+    kG_ = 1.f - expf(-1.f / (ck::MUTE_SMOOTH_SEC * sr));
+    kF_ = 1.f - expf(-1.f / (ck::CONTROL_HZ * 0.15f));
+}
+
+CREEK_SMALL void Cloud::Update(Rng& rng, const BubbleScheduler& sched, float dt) {
+    for (int k = 0; k < 2; k++) {
+        const float x = Clamp((sched.rate[k + 1] / ck::ZONE_RATE_W[k + 1] - ck::CLOUD_RATE[0]) / (ck::CLOUD_RATE[1] - ck::CLOUD_RATE[0]), 0.f, 1.f);
+        const float dd = x * x * (3.f - 2.f * x);
+        d[k] = dd;
+        kick[k] = dd * ck::CLOUD_GAIN * sched.AmpScale() / ck::BUBBLE_GAIN;
+        const float dr = drift_[k].Tick(rng, dt, 1.f);
+        const float f = Clamp(ck::CLOUD_HZ * (1.f - ck::CLOUD_DENSE_DROP * dd) * (1.f + ck::CLOUD_DRIFT * dr) / powf(sched.ScaleMul(), ck::CLOUD_SCALE_EXP),
+                              ck::CLOUD_HZ_RANGE[0], ck::CLOUD_HZ_RANGE[1]);
+        lf_[k] += kF_ * (logf(f) - lf_[k]);
+        const float fc = expf(lf_[k]), w = kTwoPi * fc / sr_, r = expf(-kPi * fc / (ck::CLOUD_Q * sr_));
+        c_[k] = r * cosf(w); s_[k] = r * sinf(w);
+    }
+}
+
+CREEK_SMALL void Cloud::AddKick(int zone, int off, float amp) {
+    if (zone < 1 || nK_ >= kMaxKicks) return;
+    kOff_[nK_] = off; kZ_[nK_] = zone - 1; kA_[nK_] = amp; nK_++;
+}
+
+void Cloud::Render(Rng& rng, const BubbleScheduler& sched, float* L, float* R, int n) {
+    for (int b = 0; b < sched.nBorn; b++) {
+        const int z = sched.bornZone[b];
+        const float u = rng.Bip();
+        if (z >= 1) AddKick(z, sched.bornOff[b], u * kick[z - 1]);
+    }
+    if (g == 0.f && target == 0.f) { nK_ = 0; zr_[0] = zr_[1] = zi_[0] = zi_[1] = 0; return; }
+    for (int i = 1; i < nK_; i++) {          // splash kicks came first: sort by time
+        const int o = kOff_[i], z = kZ_[i]; const float a = kA_[i];
+        int j = i;
+        while (j > 0 && kOff_[j - 1] > o) { kOff_[j] = kOff_[j - 1]; kZ_[j] = kZ_[j - 1]; kA_[j] = kA_[j - 1]; j--; }
+        kOff_[j] = o; kZ_[j] = z; kA_[j] = a;
+    }
+    float pl[2], pr[2];
+    for (int k = 0; k < 2; k++) {
+        const float p = (Clamp(ck::ZONE_PAN[k + 1] * ck::CLOUD_PAN, -1.f, 1.f) + 1.f) * 0.25f * kPi;
+        pl[k] = cosf(p); pr[k] = sinf(p);
+    }
+    float gg = g;
+    int q = 0;
+    for (int i = 0; i < n; i++) {
+        while (q < nK_ && kOff_[q] <= i) { zr_[kZ_[q]] += kA_[q]; q++; }
+        gg += kG_ * (target - gg);
+        float yl = 0, yr = 0;
+        for (int k = 0; k < 2; k++) {
+            const float zr = zr_[k], zi = zi_[k];
+            zr_[k] = zr * c_[k] - zi * s_[k]; zi_[k] = zr * s_[k] + zi * c_[k];
+            yl += zi_[k] * pl[k]; yr += zi_[k] * pr[k];
+        }
+        L[i] += yl * gg; R[i] += yr * gg;
+    }
+    if (target == 0.f && gg < 1e-5f) gg = 0;
+    g = gg; nK_ = 0;
 }
 
 } // namespace creek

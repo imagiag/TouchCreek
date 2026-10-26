@@ -129,7 +129,7 @@
   <tr><td class="id">P06</td><td>Deeper run</td><td>Small waterfalls on/off</td></tr>
   <tr><td class="id">P07</td><td>—</td><td>Surface detail on/off</td></tr>
   <tr><td class="id">P08</td><td>—</td><td>All layers on</td></tr>
-  <tr><td class="id">P09</td><td>—</td><td>— <span class="notes">(monitor build: stress test)</span></td></tr>
+  <tr><td class="id">P09</td><td>—</td><td>Bubble cloud on/off <span class="notes">(monitor build: stress test instead)</span></td></tr>
   <tr><td class="id">P10</td><td colspan="3">Modifier:
     <ul>
       <li>Hold P10 + S30: <span class="to">Width</span> (see Knobs)</li>
@@ -173,7 +173,7 @@
     <ul style="margin-bottom:0">
       <li><b>Up</b>: PRESETS (P03–P06 recall the four presets)</li>
       <li><b>Center</b>: NOTES (P03–P09 play the scale; Free flow and Variety apply)</li>
-      <li><b>Down</b>: DIAGNOSTICS (P03–P07 mute layers, P08 all on)</li>
+      <li><b>Down</b>: DIAGNOSTICS (P03–P07 and P09 mute layers, P08 all on)</li>
     </ul>
   </div>
   <div class="card">
@@ -194,6 +194,7 @@
   <li><b>Eddies</b>: two to four overlapping slow swells (0.3–3&nbsp;s; slower with larger Scale, deeper with Roughness) in the rock wake. They have no sound of their own: each one makes the left side surge with more, slightly bigger and lower bubbles, then settle.</li>
   <li><b>Small waterfalls</b>: at the drop, 0.2–4 times a second as Flow rises: a quick fizz of 3–7 tiny bubbles (2.5–10&nbsp;kHz) within 20&nbsp;ms, then 2–8 bubbles settling over the next tenth of a second (more with Aeration), and a short burst of extra air in the drop. Rougher water gives more uneven splashes. Overlapping splashes share a limited energy, so they never swamp the creek.</li>
   <li><b>Surface detail</b>: sparse, very short, quiet high ticks (2–9&nbsp;kHz), more near the drop, at turbulence peaks and right after splashes, in loose bursts rather than a steady crackle. In Notes mode the ticks and the falls' fizz are tuned to the held notes (in their own high octaves; Variety spreads them over the scale), and stay on the last played notes after you let go, until you play new ones.</li>
+  <li><b>Bubble cloud</b>: dense bubbling also rings as one body: a soft, low rumble (about 40–400&nbsp;Hz) under the rock wake and the drop. It comes in around Small cascade density (silent in a trickle), gets lower as the water gets denser and as Scale grows (down to ~40&nbsp;Hz), and splashes give it a push. A cheap approximation of coupled bubble clouds (after Xue et al. 2023), not a physical solver. Diagnostics P09 mutes it.</li>
   <li><b>Filter</b>: hold P11 and move the faders: right = cutoff, left = resonance. A smooth 12&nbsp;dB/oct low-pass on both channels (the same one as TouchPulsar), before the output limiter, so strong resonance can't clip. At power-up it's fully open.</li>
   <li><b>Throw a stone</b> (P01, any mode; MIDI CC 29): a deep plop that falls in pitch (lower with larger Scale), a burst of larger bubbles spreading out from the centre over a third of a second, and a disturbance that settles over 2–3&nbsp;s: air in every part of the creek, more bubbling and splashing, ripples of surface ticks. In still water (Free flow at zero) it stirs the water up and lets it go still again. Pad velocity sets the size of the stone.</li>
   <li><b>Hold</b> (right switch down outside Notes): freezes the slow creek state while bubbles keep coming, to compare one setting with another.</li>
@@ -283,7 +284,7 @@
 <h2 id="emulator">Emulator &amp; Monitor</h2>
 <ul>
   <li><b>Browser emulator</b>: <code>python3 web/serve.py 8766</code>, then open <code>http://localhost:8766</code>. The same panel and the same engine (a JavaScript twin, tested against the firmware's), with pickup, layers and LED behaving as on the hardware. Every knob shows its name, S-number, second layer and value. <b>Enable MIDI</b> plays it from a keyboard on your computer; <b>Render 30&nbsp;s WAV</b> saves what you hear.</li>
-  <li><b>Monitor</b> (also for debugging): the emulator's <b>Monitor</b> button opens it for the emulator; for the Touch, build it with <code>make monitor</code> in <code>daisy/</code> (USB sends the report instead of MIDI, and Diagnostics P09 becomes a stress test), flash <code>build-monitor/CreekTouch-monitor.bin</code>, open <code>http://localhost:8766/monitor.html</code> in Chrome or Edge, plug in the Touch and click <b>Connect</b>. It shows which layers are sounding and how much (bubble voices and rate, played drops / stones, eddies, splash plops, surface ticks, mutes, held notes), the <b>last pressed</b> pad / knob / switch with its meaning, CPU load (average and worst 1&nbsp;ms block), stack use, dropped events and limiter activity. For the worst case use Diagnostics + P09 (stress test); measured on the Touch it stays under 25&nbsp;% (limit 70&nbsp;%).</li>
+  <li><b>Monitor</b> (also for debugging): the emulator's <b>Monitor</b> button opens it for the emulator; for the Touch, build it with <code>make monitor</code> in <code>daisy/</code> (USB sends the report instead of MIDI, and Diagnostics P09 becomes a stress test instead of the cloud mute), flash <code>build-monitor/CreekTouch-monitor.bin</code>, open <code>http://localhost:8766/monitor.html</code> in Chrome or Edge, plug in the Touch and click <b>Connect</b>. It shows which layers are sounding and how much (bubble voices and rate, played drops / stones, eddies, splash plops, surface ticks, mutes, held notes), the <b>last pressed</b> pad / knob / switch with its meaning, CPU load (average and worst 1&nbsp;ms block), stack use, dropped events and limiter activity. For the worst case use Diagnostics + P09 (stress test); measured on the Touch it stays under 25&nbsp;% (limit 70&nbsp;%).</li>
 </ul>
 
 <h2 id="structure">Project Structure</h2>

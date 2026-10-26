@@ -35,7 +35,8 @@ const CC = {
   PAD_NOTE0: 3,             // P03..P09
   PAD_LAYER0: 3,            // P03..P07 in diagnostics
   PAD_ALL: 8,               // P08 in diagnostics
-  PAD_STRESS: 9,            // P09 in diagnostics
+  PAD_STRESS: 9,            // P09 in diagnostics (monitor build) ...
+  PAD_CLOUD: 9,             // ... otherwise P09 mutes the bubble cloud
   PRESET_GLIDE_SEC: 0.25,
   BASE_MIDI: 72,            // P03 with root C, octave 0 = C5 (523 Hz, a 5.7 mm bubble)
   MAX_HELD: 4,
@@ -85,7 +86,7 @@ class CreekControls {
     this.preset = 0;
     this.mode = CC.MODE_PRESETS;
     this.diag = false;           // mode === MODE_DIAG (kept for the UI)
-    this.diagMask = 0x1F;
+    this.diagMask = CK_ALL_LAYERS;
     this.hold = false;
     this.touched = new Uint8Array(12);
     this.scale = 4;              // Maj Pent
@@ -98,7 +99,6 @@ class CreekControls {
     this.lastT = 0;
     this.stress = false;         // diagnostics P09: worst-case stress test ...
     this.stressEnabled = false;  // ... only in the firmware's monitor build (set true to try it here)
-    this.cloud = false;          // bubble cloud experiment (web only): emulator Cloud button, diagnostics P09
     this.latch = false;          // Notes + right switch down: notes stay held after release
     this.midiDown = new Uint8Array(128); this.sustain = false;
     this.surge = 0; this.wheel = 0; this.pressure = 0; this.bend = 0;   // MIDI performance controls
@@ -143,9 +143,9 @@ class CreekControls {
     } else if (this.mode === CC.MODE_DIAG) {
       const l = pad - CC.PAD_LAYER0;
       if (l >= 0 && l < CK_LAYERS) { this.diagMask ^= 1 << l; this.events.push({ type: CC.EV_LAYER, arg: (this.diagMask >> l) & 1 }); }
-      else if (pad === CC.PAD_ALL) { this.diagMask = 0x1F; this.events.push({ type: CC.EV_ALL, arg: 0 }); }
+      else if (pad === CC.PAD_ALL) { this.diagMask = CK_ALL_LAYERS; this.events.push({ type: CC.EV_ALL, arg: 0 }); }
       else if (pad === CC.PAD_STRESS && this.stressEnabled) { this.stress = !this.stress; this.stressNext = 0; this.events.push({ type: CC.EV_STRESS, arg: this.stress ? 1 : 0 }); }
-      else if (pad === CC.PAD_STRESS && this.cloudEnabled) { this.cloud = !this.cloud; this.events.push({ type: CC.EV_LAYER, arg: this.cloud ? 1 : 0 }); }
+      else if (pad === CC.PAD_CLOUD) { this.diagMask ^= CK_CLOUD_BIT; this.events.push({ type: CC.EV_LAYER, arg: this.diagMask & CK_CLOUD_BIT ? 1 : 0 }); }
     } else {
       const note = pad >= CC.PAD_NOTE0 && pad <= CC.PAD_NOTE0 + 6;
       if (this.touched[CC.P_SCALE] && pad !== CC.P_SCALE) {          // P11 + pad: scale
@@ -262,8 +262,8 @@ class CreekControls {
     // Surge (mod wheel / aftertouch): the water rushes on top of the knob settings
     const s = this.surge;
     if (s > 0) { m.flow += s * (1 - m.flow); m.roughness += 0.6 * s * (1 - m.roughness); m.aeration += 0.4 * s * (1 - m.aeration); }
-    m.mask = (this.mode === CC.MODE_DIAG ? this.diagMask : 0x1F) | (this.cloud ? 0x20 : 0);
-    if (this.stress) { m.flow = this.stressV[0]; m.roughness = this.stressV[1]; m.scale = this.stressV[2]; m.aeration = this.stressV[3]; m.mask = 0x1F; }
+    m.mask = this.mode === CC.MODE_DIAG ? this.diagMask : CK_ALL_LAYERS;
+    if (this.stress) { m.flow = this.stressV[0]; m.roughness = this.stressV[1]; m.scale = this.stressV[2]; m.aeration = this.stressV[3]; m.mask = CK_ALL_LAYERS; }
     m.hold = this.hold;
     if (!m.tuneHz) m.tuneHz = [0, 0, 0, 0];
     const bendMul = Math.pow(2, this.bend / 12);

@@ -77,7 +77,7 @@ inline Scenario parse(const std::string& text, float sr) {
     return sc;
 }
 
-struct M { float flow = 0.2f, roughness = 0.25f, scale = 0.2f, aeration = 0.3f, gain = 1, width = 1, mask = 31, hold = 0; float tuneHz[4] = {0, 0, 0, 0}; float freeflow = 1, variety = 0.5f, decay = 0.5f, scalemask = 4095, tone = 0.5f, tunedetail = 0; };
+struct M { float flow = 0.2f, roughness = 0.25f, scale = 0.2f, aeration = 0.3f, gain = 1, width = 1, mask = 63, hold = 0; float tuneHz[4] = {0, 0, 0, 0}; float freeflow = 1, variety = 0.5f, decay = 0.5f, scalemask = 4095, tone = 0.5f, tunedetail = 0; };
 inline void setKey(M& m, const std::string& k, float v) {
     if (k == "flow") m.flow = v; else if (k == "roughness") m.roughness = v; else if (k == "scale") m.scale = v;
     else if (k == "aeration") m.aeration = v; else if (k == "gain") m.gain = v; else if (k == "width") m.width = v;
