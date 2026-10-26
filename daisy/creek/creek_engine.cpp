@@ -25,7 +25,6 @@ CREEK_SMALL void CreekEngine::Reset(uint32_t seed) {
     queue_.Reset(); pool_.Reset();
     sched_.Init(sr_, rngT_);   // (clears the held notes too)
     freeS_ = 1.f; activity_ = 1.f; stoneS_ = 0.f; stones_ = 0; creekFade_ = 1.f; tuneDetail_ = false;
-    if (ck::BED_ON) bed_.Init(sr_, rng_[S_BED_DRIFT]);   // wash off: not even compiled in (flash)
     eddies_.Init(rng_[S_EDDY]);
     falls_.Init(sr_, rng_[S_FALLS]);
     surface_.Init(sr_, rng_[S_SURFACE]);
@@ -127,7 +126,6 @@ void CreekEngine::controlTick() {
     const float st = stoneS_ * stoneS_;                            // squared: settles fully to still water
     // the surge matters in quiet water; a full creek needs little extra (keeps headroom)
     activity_ = fmaxf(fmaxf(freeS_, sched_.tuneAmt), st) * (1.f + ck::STONE_SURGE_RATE * st * (1.f - 0.8f * flow_.m[0]));
-    if (ck::BED_ON) bed_.Update(flow_, rng_[S_BED_DRIFT], flow_.dt, next);
 }
 
 void CreekEngine::Process(float* left, float* right, size_t frames) {
@@ -182,7 +180,6 @@ void CreekEngine::renderSegment(float* L, float* R, int n) {
             falls_.pool.Spawn(fmaxf(ck::F_MIN_HZ, 3000.f / e.radiusMm), e.amp, sched_.TauFor(e.radiusMm) * ck::FALLS_FIZZ_TAU_MUL, ck::ATTACK_MIN, 0.f, e.pan, o);
       }
     }
-    if (ck::BED_ON) bed_.Render(bufL_[L_FLOW], bufR_[L_FLOW], n, rng_[S_NOISE_C], rng_[S_NOISE_L], rng_[S_NOISE_R]);
     pool_.Render(bufL_[L_BUBBLES], bufR_[L_BUBBLES], n);
     falls_.pool.Render(bufL_[L_FALLS], bufR_[L_FALLS], n);
     surface_.pool.Render(bufL_[L_SURFACE], bufR_[L_SURFACE], n);

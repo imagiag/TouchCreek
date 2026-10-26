@@ -103,14 +103,14 @@ const MACROS = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width', 'Fre
 const MODES = ['Presets', 'Notes', 'Diagnostics'];
 const PRESETS = ['Quiet trickle', 'Rocky creek', 'Small cascade', 'Deeper run'];
 const SCALES = ['Chromatic', 'Major', 'Minor', 'Min Pent', 'Maj Pent', 'Dorian', 'Harm Minor'];
-const LAYERS = ['Flow bed', 'Bubbles', 'Eddies', 'Falls', 'Surface'];
+const LAYERS = ['(free)', 'Bubbles', 'Eddies', 'Falls', 'Surface'];
 const pName = (p) => 'P' + String(p).padStart(2, '0');
 function padMeaning(pad, mode, mods) {
   if (pad === 1) return 'throw a stone';
   if (pad === 10) return 'P10 (modifier)';
   if (pad === 11) return 'P11 (modifier)';
   if (mode === 0) return pad >= 3 && pad <= 6 ? 'preset: ' + PRESETS[pad - 3] : 'no function';
-  if (mode === 2) return pad >= 3 && pad <= 7 ? 'toggle layer: ' + LAYERS[pad - 3] : pad === 8 ? 'all layers on' : pad === 9 ? 'stress test on/off' : 'no function';
+  if (mode === 2) return pad >= 4 && pad <= 7 ? 'toggle layer: ' + LAYERS[pad - 3] : pad === 8 ? 'all layers on' : pad === 9 ? 'cloud on/off (monitor build: stress test)' : 'no function';
   if (mods & 2) return pad === 0 ? 'previous scale' : pad === 2 ? 'next scale' : pad >= 3 && pad <= 9 ? 'scale: ' + SCALES[pad - 3] : 'no function';
   if (mods & 1) return pad >= 3 && pad <= 9 ? 'set root key' : 'no function';
   return pad === 0 ? 'octave down' : pad === 2 ? 'octave up' : pad >= 3 && pad <= 9 ? 'note (drop + pour)' : 'no function';
@@ -164,7 +164,6 @@ function drawLayers() {
   const m = L2.m, mute = (i) => !((m >> i) & 1), s = L1;
   const r = (x) => (isFinite(x) ? x : '—');
   $('layers').innerHTML =
-    row('Flow bed', 'noise wash', 0, 'off (built out)', mute(0), true) +
     row('Bubbles', 'the creek\'s own', L2.a / 24, `${r(L2.a)} voices · ${r(s.b)}/s`, mute(1)) +
     row('Played', 'drops, stones', L2.u / 8, `${r(L2.u)} voices`, false) +
     row('Eddies', 'wake swells', L2.e / 100, `${r(L2.e)} %`, mute(2)) +

@@ -71,29 +71,6 @@ const CK = {
   BUBBLE_GAIN: 0.45,
   DENSITY_REF: 60,          // headroom: gain / sqrt(1 + rate / ref)
 
-  // ---- flow bed (noise layers) ----
-  BED_ON: 0,                // 0 = the noise wash is off (user, 2026-10-25: water only for now)
-  BODY_HP_HZ: 90,
-  BODY_LP_HZ: [480, 1100],  // cutoff range (low T .. high T)
-  BODY_Q: 0.6,
-  MID_HZ: [700, 1800],
-  MID_Q: 0.55,
-  HIGH_HZ: [2200, 4200],    // sheen 1–6 kHz
-  HIGH_Q: 0.5,
-  MID_CORR: 0.6,            // L/R shared part of the mid band
-  HIGH_CORR: 0.35,
-  BED_GAIN: 0.9,
-  BODY_GAIN: 1.0,
-  MID_GAIN: 0.30,
-  HIGH_GAIN: 0.10,
-  BED_E_EXP: 0.45,
-  BED_TOP_SQUASH: 0.95,     // headroom at full flow: level / (1 + k E^2)
-  BED_R_ON: [0.45, 0.95],   // the wash only comes in with high Roughness (smoothstep over this range)          // level ~ E^exp
-  MOD_DEPTH: [0.12, 0.45],  // gain modulation depth, low .. high roughness
-  CUT_DEPTH: 0.25,          // cutoff modulation depth (fraction, log)
-  FLUTTER_MIN_SEC: 0.04, FLUTTER_MAX_SEC: 0.3, // faster turbulent flutter (scaled by T)
-  SCALE_TILT: 0.45,         // larger Scale lowers the bed's spectral centre
-
   // ---- eddies: slow swells in the rock wake (no audio of their own) ----
   EDDY_SLOTS: 3,            // 2-4 overlapping swells
   EDDY_DUR_SEC: [0.3, 3.0], // swell length (x Scale time multiplier)
@@ -195,8 +172,9 @@ const CK = {
 };
 
 const CK_ZONES = 3;
-const CK_LAYERS = 5;        // flow, bubbles, eddies, waterfall, surface
-const CK_L_FLOW = 0, CK_L_BUBBLES = 1, CK_L_EDDIES = 2, CK_L_FALLS = 3, CK_L_SURFACE = 4;
+const CK_LAYERS = 5;        // (free), bubbles, eddies, waterfall, surface
+// layer 0 is free (was the noise wash, removed 2026-10-26)
+const CK_L_BUBBLES = 1, CK_L_EDDIES = 2, CK_L_FALLS = 3, CK_L_SURFACE = 4;
 const CK_CLOUD_BIT = 0x20, CK_ALL_LAYERS = 0x3F;   // mask bit 5 = bubble cloud (rendered after the mixer, P09 in diagnostics)
 
-if (typeof module !== 'undefined') module.exports = { CK, CK_ZONES, CK_LAYERS, CK_L_FLOW, CK_L_BUBBLES, CK_L_EDDIES, CK_L_FALLS, CK_L_SURFACE, CK_CLOUD_BIT, CK_ALL_LAYERS };
+if (typeof module !== 'undefined') module.exports = { CK, CK_ZONES, CK_LAYERS, CK_L_BUBBLES, CK_L_EDDIES, CK_L_FALLS, CK_L_SURFACE, CK_CLOUD_BIT, CK_ALL_LAYERS };

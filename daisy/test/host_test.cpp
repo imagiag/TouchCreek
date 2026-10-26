@@ -51,10 +51,12 @@ static void controlsTests() {
     CHECK(m.mask == (kAllLayers & ~2u), "diag: P04 mutes bubbles (mask %x)", m.mask);
     c.PadDown(kPadAll, .7f); c.Compute(m);
     CHECK(m.mask == kAllLayers, "diag: P08 restores all");
-    c.PadDown(kPadLayer0, .7f); c.SetMode(MODE_PRESETS); c.Compute(m);
+    c.PadDown(kPadLayer0, .7f);       // P03: free, does nothing
+    c.PadDown(kPadLayer0 + 4, .7f);   // P07: mute surface
+    c.SetMode(MODE_PRESETS); c.Compute(m);
     CHECK(m.mask == kAllLayers, "presets mode always plays all layers");
     c.SetMode(MODE_DIAG); c.Compute(m);
-    CHECK(m.mask == (kAllLayers & ~1u), "diag mask remembered");
+    CHECK(m.mask == (kAllLayers & ~16u), "diag mask remembered (P03 free)");
 
     // notes
     Controls n; n.SetMode(MODE_NOTES);
@@ -157,11 +159,11 @@ static void engineTests() {
     // --- muting a layer leaves the other layers unchanged ---
     {
         auto a = scenario::parse("seconds 4\nat 0 preset rocky\nat 0 set mask 2\n", SR);
-        auto b = scenario::parse("seconds 4\nat 0 preset rocky\nat 0 set mask 3\n", SR);
-        auto c = scenario::parse("seconds 4\nat 0 preset rocky\nat 0 set mask 1\n", SR);
+        auto b = scenario::parse("seconds 4\nat 0 preset rocky\nat 0 set mask 18\n", SR);
+        auto c = scenario::parse("seconds 4\nat 0 preset rocky\nat 0 set mask 16\n", SR);
         std::vector<float> L3, R3;
         render(eng, a, 48, L1, R1); render(eng, b, 48, L2, R2); render(eng, c, 48, L3, R3);
-        double md = 0; // output stage is linear until the limiter: bubbles + flow = both
+        double md = 0; // output stage is linear until the limiter: bubbles + surface = both
         for (size_t i = 0; i < L1.size(); i++) md = std::max(md, (double)fabsf(L1[i] + L3[i] - L2[i]));
         CHECK(md < 1e-4, "solo layers add up to the two-layer mix (max diff %g)", md);
     }
@@ -227,11 +229,11 @@ static void engineTests() {
         if (!strcmp(k, "sweep_flow")) writeF32("sweep_flow", L1, R1);
     }
 
-    // --- the noise wash is switched off (BED_ON = 0) ---
+    // --- layer 0 (was the noise wash) is free and silent ---
     {
         auto hi = scenario::parse("seconds 3\nat 0 set flow 0.9 roughness 1 scale 0.5 aeration 0.5 mask 1\n", SR);
         render(eng, hi, 48, L1, R1); const double rh = rmsOf(L1, (size_t)SR, L1.size());
-        CHECK(rh < 1e-7, "wash off: flow-bed layer silent even at Roughness 1 (rms %g)", rh);
+        CHECK(rh < 1e-7, "layer 0 is silent (rms %g)", rh);
     }
 
     // --- Phase 2 layers: eddies, small waterfalls, surface detail ---

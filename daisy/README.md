@@ -30,7 +30,7 @@ At power-up the creek plays whatever the knobs and faders are set to; the second
   - **P00** - Octave down (to −1; in Chromatic −7 semitones, to −14)
   - **P02** - Octave up (to +2; in Chromatic +7 semitones, to +28)
 - **Diagnostics** (left switch down)
-  - **P03** - Flow bed on/off (the noise wash is off for now: silent) | **P04** - Bubbles | **P05** - Eddies | **P06** - Small waterfalls | **P07** - Surface detail
+  - **P04** - Bubbles | **P05** - Eddies | **P06** - Small waterfalls | **P07** - Surface detail
   - **P08** - All layers on
   - **P09** - Bubble cloud on/off (monitor build: stress test instead, worst-case settings and note bursts; LED blinks fast)
 - **P10** - Modifier:
@@ -63,14 +63,14 @@ Diagnostic mutes are smooth (20 ms), don't change what the other layers do, and 
 - **Left Switch — Mode**:
   - **Up**: PRESETS (P03–P06 recall the four presets)
   - **Center**: NOTES (P03–P09 play the scale; Free flow and Variety apply)
-  - **Down**: DIAGNOSTICS (P03–P07 and P09 mute layers, P08 all on)
+  - **Down**: DIAGNOSTICS (P04–P07 and P09 mute layers, P08 all on)
 - **Right Switch — Latch / Hold**:
   - **Up / Center**: live
   - **Down in Notes**: **Latch** - notes you touch keep pouring after you let go (up to 4); tap a latched note again to release it; switching Latch off releases everything you're not touching
   - **Down in Presets / Diagnostics**: **Hold** the slow creek state - flow, turbulence and air stop changing so you can compare settings; bubbles keep happening
 
 ## Features
-Everything you hear is made of short decaying tones; there is no noise in the sound for now.
+Everything you hear is made of short decaying tones; there is no noise in the sound.
 
 - **Bubbles**: The main voice. Up to 24 at once, mostly small and quiet, now and then a larger, lower and louder one. About a third rise slightly in pitch as they fade. Their size sets their pitch, never a fixed note list, so the creek doesn't turn into a melody unless you ask it to.
 - **Three Places, One Creek**: The open flow (centre), the wake behind a rock (slightly left) and a small drop (slightly right), each with its own energy, turbulence and trapped air. They follow the knobs with a little inertia (0.1–0.35 s) and drift on their own; they share causes, not timing, so surges feel connected without everything pulsing at once.

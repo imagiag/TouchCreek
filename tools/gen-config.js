@@ -17,7 +17,7 @@ constexpr int ZONES = ${CK_ZONES};
 constexpr int LAYERS = ${CK_LAYERS};
 `;
 // counts and sizes are ints; everything else is float (no accidental integer maths)
-const INTS = new Set(['CONTROL_HZ', 'MICRO', 'VOICES', 'VOICE_SLOTS', 'MAX_BIRTHS_PER_MICRO', 'QUEUE_SIZE', 'BED_ON', 'EDDY_SLOTS', 'FALLS_VOICES', 'SURF_VOICES']);
+const INTS = new Set(['CONTROL_HZ', 'MICRO', 'VOICES', 'VOICE_SLOTS', 'MAX_BIRTHS_PER_MICRO', 'QUEUE_SIZE', 'EDDY_SLOTS', 'FALLS_VOICES', 'SURF_VOICES']);
 const flt = (x) => (Number.isInteger(x) ? x + '.0f' : num(x));
 for (const [k, v] of Object.entries(CK)) {
   if (Array.isArray(v)) out += `constexpr float ${k}[${v.length}] = {${v.map(flt).join(', ')}};\n`;

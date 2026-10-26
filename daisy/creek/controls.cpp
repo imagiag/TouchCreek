@@ -138,7 +138,7 @@ void Controls::PadDown(int pad, float vel) {
         if (i >= 0 && i < kNumPresets) RecallPreset(i);
     } else if (mode == MODE_DIAG) {
         const int l = pad - kPadLayer0;
-        if (l >= 0 && l < ck::LAYERS) { diagMask ^= 1u << l; push(CE_LAYER, (int8_t)((diagMask >> l) & 1u)); }
+        if (l >= 1 && l < ck::LAYERS) { diagMask ^= 1u << l; push(CE_LAYER, (int8_t)((diagMask >> l) & 1u)); }   // P03 (layer 0) is free
         else if (pad == kPadAll) { diagMask = kAllLayers; push(CE_ALL, 0); }
 #if CREEK_STRESS
         else if (pad == kPadStress) { stress = !stress; stressNext_ = 0; push(CE_STRESS, stress ? 1 : 0); }

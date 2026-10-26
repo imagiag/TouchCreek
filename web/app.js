@@ -248,7 +248,7 @@ function drawBoard() {
     else if (p.id === CC.PAD_CLOUD) { html += '<small>Cloud</small>'; cls = ctl.diagMask & CK_CLOUD_BIT ? 'layer-on' : 'muted'; }
     else {
       const l = p.id - CC.PAD_LAYER0;
-      if (l >= 0 && l < CK_LAYERS) { html += `<small>${CC_LAYER_NAMES[l]}</small>`; cls = (ctl.diagMask >> l) & 1 ? 'layer-on' : 'muted'; }
+      if (l >= 1 && l < CK_LAYERS) { html += `<small>${CC_LAYER_NAMES[l]}</small>`; cls = (ctl.diagMask >> l) & 1 ? 'layer-on' : 'muted'; }
     }
     if (e._html !== html) { e._lbl.innerHTML = html; e._html = html; }
     e.classList.remove('idle', 'sel', 'muted', 'layer-on'); if (cls) e.classList.add(cls);
@@ -256,7 +256,7 @@ function drawBoard() {
   $('led').classList.toggle('on', ledState(performance.now()));
   $('dMode').textContent = ['PRESETS', 'NOTES', 'DIAGNOSTICS'][ctl.mode]; $('dMode').classList.toggle('diag', ctl.mode !== CC.MODE_PRESETS);
   $('dHold').textContent = ctl.latch ? 'LATCH' : ctl.hold ? 'HOLD' : 'LIVE'; $('dHold').classList.toggle('on', ctl.hold || ctl.latch);
-  $('dPreset').textContent = ctl.mode === CC.MODE_DIAG ? 'layers ' + CC_LAYER_NAMES.map((n, l) => ((ctl.diagMask >> l) & 1 ? n[0] : '·')).join('') + (ctl.diagMask & CK_CLOUD_BIT ? 'C' : '·')
+  $('dPreset').textContent = ctl.mode === CC.MODE_DIAG ? 'layers ' + CC_LAYER_NAMES.slice(1).map((n, l) => ((ctl.diagMask >> (l + 1)) & 1 ? n[0] : '·')).join('') + (ctl.diagMask & CK_CLOUD_BIT ? 'C' : '·')
     : ctl.mode === CC.MODE_NOTES ? `${ctl.scaleName()} · oct ${ctl.oct > 0 ? '+' : ''}${ctl.oct}` : CREEK_PRESETS[ctl.preset].name;
   $('hint').textContent = !running ? 'Press Start audio, then play the panel.'
     : ctl.mode === CC.MODE_DIAG ? (ctl.stress ? 'Stress test running: worst-case settings and note bursts. Tap P09 to stop.' : 'Diagnostics: P03–P07 mute / unmute layers, P08 all on.')
@@ -426,7 +426,8 @@ document.addEventListener('keydown', (e) => {
   else if (ctl.mode === CC.MODE_PRESETS && n >= 1 && n <= 4) ctl.padDown(CC.PAD_PRESET0 + n - 1, 0.7);
   else if (ctl.mode === CC.MODE_NOTES && n >= 1 && n <= 7) ctl.padDown(CC.PAD_NOTE0 + n - 1, 0.7);
   else if (ctl.mode === CC.MODE_NOTES && (e.key === 'z' || e.key === 'x')) ctl.padDown(e.key === 'x' ? CC.P_OCT_UP : CC.P_OCT_DN, 0.7);
-  else if (ctl.mode === CC.MODE_DIAG && n >= 1 && n <= 5) ctl.padDown(CC.PAD_LAYER0 + n - 1, 0.7);
+  else if (ctl.mode === CC.MODE_DIAG && n >= 1 && n <= 4) ctl.padDown(CC.PAD_LAYER0 + n, 0.7);   // P04..P07
+  else if (ctl.mode === CC.MODE_DIAG && n === 5) ctl.padDown(CC.PAD_CLOUD, 0.7);
   else if (ctl.mode === CC.MODE_DIAG && n === 6) ctl.padDown(CC.PAD_ALL, 0.7);
 });
 document.addEventListener('keyup', (e) => {

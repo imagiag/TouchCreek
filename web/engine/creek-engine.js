@@ -9,7 +9,6 @@
 //   CrEventQueue     sample-timed pending events (Trigger(), splash children)
 //   CrBubbleScheduler hazard-based bubble births per zone
 //   CrBubblePool     fixed pool of damped sinusoidal voices (van den Doel)
-//   CrFlowBed        noise layers: body / mid / sheen bands
 //   CrSpatialMixer   layer sum, diagnostic mutes, stereo width
 //   CrOutputStage    DC blocker, gain, linked limiter
 //   CreekEngine      init / setMacros / trigger / reset / process
@@ -45,6 +44,7 @@ function crHash(x) {
 }
 function crStreamSeed(seed, stream) { return crHash((seed + Math.imul(stream + 1, 0x9E3779B9)) >>> 0); }
 // stream ids (fixed: muting a layer never shifts another layer's randomness)
+// streams 3-6 are unused (were the noise wash); ids stay fixed so other layers keep their randomness
 const CR_S_DRIFT = 0, CR_S_BTIME = 1, CR_S_BPARAM = 2, CR_S_NOISE_C = 3, CR_S_NOISE_L = 4,
   CR_S_NOISE_R = 5, CR_S_BED_DRIFT = 6, CR_S_EDDY = 7, CR_S_FALLS = 8, CR_S_SURFACE = 9, CR_S_TRIGGER = 10,
   CR_S_BTIME1 = 11, CR_S_BTIME2 = 12, CR_S_BPARAM1 = 13, CR_S_BPARAM2 = 14, CR_S_FCHILD = 15, CR_S_CLOUD = 16, CR_S_COUNT = 17;
@@ -85,23 +85,6 @@ class CrDrift {
     this.v = this.from + (this.to - this.from) * s;
     return this.v;
   }
-}
-
-// ---- TPT state-variable filter (Cytomic), stable under modulation ----------
-class CrSvf {
-  constructor() { this.ic1 = 0; this.ic2 = 0; this.a1 = 0; this.a2 = 0; this.a3 = 0; this.k = 1; }
-  set(fc, q, sr) {
-    const g = Math.tan(Math.PI * crClamp(fc, 10, 0.45 * sr) / sr);
-    this.k = 1 / q;
-    this.a1 = 1 / (1 + g * (g + this.k)); this.a2 = g * this.a1; this.a3 = g * this.a2;
-  }
-  reset() { this.ic1 = 0; this.ic2 = 0; }
-}
-// one-pole TPT high-pass
-class CrHp1 {
-  constructor() { this.s = 0; this.G = 0; }
-  set(fc, sr) { const g = Math.tan(Math.PI * fc / sr); this.G = g / (1 + g); }
-  reset() { this.s = 0; }
 }
 
 // =============================================================================
@@ -437,88 +420,6 @@ class CrBubbleScheduler {
     if (ev && ev.pan >= -1) pan = ev.pan;
     return pool.spawn(f0, amp, tau, attack, rise, pan, off, !!(ev && ev.radiusMm > 0));
   }
-}
-
-// =============================================================================
-// FlowBed (noise layers): continuous wash in three overlapping bands.
-//   body  ~90 Hz – 1 kHz, mono (keeps mono playback solid)
-//   mid   ~0.7 – 1.8 kHz, partly independent L/R
-//   sheen ~2 – 4 kHz,     mostly independent L/R
-// Gains and cutoffs drift slowly with the shared state; a faster "flutter"
-// follows turbulence. Gains ramp linearly between control ticks.
-// =============================================================================
-class CrFlowBed {
-  constructor() {
-    this.hp = new CrHp1(); this.body = new CrSvf();
-    this.midL = new CrSvf(); this.midR = new CrSvf(); this.hiL = new CrSvf(); this.hiR = new CrSvf();
-    this.dBody = new CrDrift(); this.dMid = new CrDrift(); this.dHi = new CrDrift(); this.dCut = new CrDrift();
-    this.flMid = new CrDrift(); this.flHi = new CrDrift();
-    this.g = new Float64Array(3); this.gStep = new Float32Array(3);
-    this.aM = Math.sqrt(CK.MID_CORR); this.bM = Math.sqrt(1 - CK.MID_CORR);
-    this.aH = Math.sqrt(CK.HIGH_CORR); this.bH = Math.sqrt(1 - CK.HIGH_CORR);
-  }
-  init(sr, rngD) {
-    this.sr = sr;
-    this.hp.reset(); this.body.reset(); this.midL.reset(); this.midR.reset(); this.hiL.reset(); this.hiR.reset();
-    this.hp.set(CK.BODY_HP_HZ, sr);
-    this.dBody.init(rngD, 0.4, 3.0); this.dMid.init(rngD, 0.3, 2.5); this.dHi.init(rngD, 0.3, 2.0); this.dCut.init(rngD, 0.5, 4.0);
-    this.flMid.init(rngD, CK.FLUTTER_MIN_SEC, CK.FLUTTER_MAX_SEC); this.flHi.init(rngD, CK.FLUTTER_MIN_SEC, CK.FLUTTER_MAX_SEC);
-    this.g.fill(0); this.gStep.fill(0);
-    this.body.set(CK.BODY_LP_HZ[0], CK.BODY_Q, sr); this.midL.set(CK.MID_HZ[0], CK.MID_Q, sr); this.midR.set(CK.MID_HZ[0], CK.MID_Q, sr);
-    this.hiL.set(CK.HIGH_HZ[0], CK.HIGH_Q, sr); this.hiR.set(CK.HIGH_HZ[0], CK.HIGH_Q, sr);
-  }
-  // control tick. `span` = samples until the next tick (gain ramp length)
-  update(fs, rngD, dt, span) {
-    const R = fs.m[1], S = fs.m[2], E = fs.E[0], T = fs.T[0], e0 = fs.eta0.v;
-    const db = this.dBody.tick(rngD, dt, 1), dm = this.dMid.tick(rngD, dt, 1), dh = this.dHi.tick(rngD, dt, 1), dc = this.dCut.tick(rngD, dt, 1);
-    const fm = this.flMid.tick(rngD, dt, 1), fh = this.flHi.tick(rngD, dt, 1);
-    const rx = crClamp((R - CK.BED_R_ON[0]) / (CK.BED_R_ON[1] - CK.BED_R_ON[0]), 0, 1), rOn = rx * rx * (3 - 2 * rx);
-    const level = CK.BED_GAIN * Math.pow(E, CK.BED_E_EXP) * fs.gate * rOn / (1 + CK.BED_TOP_SQUASH * E * E);
-    const depth = crLerp(CK.MOD_DEPTH[0], CK.MOD_DEPTH[1], crClamp(0.6 * R + 0.8 * T, 0, 1));
-    const flut = depth * crClamp(0.3 + 1.5 * T, 0, 1);
-    const tilt = Math.pow(2, -CK.SCALE_TILT * (2 * S - 1));       // larger Scale -> darker
-    const gB = CK.BODY_GAIN * (0.8 + 0.4 * S) * (1 + depth * (0.6 * e0 + 0.4 * db));
-    const gM = CK.MID_GAIN * (0.5 + 0.7 * R + 1.2 * T) * (1 + depth * (0.5 * e0 + 0.5 * dm)) * (1 + flut * fm);
-    const gH = CK.HIGH_GAIN * (0.3 + 1.0 * R + 1.5 * T) * (1.2 - 0.4 * S) * (1 + depth * (0.4 * e0 + 0.6 * dh)) * (1 + flut * fh);
-    this.gStep[0] = (level * Math.max(0, gB) - this.g[0]) / span;
-    this.gStep[1] = (level * Math.max(0, gM) - this.g[1]) / span;
-    this.gStep[2] = (level * Math.max(0, gH) - this.g[2]) / span;
-    const cm = Math.pow(2, CK.CUT_DEPTH * (0.5 * dc + 0.5 * e0)) * tilt;
-    const tt = crClamp(0.5 * T + 0.5 * R * E, 0, 1);
-    this.body.set(crLerp(CK.BODY_LP_HZ[0], CK.BODY_LP_HZ[1], tt) * cm, CK.BODY_Q, this.sr);
-    const fM = crLerp(CK.MID_HZ[0], CK.MID_HZ[1], tt) * cm, fH = crLerp(CK.HIGH_HZ[0], CK.HIGH_HZ[1], tt) * cm;
-    this.midL.set(fM, CK.MID_Q, this.sr); this.midR.set(fM * 1.03, CK.MID_Q, this.sr);
-    this.hiL.set(fH, CK.HIGH_Q, this.sr); this.hiR.set(fH * 0.97, CK.HIGH_Q, this.sr);
-  }
-  render(L, R, n, rc, rl, rr) {
-    if (!CK.BED_ON) return;             // wash switched off (buffers stay zero)
-    const hp = this.hp, b = this.body, mL = this.midL, mR = this.midR, hL = this.hiL, hR = this.hiR;
-    const aM = this.aM, bM = this.bM, aH = this.aH, bH = this.bH;
-    let g0 = this.g[0], g1 = this.g[1], g2 = this.g[2];
-    const s0 = this.gStep[0], s1 = this.gStep[1], s2 = this.gStep[2];
-    for (let i = 0; i < n; i++) {
-      const c = rc.bip(), l = rl.bip(), r = rr.bip();
-      g0 += s0; g1 += s1; g2 += s2;
-      // body: one-pole HP then SVF low-pass (mono)
-      let v = (c - hp.s) * hp.G, lp = v + hp.s; hp.s = lp + v;
-      const x = c - lp;
-      const yb = crSvfLp(b, x) * g0;
-      const ym1 = crSvfBpN(mL, aM * c + bM * l) * g1, ym2 = crSvfBpN(mR, aM * c + bM * r) * g1;
-      const yh1 = crSvfBpN(hL, aH * c + bH * l) * g2, yh2 = crSvfBpN(hR, aH * c + bH * r) * g2;
-      L[i] = yb + ym1 + yh1; R[i] = yb + ym2 + yh2;
-    }
-    this.g[0] = g0; this.g[1] = g1; this.g[2] = g2;
-  }
-}
-function crSvfLp(f, x) {
-  const v3 = x - f.ic2, v1 = f.a1 * f.ic1 + f.a2 * v3, v2 = f.ic2 + f.a2 * f.ic1 + f.a3 * v3;
-  f.ic1 = 2 * v1 - f.ic1; f.ic2 = 2 * v2 - f.ic2;
-  return v2;
-}
-function crSvfBpN(f, x) { // band-pass normalised to unity gain at the centre
-  const v3 = x - f.ic2, v1 = f.a1 * f.ic1 + f.a2 * v3, v2 = f.ic2 + f.a2 * f.ic1 + f.a3 * v3;
-  f.ic1 = 2 * v1 - f.ic1; f.ic2 = 2 * v2 - f.ic2;
-  return v1 * f.k;
 }
 
 // =============================================================================
@@ -888,7 +789,7 @@ class CreekEngine {
     this.rngT = CR_ZONE_BTIME.map((i) => this.rng[i]); this.rngP = CR_ZONE_BPARAM.map((i) => this.rng[i]);
     this.flow = new CrFlowState(); this.queue = new CrEventQueue(CK.QUEUE_SIZE);
     this.sched = new CrBubbleScheduler(); this.pool = new CrBubblePool();
-    this.bed = new CrFlowBed(); this.mixer = new CrSpatialMixer(); this.out = new CrOutputStage();
+    this.mixer = new CrSpatialMixer(); this.out = new CrOutputStage();
     this.eddies = new CrEddies(); this.falls = new CrFalls(); this.surface = new CrSurface(); this.cloud = new CrCloud();
     this.tmpEvent = new CrEvent();
     this.bufL = []; this.bufR = [];
@@ -912,7 +813,6 @@ class CreekEngine {
     this.queue.reset(); this.pool.reset();
     this.sched.init(this.sr, this.rngT); this.sched.tuneAmt = 0; this.sched.nTune = 0;
     this.freeS = 1; this.activity = 1; this.stoneS = 0; this.stones = 0; this.creekFade = 1; this.tuneDetail = false;
-    if (CK.BED_ON) this.bed.init(this.sr, this.rng[CR_S_BED_DRIFT]);
     this.eddies.init(this.rng[CR_S_EDDY]);
     this.falls.init(this.sr, this.rng[CR_S_FALLS]);
     this.surface.init(this.sr, this.rng[CR_S_SURFACE]);
@@ -1008,7 +908,6 @@ class CreekEngine {
     const st = this.stoneS * this.stoneS;                        // squared: settles fully to still water
     // the surge matters in quiet water; a full creek needs little extra (keeps headroom)
     this.activity = Math.max(this.freeS, this.sched.tuneAmt, st) * (1 + CK.STONE_SURGE_RATE * st * (1 - 0.8 * this.flow.m[0]));
-    if (CK.BED_ON) this.bed.update(this.flow, this.rng[CR_S_BED_DRIFT], this.flow.dt, next);
   }
   process(L, R, n) {
     let pos = 0;
@@ -1058,7 +957,6 @@ class CreekEngine {
         this.sched.tauFor(e.radiusMm) * CK.FALLS_FIZZ_TAU_MUL, CK.ATTACK_MIN, 0, e.pan, o);
      }
     }
-    this.bed.render(bl[CK_L_FLOW], br[CK_L_FLOW], n, this.rng[CR_S_NOISE_C], this.rng[CR_S_NOISE_L], this.rng[CR_S_NOISE_R]);
     this.pool.render(bl[CK_L_BUBBLES], br[CK_L_BUBBLES], n);
     this.falls.pool.render(bl[CK_L_FALLS], br[CK_L_FALLS], n);
     this.surface.pool.render(bl[CK_L_SURFACE], br[CK_L_SURFACE], n);

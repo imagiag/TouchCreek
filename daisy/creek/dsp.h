@@ -48,7 +48,8 @@ inline uint32_t Hash(uint32_t x) {
 }
 inline uint32_t StreamSeed(uint32_t seed, uint32_t stream) { return Hash(seed + (stream + 1u) * 0x9E3779B9u); }
 
-// stream ids (fixed: muting a layer never shifts another layer's randomness)
+// stream ids (fixed: muting a layer never shifts another layer's randomness;
+// S_NOISE_* / S_BED_DRIFT are unused since the noise wash was removed, kept so ids don't move)
 enum Stream { S_DRIFT, S_BTIME, S_BPARAM, S_NOISE_C, S_NOISE_L, S_NOISE_R, S_BED_DRIFT,
               S_EDDY, S_FALLS, S_SURFACE, S_TRIGGER,
               S_BTIME1, S_BTIME2, S_BPARAM1, S_BPARAM2, S_FCHILD, S_CLOUD, S_COUNT };
@@ -78,35 +79,6 @@ struct Drift {
         v = from + (to - from) * s;
         return v;
     }
-};
-
-// TPT state-variable filter (Cytomic), stable under modulation
-struct Svf {
-    float ic1 = 0, ic2 = 0, a1 = 0, a2 = 0, a3 = 0, k = 1;
-    void Set(float fc, float q, float sr) {
-        const float g = tanf(kPi * Clamp(fc, 10.f, 0.45f * sr) / sr);
-        k = 1.f / q;
-        a1 = 1.f / (1.f + g * (g + k)); a2 = g * a1; a3 = g * a2;
-    }
-    void Reset() { ic1 = ic2 = 0; }
-    inline float Lp(float x) {
-        const float v3 = x - ic2, v1 = a1 * ic1 + a2 * v3, v2 = ic2 + a2 * ic1 + a3 * v3;
-        ic1 = 2.f * v1 - ic1; ic2 = 2.f * v2 - ic2;
-        return v2;
-    }
-    inline float BpN(float x) { // band-pass, unity gain at the centre
-        const float v3 = x - ic2, v1 = a1 * ic1 + a2 * v3, v2 = ic2 + a2 * ic1 + a3 * v3;
-        ic1 = 2.f * v1 - ic1; ic2 = 2.f * v2 - ic2;
-        return v1 * k;
-    }
-};
-
-// one-pole TPT high-pass
-struct Hp1 {
-    float s = 0, G = 0;
-    void Set(float fc, float sr) { const float g = tanf(kPi * fc / sr); G = g / (1.f + g); }
-    void Reset() { s = 0; }
-    inline float Process(float x) { const float v = (x - s) * G, lp = v + s; s = lp + v; return x - lp; }
 };
 
 } // namespace creek

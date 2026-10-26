@@ -19,13 +19,13 @@
 #include "event_queue.h"
 #include "bubble_pool.h"
 #include "bubble_scheduler.h"
-#include "flow_bed.h"
 #include "mixer_output.h"
 #include "layers.h"
 
 namespace creek {
 
-enum Layer { L_FLOW = 0, L_BUBBLES, L_EDDIES, L_FALLS, L_SURFACE };
+enum Layer { L_FREE = 0, L_BUBBLES,   // layer 0: free (was the noise wash)
+             L_EDDIES, L_FALLS, L_SURFACE };
 constexpr uint32_t kCloudBit = 0x20, kAllLayers = 0x3F;   // mask bit 5 = bubble cloud (after the mixer)
 
 struct Macros {
@@ -99,7 +99,6 @@ private:
     EventQueue queue_;
     BubbleScheduler sched_;
     BubblePool pool_;
-    FlowBed bed_;
     Eddies eddies_;
     Falls falls_;
     Surface surface_;

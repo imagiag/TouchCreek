@@ -33,7 +33,7 @@ const CC = {
   P_OCT_DN: 0, P_STONE: 1, P_OCT_UP: 2, P_ROOT: 10, P_SCALE: 11,
   PAD_PRESET0: 3,           // P03..P06
   PAD_NOTE0: 3,             // P03..P09
-  PAD_LAYER0: 3,            // P03..P07 in diagnostics
+  PAD_LAYER0: 3,            // P04..P07 mute layers 1..4 in diagnostics (P03 / layer 0 is free)
   PAD_ALL: 8,               // P08 in diagnostics
   PAD_STRESS: 9,            // P09 in diagnostics (monitor build) ...
   PAD_CLOUD: 9,             // ... otherwise P09 mutes the bubble cloud
@@ -57,7 +57,7 @@ const CC = {
   ],
   NOTE_NAMES: ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'],
 };
-const CC_LAYER_NAMES = ['Flow', 'Bubbles', 'Eddies', 'Falls', 'Surface'];
+const CC_LAYER_NAMES = ['', 'Bubbles', 'Eddies', 'Falls', 'Surface'];   // layer 0 free (was the noise wash)
 const CC_MODE_NAMES = ['PRESETS', 'NOTES', 'DIAG'];
 
 // Level fader: as TouchPulsar, gain = 2 v^2 (0 dB at ~70 %, +6 dB at the top)
@@ -142,7 +142,7 @@ class CreekControls {
       if (i >= 0 && i < CREEK_PRESETS.length) this.recallPreset(i);
     } else if (this.mode === CC.MODE_DIAG) {
       const l = pad - CC.PAD_LAYER0;
-      if (l >= 0 && l < CK_LAYERS) { this.diagMask ^= 1 << l; this.events.push({ type: CC.EV_LAYER, arg: (this.diagMask >> l) & 1 }); }
+      if (l >= 1 && l < CK_LAYERS) { this.diagMask ^= 1 << l; this.events.push({ type: CC.EV_LAYER, arg: (this.diagMask >> l) & 1 }); }
       else if (pad === CC.PAD_ALL) { this.diagMask = CK_ALL_LAYERS; this.events.push({ type: CC.EV_ALL, arg: 0 }); }
       else if (pad === CC.PAD_STRESS && this.stressEnabled) { this.stress = !this.stress; this.stressNext = 0; this.events.push({ type: CC.EV_STRESS, arg: this.stress ? 1 : 0 }); }
       else if (pad === CC.PAD_CLOUD) { this.diagMask ^= CK_CLOUD_BIT; this.events.push({ type: CC.EV_LAYER, arg: this.diagMask & CK_CLOUD_BIT ? 1 : 0 }); }
