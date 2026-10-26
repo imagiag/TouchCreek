@@ -19,6 +19,12 @@ void BubblePool::Reset() {
     births = drops = steals = 0; maxActive = 0; sumLog2F = 0;
 }
 
+int BubblePool::ActiveUser() const {
+    int a = 0;
+    for (int i = 0; i < n_; i++) if (on_[i] && user_[i]) a++;
+    return a;
+}
+
 int BubblePool::Active() const {
     int a = 0;
     for (int i = 0; i < n_; i++) if (on_[i] && !fading_[i]) a++;

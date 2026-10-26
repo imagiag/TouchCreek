@@ -23,6 +23,7 @@ public:
     void Micro();
     void Render(float* L, float* R, int n);
     int Active() const;
+    int ActiveUser() const;    // played voices (drops, stones)
 
     // stats
     uint32_t births = 0, drops = 0, steals = 0;

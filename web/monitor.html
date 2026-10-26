@@ -6,103 +6,207 @@
 <title>Creek Monitor</title>
 <link rel="stylesheet" href="style.css">
 <style>
-  .mon { max-width: 980px; margin: 0 auto; padding: 20px 16px; display: grid; gap: 16px; }
+  .mon { max-width: 1100px; margin: 0 auto; padding: 20px 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
   .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
   .tile .k { color: var(--muted); font-size: 12px; }
-  .tile .v { font: 600 26px/1.2 ui-monospace, Menlo, monospace; margin-top: 4px; }
+  .tile .v { font: 600 24px/1.2 ui-monospace, Menlo, monospace; margin-top: 4px; }
   .tile .s { color: var(--muted); font-size: 11px; }
   .pass { color: var(--water); } .fail { color: var(--red); } .warn { color: var(--gold); }
+  .two { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .panel h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--water); }
+  .layer { display: grid; grid-template-columns: 120px 1fr 120px; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .layer:last-child { border-bottom: none; }
+  .layer .nm b { display: block; } .layer .nm small { color: var(--muted); font-size: 11px; }
+  .meter { height: 10px; background: #070a0b; border-radius: 5px; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--water); transition: width .15s; }
+  .layer.muted .meter i { background: #4a2f2f; }
+  .layer .num { font: 12px ui-monospace, Menlo, monospace; color: var(--text); text-align: right; }
+  .layer.off { opacity: .45; }
+  .tag { font: 600 10px/1 ui-monospace, Menlo, monospace; padding: 2px 5px; border-radius: 4px; border: 1px solid #6b4f2a; color: var(--gold); margin-left: 6px; }
+  .state { display: flex; flex-wrap: wrap; gap: 8px 16px; font: 12px ui-monospace, Menlo, monospace; color: var(--muted); margin-top: 10px; }
+  .state b { color: var(--text); font-weight: 600; }
+  #last { font: 600 20px/1.3 system-ui, sans-serif; color: var(--text); min-height: 52px; }
+  #last small { display: block; font: 12px ui-monospace, Menlo, monospace; color: var(--muted); font-weight: 400; margin-top: 4px; }
+  #acts { font: 12px/1.6 ui-monospace, Menlo, monospace; color: var(--muted); max-height: 280px; overflow: auto; margin-top: 10px; }
+  #acts div span { color: var(--text); }
+  #acts div.new { color: var(--water); }
   #log { font: 11px/1.45 ui-monospace, Menlo, monospace; color: var(--muted); background: var(--oled); border: 1px solid var(--line);
-    border-radius: 12px; padding: 12px; height: 260px; overflow: auto; white-space: pre; }
-  #cpu { height: 120px; }
-  ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 13px; } ol li { margin: 4px 0; }
+    border-radius: 12px; padding: 12px; height: 200px; overflow: auto; white-space: pre; }
+  #cpu { height: 100px; }
+  .src { font: 12px ui-monospace, Menlo, monospace; color: var(--muted); }
+  .src b { color: var(--water); }
+  details.help { color: var(--muted); font-size: 13px; }
+  details.help summary { cursor: pointer; color: var(--water); }
+  details.help ol { padding-left: 20px; } details.help li { margin: 4px 0; }
 </style>
 </head>
 <body>
 <header class="top">
-  <div class="brand"><h1>Creek monitor</h1><span class="sub">live numbers from the Touch 2 over USB (Chrome or Edge)</span></div>
+  <div class="brand"><h1>Creek monitor</h1><span class="src" id="src">waiting: open the emulator in another tab, or Connect the Touch 2</span></div>
   <div class="actions">
-    <button id="reset" title="Forget the worst values seen so far (on this page)">Reset worst</button>
-    <button id="copy">Copy log</button>
-    <button id="connect" class="primary">Connect</button>
+    <button id="reset" title="Forget the worst values and the press history">Reset</button>
+    <button id="copy" title="Copy the raw log to the clipboard">Copy log</button>
+    <button id="connect" class="primary" title="Read the Touch 2 over USB (monitor firmware)">Connect Touch 2</button>
   </div>
 </header>
 <main class="mon">
-  <div class="card">
+  <details class="help">
+    <summary>How to use</summary>
     <ol>
-      <li>Build the monitor firmware with <code>make -C daisy monitor</code> (it isn't part of the releases; the normal build uses USB for MIDI instead), flash <code>daisy/build-monitor/CreekTouch-monitor.bin</code> and plug the Touch 2 into this computer by USB.</li>
-      <li>Click <b>Connect</b> and pick <b>Creek</b> (or "Daisy Seed") in the list.</li>
-      <li>Play normally to see everyday load. For the worst case: left switch <b>down</b> (Diagnostics), tap <b>P09</b> (LED blinks fast, the creek goes wild) and let it run. Tap P09 again or leave Diagnostics to stop.</li>
-      <li>The brief asks for the <b>worst</b> audio callback below <b>70 %</b> of its 1 ms deadline.</li>
+      <li><b>Emulator</b>: press <b>Monitor</b> in the emulator; this page follows it automatically (same browser).</li>
+      <li><b>Touch 2</b>: build the monitor firmware with <code>make -C daisy monitor</code>, flash <code>daisy/build-monitor/CreekTouch-monitor.bin</code> (its USB sends this report instead of MIDI), plug in, click <b>Connect Touch 2</b> and pick <b>Creek</b> (or "Daisy Seed").</li>
+      <li>Hunting an artefact: watch <b>Layers</b> to see which sound is active when you hear it, mute layers in Diagnostics (left switch down, P03–P07) and check <b>Last pressed</b> for what changed just before.</li>
+      <li>Worst-case CPU (Touch 2 only): Diagnostics + <b>P09</b> stress test. The brief asks for the worst 1 ms block below 70 %.</li>
     </ol>
+  </details>
+
+  <div class="two">
+    <div class="panel">
+      <h2>Layers</h2>
+      <div id="layers"></div>
+      <div class="state" id="state"></div>
+    </div>
+    <div class="panel">
+      <h2>Last pressed</h2>
+      <div id="last">—</div>
+      <div id="acts"></div>
+    </div>
   </div>
+
   <div class="tiles">
-    <div class="tile"><div class="k">CPU now (avg)</div><div class="v" id="tAvg">—</div><div class="s">average load of the 1 ms audio block</div></div>
+    <div class="tile"><div class="k">CPU now (avg)</div><div class="v" id="tAvg">—</div><div class="s">Touch 2 only</div></div>
     <div class="tile"><div class="k">CPU worst block</div><div class="v" id="tWorst">—</div><div class="s" id="tVerdict">limit 70 %</div></div>
-    <div class="tile"><div class="k">Voices</div><div class="v" id="tVoices">—</div><div class="s">now / peak (budget 24)</div></div>
-    <div class="tile"><div class="k">Bubbles / s</div><div class="v" id="tBub">—</div><div class="s" id="tSteal">steals —</div></div>
-    <div class="tile"><div class="k">Stack used</div><div class="v" id="tStack">—</div><div class="s">of 128 KB</div></div>
-    <div class="tile"><div class="k">Dropped events</div><div class="v" id="tDrops">—</div><div class="s">queue / voices, since connect</div></div>
+    <div class="tile"><div class="k">Bubble voices</div><div class="v" id="tVoices">—</div><div class="s">now / peak (budget 24)</div></div>
+    <div class="tile"><div class="k">Steals / s</div><div class="v" id="tSteal">—</div><div class="s">quietest voice faded for a new one</div></div>
+    <div class="tile"><div class="k">Dropped events</div><div class="v" id="tDrops">—</div><div class="s">queue / voices</div></div>
     <div class="tile"><div class="k">Limiter</div><div class="v" id="tLim">—</div><div class="s">% of time reducing gain</div></div>
-    <div class="tile"><div class="k">Stress test</div><div class="v" id="tStress">—</div><div class="s" id="tStressT"></div></div>
+    <div class="tile"><div class="k">Stack used</div><div class="v" id="tStack">—</div><div class="s">of 128 KB (Touch 2)</div></div>
+    <div class="tile"><div class="k">Stress test</div><div class="v" id="tStress">—</div><div class="s" id="tStressT">Diagnostics + P09</div></div>
   </div>
   <canvas id="cpu"></canvas>
-  <div id="log">Not connected.</div>
+  <div id="log">Raw report lines appear here.</div>
 </main>
 <script>
 'use strict';
 const $ = (id) => document.getElementById(id);
 const lines = [], hist = [];
-let resetSinceBoot = false, worst = 0, drops = 0, vdrops = 0, stressSec = 0, stressWorst = 0;
+let worst = 0, vdrops = 0, stressSec = 0, stressWorst = 0, resetSinceBoot = false, source = '';
+let L1 = {}, L2 = null;                       // latest CREEK / CREEKL values
 
-// Firmware line (v4.1+): "CREEK c 15.6 m 18.2 w 23.9 v 21 p 24 b 73 s 4 d 0 f 2 t 9 q 0 l 0 k 1288 x 0"
-// (v4 sent a longer line that libDaisy cut off after "lim": still read what's there.)
-function parse(line) {
-  if (!line.startsWith('CREEK ')) return null;
-  const num = (re) => { const m = line.match(re); return m ? Number(m[1]) : NaN; };
-  if (/^CREEK c /.test(line)) {
-    const v = {}, t = line.slice(6).trim().split(/\s+/);
-    for (let i = 0; i + 1 < t.length; i += 2) v[t[i]] = Number(t[i + 1]);
-    return { avg: v.c, max: v.m, worst: v.w, voices: v.v, peak: v.p, bubbles: v.b, steals: v.s, drops: v.d,
-      qdrop: v.q, lim: v.l, stack: v.k, stress: v.x };
+// ---------------- names (the firmware sends numbers) ----------------
+const MACROS = ['Flow', 'Roughness', 'Scale', 'Aeration', 'Level', 'Width', 'Free flow', 'Variety', 'Decay', 'Cutoff', 'Resonance', 'Tone', 'Attack', 'Release'];
+const MODES = ['Presets', 'Notes', 'Diagnostics'];
+const PRESETS = ['Quiet trickle', 'Rocky creek', 'Small cascade', 'Deeper run'];
+const SCALES = ['Chromatic', 'Major', 'Minor', 'Min Pent', 'Maj Pent', 'Dorian', 'Harm Minor'];
+const LAYERS = ['Flow bed', 'Bubbles', 'Eddies', 'Falls', 'Surface'];
+const pName = (p) => 'P' + String(p).padStart(2, '0');
+function padMeaning(pad, mode, mods) {
+  if (pad === 1) return 'throw a stone';
+  if (pad === 10) return 'P10 (modifier)';
+  if (pad === 11) return 'P11 (modifier)';
+  if (mode === 0) return pad >= 3 && pad <= 6 ? 'preset: ' + PRESETS[pad - 3] : 'no function';
+  if (mode === 2) return pad >= 3 && pad <= 7 ? 'toggle layer: ' + LAYERS[pad - 3] : pad === 8 ? 'all layers on' : pad === 9 ? 'stress test on/off' : 'no function';
+  if (mods & 2) return pad === 0 ? 'previous scale' : pad === 2 ? 'next scale' : pad >= 3 && pad <= 9 ? 'scale: ' + SCALES[pad - 3] : 'no function';
+  if (mods & 1) return pad >= 3 && pad <= 9 ? 'set root key' : 'no function';
+  return pad === 0 ? 'octave down' : pad === 2 ? 'octave up' : pad >= 3 && pad <= 9 ? 'note (drop + pour)' : 'no function';
+}
+function describe(t, a, b, c, d) {
+  const mods = (d & 1 ? 'P10 + ' : '') + (d & 2 ? 'P11 + ' : '');
+  if (t === 'p') return [`${pName(a)} pressed`, `${padMeaning(a, b, d)} · ${MODES[b] || '?'} · velocity ${c}%${d ? ' · held ' + mods.slice(0, -3) : ''}`];
+  if (t === 'r') return [`${pName(a)} released`, ''];
+  if (t === 'k') return [`${mods}S${30 + a} → ${MACROS[b] || '?'} ${(c / 10).toFixed(1)}%`, `knob / fader value ${(c / 1000).toFixed(3)}`];
+  if (t === 'w') return a === 0 ? [`Left switch → ${MODES[b]}`, ''] : [`Right switch → ${b === 2 ? 'down (Latch in Notes / Hold elsewhere)' : 'live'}`, ''];
+  return [`${t} ${a} ${b} ${c} ${d}`, ''];
+}
+
+// ---------------- line handling (same lines from the Touch 2 and the emulator) ----------------
+function kv(line) { const v = {}, t = line.trim().split(/\s+/).slice(1); for (let i = 0; i + 1 < t.length; i += 2) v[t[i]] = Number(t[i + 1]); return v; }
+function handle(line, from) {
+  if (from !== source) { source = from; $('src').innerHTML = `source: <b>${from}</b>`; }
+  lines.push(line); if (lines.length > 3000) lines.shift();
+  const log = $('log'); log.textContent += line + '\n';
+  if (log.textContent.length > 60000) log.textContent = log.textContent.slice(-40000);
+  log.scrollTop = log.scrollHeight;
+  if (line.startsWith('CREEKE ')) { const t = line.trim().split(/\s+/); act(t[1], +t[2], +t[3] || 0, +t[4] || 0, +t[5] || 0); }
+  else if (line.startsWith('CREEKL ')) { L2 = kv(line); drawLayers(); }
+  else if (line.startsWith('CREEK ')) { L1 = kv(line); showMain(L1); drawLayers(); }
+}
+const acts = [];
+function act(t, a, b, c, d) {
+  if (t === 'r' && acts.length && acts[0].t === 'p' && acts[0].a === a) { acts[0].rel = true; drawActs(); return; }   // fold release into the press
+  const [title, sub] = describe(t, a, b, c, d);
+  // knob moves: update the same row while the same control keeps moving
+  if (t === 'k' && acts.length && acts[0].t === 'k' && acts[0].a === a && acts[0].b === b && performance.now() - acts[0].time < 1500) {
+    Object.assign(acts[0], { title, sub, time: performance.now() });
+  } else {
+    acts.unshift({ t, a, b, title, sub, time: performance.now(), clock: new Date().toLocaleTimeString() });
+    if (acts.length > 40) acts.pop();
   }
-  return {
-    avg: num(/cpu (-?[\d.]+)/), max: num(/ max (-?[\d.]+)/), worst: num(/worst (-?[\d.]+)/),
-    voices: num(/voices (\d+)/), peak: num(/peak (\d+)/), bubbles: num(/bubbles (\d+)/), steals: num(/steals (\d+)/),
-    drops: num(/ drops (\d+)/), qdrop: num(/qdrop (\d+)/), lim: num(/lim (\d+)/), stack: num(/stack (\d+)/), stress: num(/stress (\d)/),
-  };
+  drawActs();
 }
-function show(s) {
-  worst = Math.max(worst, s.max, isFinite(s.worst) && !resetSinceBoot ? s.worst : 0);   // firmware also reports its worst since power-up
-  hist.push(s.max); if (hist.length > 300) hist.shift();
-  vdrops += s.drops;
-  if (s.stress) { stressSec++; stressWorst = Math.max(stressWorst, s.max); }
-  $('tAvg').textContent = s.avg.toFixed(1) + ' %';
-  $('tWorst').textContent = worst.toFixed(1) + ' %';
-  $('tWorst').className = 'v ' + (worst < 60 ? 'pass' : worst < 70 ? 'warn' : 'fail');
-  $('tVerdict').textContent = worst < 70 ? 'below the 70 % limit: pass' : 'above the 70 % limit';
-  $('tVoices').textContent = `${s.voices} / ${s.peak}`;
-  $('tBub').textContent = s.bubbles;
-  $('tSteal').textContent = `steals ${s.steals}/s`;
-  $('tStack').textContent = isFinite(s.stack) ? (s.stack / 1024).toFixed(1) + ' KB' : '—';
-  $('tDrops').textContent = `${s.qdrop} / ${vdrops}`;
-  $('tLim').textContent = (s.lim / 480).toFixed(1) + ' %';
-  $('tStress').textContent = isFinite(s.stress) ? (s.stress ? 'running' : 'off') : '—';
-  $('tStress').className = 'v ' + (s.stress ? 'warn' : '');
-  $('tStressT').textContent = stressSec ? `${stressSec} s run, worst ${stressWorst.toFixed(1)} %` : 'Diagnostics + P09';
-  draw();
+function drawActs() {
+  const x = acts[0];
+  $('last').innerHTML = x ? `${x.title}${x.rel ? ' <span class="tag">released</span>' : ''}<small>${x.sub || '&nbsp;'}</small>` : '—';
+  $('acts').innerHTML = acts.slice(1, 25).map((e) => `<div>${e.clock} <span>${e.title}</span>${e.sub ? ' · ' + e.sub : ''}</div>`).join('');
 }
-function draw() {
-  const c = $('cpu'), g = c.getContext('2d'), W = (c.width = c.clientWidth * devicePixelRatio), H = (c.height = 120 * devicePixelRatio);
+
+function row(name, sub, frac, num, muted, off) {
+  return `<div class="layer${muted ? ' muted' : ''}${off ? ' off' : ''}"><div class="nm"><b>${name}${muted ? '<span class="tag">muted</span>' : ''}</b><small>${sub}</small></div>` +
+    `<div class="meter"><i style="width:${Math.max(0, Math.min(100, frac * 100)).toFixed(1)}%"></i></div><div class="num">${num}</div></div>`;
+}
+function drawLayers() {
+  if (!L2) { $('layers').innerHTML = '<p class="src">no layer report yet</p>'; return; }
+  const m = L2.m, mute = (i) => !((m >> i) & 1), s = L1;
+  const r = (x) => (isFinite(x) ? x : '—');
+  $('layers').innerHTML =
+    row('Flow bed', 'noise wash', 0, 'off (built out)', mute(0), true) +
+    row('Bubbles', 'the creek\'s own', L2.a / 24, `${r(L2.a)} voices · ${r(s.b)}/s`, mute(1)) +
+    row('Played', 'drops, stones', L2.u / 8, `${r(L2.u)} voices`, false) +
+    row('Eddies', 'wake swells', L2.e / 100, `${r(L2.e)} %`, mute(2)) +
+    row('Falls', 'splash plops', L2.f / 4, `${r(L2.f)} voices · ${r(s.f)}/s`, mute(3)) +
+    row('Surface', 'high ticks', L2.t / 10, `${r(L2.t)} voices · ${r(s.t)}/s`, mute(4));
+  $('state').innerHTML = `mode <b>${MODES[L2.o] || '?'}</b> · held notes <b>${L2.h}</b> · scene gate <b>${L2.g}%</b> · event rate <b>${L2.y}%</b>` +
+    (L2.y > 100 ? ' <span class="tag">stone surge</span>' : '') + ` · stones <b>${L2.n}</b>`;
+}
+function showMain(s) {
+  const hw = isFinite(s.c);
+  if (hw) {
+    worst = Math.max(worst, s.m, isFinite(s.w) && !resetSinceBoot ? s.w : 0);
+    hist.push(s.m); if (hist.length > 300) hist.shift();
+    $('tAvg').textContent = s.c.toFixed(1) + ' %';
+    $('tWorst').textContent = worst.toFixed(1) + ' %';
+    $('tWorst').className = 'v ' + (worst < 60 ? 'pass' : worst < 70 ? 'warn' : 'fail');
+    $('tVerdict').textContent = worst < 70 ? 'below the 70 % limit: pass' : 'above the 70 % limit';
+    $('tStack').textContent = isFinite(s.k) ? (s.k / 1024).toFixed(1) + ' KB' : '—';
+  }
+  vdrops += s.d || 0;
+  if (s.x) { stressSec++; stressWorst = Math.max(stressWorst, s.m || 0); }
+  $('tVoices').textContent = `${s.v} / ${s.p}`;
+  $('tSteal').textContent = s.s;
+  $('tDrops').textContent = `${s.q} / ${vdrops}`;
+  $('tLim').textContent = (s.l / 480).toFixed(1) + ' %';
+  $('tStress').textContent = s.x ? 'running' : 'off';
+  $('tStressT').textContent = stressSec ? `${stressSec} s run, worst ${stressWorst.toFixed(1)} %` : 'Diagnostics + P09 (Touch 2)';
+  drawCpu();
+}
+function drawCpu() {
+  const c = $('cpu'), g = c.getContext('2d'), W = (c.width = c.clientWidth * devicePixelRatio), H = (c.height = 100 * devicePixelRatio);
   g.fillStyle = '#070a0b'; g.fillRect(0, 0, W, H);
   const y = (p) => H - (p / 100) * H;
   g.strokeStyle = '#6b4f2a'; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(0, y(70)); g.lineTo(W, y(70)); g.stroke(); g.setLineDash([]);
-  g.fillStyle = '#869490'; g.font = `${10 * devicePixelRatio}px system-ui`; g.fillText('70 %', 4, y(70) - 4);
+  g.fillStyle = '#869490'; g.font = `${10 * devicePixelRatio}px system-ui`; g.fillText('CPU · 70 %', 4, y(70) - 4);
   g.strokeStyle = '#5fc3b4'; g.lineWidth = 2 * devicePixelRatio; g.beginPath();
   hist.forEach((v, i) => { const x = W - (hist.length - 1 - i) * (W / 300); i ? g.lineTo(x, y(v)) : g.moveTo(x, y(v)); });
   g.stroke();
 }
+
+// ---------------- sources ----------------
+// Emulator: the emulator tab broadcasts the same report lines on this channel.
+try { new BroadcastChannel('creek-monitor').onmessage = (e) => { for (const l of String(e.data).split('\n')) if (l) handle(l, 'emulator'); }; } catch (e) { /* old browser */ }
+// Touch 2: Web Serial, monitor firmware.
 async function connect() {
   if (!('serial' in navigator)) { $('log').textContent = 'This browser has no Web Serial. Use Chrome or Edge.'; return; }
   const port = await navigator.serial.requestPort();
@@ -114,23 +218,18 @@ async function connect() {
     const { value, done } = await reader.read();
     if (done) break;
     buf += value;
+    buf = buf.replace(/\$\$/g, '\n');           // libDaisy marks a cut-off line with "$$" instead of a newline
     let i;
-    buf = buf.replace(/\$\$/g, '\n');                 // libDaisy marks a cut-off line with "$$" instead of a newline
     while ((i = buf.indexOf('\n')) >= 0) {
       const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
-      if (!line) continue;
-      lines.push(line); if (lines.length > 2000) lines.shift();
-      const log = $('log'); log.textContent += line + '\n';
-      if (log.textContent.length > 60000) log.textContent = log.textContent.slice(-40000);
-      log.scrollTop = log.scrollHeight;
-      const s = parse(line); if (s && isFinite(s.avg)) show(s);
+      if (line) handle(line, 'Touch 2');
     }
   }
 }
 $('connect').onclick = () => connect().catch((e) => { $('log').textContent = 'Could not connect: ' + e.message; });
-$('reset').onclick = () => { resetSinceBoot = true; worst = 0; vdrops = 0; stressSec = 0; stressWorst = 0; hist.length = 0; draw(); };
+$('reset').onclick = () => { resetSinceBoot = true; worst = 0; vdrops = 0; stressSec = 0; stressWorst = 0; hist.length = 0; acts.length = 0; drawActs(); drawCpu(); };
 $('copy').onclick = () => navigator.clipboard.writeText(lines.join('\n'));
-draw();
+drawCpu(); drawLayers();
 </script>
 </body>
 </html>

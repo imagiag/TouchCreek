@@ -46,6 +46,14 @@ public:
     void AudioBlock(float* left, float* right, size_t n);
 
     bool Stress() const { return ctl_.stress; }
+    int ModeNow() const { return (int)ctl_.mode; }
+    int HeldNow() const { return ctl_.nHeld; }
+    uint32_t MaskNow() const { return macros_.mask; }
+#if CREEK_MONITOR
+    // what was pressed / moved, for web/monitor.html (numbers; the page names them)
+    struct Act { char type; int16_t a, b, c, d; };
+    bool PopAct(Act& x) { if (actR_ == actW_) return false; x = act_[actR_]; actR_ = (actR_ + 1) % kAct; return true; }
+#endif
     uint32_t QueueDrops() const { return trigDrops_; } // note drops lost to a full queue (the mailbox itself coalesces)
 
 private:
@@ -67,6 +75,19 @@ private:
 
     Takeover knob_[creek::M_COUNT];
     bool firstRun_ = true;
+#if CREEK_MONITOR
+    static constexpr int kAct = 32;
+    Act act_[kAct];
+    int actR_ = 0, actW_ = 0;
+    void logAct(char type, int a, int b = 0, int c = 0, int d = 0) {
+        const int n = (actW_ + 1) % kAct;
+        if (n == actR_) return;                       // full: drop (display only)
+        act_[actW_] = {type, (int16_t)a, (int16_t)b, (int16_t)c, (int16_t)d}; actW_ = n;
+    }
+    int mods() const { return (ctl_.touched[creek::kPadRoot] ? 1 : 0) | (ctl_.touched[creek::kPadScale] ? 2 : 0); }
+    float lastKnob_[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+    int lastSw_[2] = {-1, -1};
+#endif
     int active_[8] = {0, 0, 0, 0, 0, 0, 0, 0};   // macro each physical control drives right now
     int activeMacro(int physical) const;
 

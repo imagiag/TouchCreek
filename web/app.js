@@ -297,6 +297,7 @@ const seed = () => (Number($('seed').value) >>> 0);
 const cv = $('bubbles'), g2 = cv.getContext('2d');
 let dots = [];
 function onStats(d) {
+  monStats(d.s);
   const now = performance.now();
   for (let k = 0; k < d.f.length; k++) {
     dots.push({ t: now - (d.f.length - k) * 2, f: d.f[k], a: d.a[k], p: d.pan[k] });
@@ -365,6 +366,39 @@ $('midiBtn').onclick = async () => {
     acc.onstatechange = hook; hook(); midiOn = true; $('midiBtn').classList.add('on');
   } catch (err) { $('midiBtn').textContent = 'MIDI blocked'; }
 };
+
+// ------------------------------------------------------------------ monitor (web/monitor.html in another tab)
+// The emulator sends the same report lines as the monitor firmware: once a second
+// CREEK (voices, events per second) and CREEKL (layers), and CREEKE for every press.
+let monBc = null;
+try { monBc = new BroadcastChannel('creek-monitor'); } catch (e) { /* old browser */ }
+const monSend = (line) => { if (monBc) monBc.postMessage(line); };
+const monMods = () => (ctl.touched[CC.P_ROOT] ? 1 : 0) | (ctl.touched[CC.P_SCALE] ? 2 : 0);
+{ // wrap the controls so every press from mouse, keyboard or MIDI-free paths is reported
+  const down = ctl.padDown.bind(ctl), up = ctl.padUp.bind(ctl);
+  ctl.padDown = (pad, vel) => { monSend(`CREEKE p ${pad} ${ctl.mode} ${Math.round((vel || 0.7) * 100)} ${monMods()}`); down(pad, vel); };
+  ctl.padUp = (pad) => { monSend(`CREEKE r ${pad}`); up(pad); };
+}
+const monKnob = new Float32Array(8), monSw = { mode: -1, hold: -1 };
+for (const c of CONTROLS) monKnob[c.p] = ctl.value[macroFor(c)];   // report changes only, not the start state
+let monPrev = null, monLast = 0;
+function monStats(s) {
+  const now = performance.now();
+  if (now - monLast < 1000) return;
+  const dt = monPrev ? (now - monLast) / 1000 : 1, d = (k) => (monPrev ? Math.round((s[k] - monPrev[k]) / dt) : 0);
+  monSend(`CREEK v ${s.active} p ${s.maxActive} b ${d('births')} s ${d('steals')} d ${d('drops')} f ${d('splashes')} t ${d('surface')} q ${s.queueDrops} l ${d('limited')} x ${ctl.stress ? 1 : 0}`);
+  monSend(`CREEKL a ${s.active - s.activeUser} u ${s.activeUser} f ${s.activeFalls} t ${s.activeSurface} e ${Math.round(s.eddy * 100)} g ${Math.round(s.gate * 100)} y ${Math.round(s.activity * 100)} h ${ctl.held.length} o ${ctl.mode} m ${macros.mask} n ${s.stones}`);
+  monPrev = s; monLast = now;
+}
+setInterval(() => {   // knob and switch changes (as the firmware reports them)
+  for (const c of CONTROLS) {
+    const m = macroFor(c), v = ctl.value[m];
+    if (take[m].tracking && Math.abs(v - monKnob[c.p]) > 0.01 && Math.abs(physPos[c.p] - v) < 0.02) { monKnob[c.p] = v; monSend(`CREEKE k ${c.p} ${m} ${Math.round(v * 1000)} ${monMods()}`); }
+  }
+  if (sw.mode !== monSw.mode) { if (monSw.mode >= 0) monSend(`CREEKE w 0 ${sw.mode}`); monSw.mode = sw.mode; }
+  if (sw.hold !== monSw.hold) { if (monSw.hold >= 0) monSend(`CREEKE w 1 ${sw.hold}`); monSw.hold = sw.hold; }
+}, 50);
+$('monitorBtn').onclick = () => window.open('monitor.html', 'creek-monitor');
 
 // ------------------------------------------------------------------ wiring
 $('power').onclick = () => (running ? stop() : start());

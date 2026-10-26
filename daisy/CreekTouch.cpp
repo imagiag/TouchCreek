@@ -107,7 +107,13 @@ int main(void) {
     while (1) {
         ui.PollMidi();                       // every pass: low MIDI latency
         const uint32_t ms = System::GetNow();
-        if (ms - lastUi >= 4) { lastUi = ms; ui.Process(hw); }
+        if (ms - lastUi >= 4) {
+            lastUi = ms; ui.Process(hw);
+#if CREEK_MONITOR
+            CreekUI::Act x;                   // one event line per UI tick: what was pressed / moved
+            if (ui.PopAct(x)) hw.PrintLine("CREEKE %c %d %d %d %d", x.type, x.a, x.b, x.c, x.d);
+#endif
+        }
 #if CREEK_MONITOR
         if (ms - lastLog >= 1000) {
             lastLog = ms;
@@ -128,6 +134,11 @@ int main(void) {
                          (unsigned long)(s.splashes - prev.splashes), (unsigned long)(s.surface - prev.surface),
                          (unsigned long)(s.queueDrops + ui.QueueDrops()), (unsigned long)(s.limited - prev.limited),
                          (unsigned long)StackUsedBytes(), ui.Stress() ? 1 : 0);
+            // second line: which layers are sounding (voices per layer, eddy / gate / activity in %)
+            hw.PrintLine("CREEKL a %d u %d f %d t %d e %d g %d y %d h %d o %d m %lu n %lu",
+                         s.active - s.activeUser, s.activeUser, s.activeFalls, s.activeSurface,
+                         (int)(s.eddy * 100.f), (int)(s.gate * 100.f), (int)(s.activity * 100.f),
+                         ui.HeldNow(), ui.ModeNow(), (unsigned long)ui.MaskNow(), (unsigned long)s.stones);
             prev = s;
             cpu.Reset();
         }

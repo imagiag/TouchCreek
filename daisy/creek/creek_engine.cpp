@@ -224,6 +224,8 @@ void CreekEngine::GetStats(Stats& s) const {
     s.rate = sched_.rate[0] + sched_.rate[1] + sched_.rate[2]; s.gate = flow_.gate;
     s.eddy = flow_.eddy; s.splashes = falls_.count; s.surface = surface_.count;
     s.splashRate = falls_.rate; s.surfaceRate = surface_.rate; s.stones = stones_;
+    s.activeUser = pool_.ActiveUser(); s.activeFalls = falls_.pool.Active(); s.activeSurface = surface_.pool.Active();
+    s.activity = activity_;
     for (int z = 0; z < ck::ZONES; z++) { s.E[z] = flow_.E[z]; s.T[z] = flow_.T[z]; s.B[z] = flow_.B[z]; }
 }
 

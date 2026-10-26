@@ -202,6 +202,7 @@ class CrBubblePool {
     this.births = 0; this.drops = 0; this.steals = 0; this.maxActive = 0; this.sumLog2F = 0;
   }
   active() { let a = 0; for (let i = 0; i < this.n; i++) if (this.on[i] && !this.fading[i]) a++; return a; }
+  activeUser() { let a = 0; for (let i = 0; i < this.n; i++) if (this.on[i] && this.user[i]) a++; return a; }
   // Start a voice at sample offset `off` of the current segment.
   spawn(f0, amp, tau, attack, rise, pan, off, user) {
     const N = this.n, sr = this.sr;
@@ -987,6 +988,7 @@ class CreekEngine {
       E: Array.from(this.flow.E), T: Array.from(this.flow.T), B: Array.from(this.flow.B),
       rate: this.sched.rate[0] + this.sched.rate[1] + this.sched.rate[2], gate: this.flow.gate,
       eddy: this.flow.eddy, splashes: this.falls.count, surface: this.surface.count, stones: this.stones,
+      activeUser: p.activeUser(), activeFalls: this.falls.pool.active(), activeSurface: this.surface.pool.active(), activity: this.activity,
       splashRate: this.falls.rate, surfaceRate: this.surface.rate,
     };
   }

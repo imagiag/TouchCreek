@@ -7,8 +7,18 @@ using namespace creek;
 void CreekUI::Init(DaisySeed& hw) {
     lastUs_ = System::GetUs();
     // Pads -> controls (callbacks fire inside touch_.Process()). Velocity sets the drop level in Notes.
-    touch_.pads().SetOnTouch([this](uint16_t pad) { ctl_.PadDown(pad, touch_.pads().Velocity(pad)); });
-    touch_.pads().SetOnRelease([this](uint16_t pad) { ctl_.PadUp(pad); });
+    touch_.pads().SetOnTouch([this](uint16_t pad) {
+#if CREEK_MONITOR
+        logAct('p', pad, (int)ctl_.mode, (int)(touch_.pads().Velocity(pad) * 100.f), mods());
+#endif
+        ctl_.PadDown(pad, touch_.pads().Velocity(pad));
+    });
+    touch_.pads().SetOnRelease([this](uint16_t pad) {
+#if CREEK_MONITOR
+        logAct('r', pad);
+#endif
+        ctl_.PadUp(pad);
+    });
     ctl_.Compute(macros_);
     post();
 #if !CREEK_MONITOR
@@ -87,7 +97,12 @@ void CreekUI::readKnobs() {
         if (m != active_[p]) { knob_[m].Hold(ctl_.value[m], v); active_[p] = m; }   // layer switch: wait for movement
         if (ctl_.Gliding() && m < 4 && !knob_[m].Tracking()) continue;            // preset glide owns the macro
         const float out = knob_[m].Process(v);
-        if (knob_[m].Tracking() && out != ctl_.value[m]) ctl_.SetKnob(m, out);
+        if (knob_[m].Tracking() && out != ctl_.value[m]) {
+            ctl_.SetKnob(m, out);
+#if CREEK_MONITOR
+            if (fabsf(out - lastKnob_[p]) > 0.01f) { lastKnob_[p] = out; logAct('k', p, m, (int)(out * 1000.f), mods()); }
+#endif
+        }
     }
     firstRun_ = false;
 }
@@ -98,6 +113,15 @@ void CreekUI::Process(DaisySeed& hw) {
     touch_.Process();                       // fires PadDown callbacks
     // switches: libDaisy Switch3 POS_UP / POS_CENTER / POS_DOWN
     const int left = touch_.switches().B();                     // left S09/S10: presets / notes / diagnostics
+#if CREEK_MONITOR
+    {
+        const int sw[2] = {left, touch_.switches().A()};
+        for (int i = 0; i < 2; i++) if (sw[i] != lastSw_[i]) {
+            lastSw_[i] = sw[i];
+            logAct('w', i, sw[i] == Switch3::POS_UP ? 0 : (sw[i] == Switch3::POS_DOWN ? 2 : 1));
+        }
+    }
+#endif
     ctl_.SetMode(left == Switch3::POS_UP ? MODE_PRESETS : (left == Switch3::POS_DOWN ? MODE_DIAG : MODE_NOTES));
     ctl_.SetRightSwitch(touch_.switches().A() == Switch3::POS_DOWN);  // right S07/S08: down = Latch (Notes) / Hold
     Drop d;

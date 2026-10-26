@@ -51,6 +51,8 @@ struct Stats {
     int active, maxActive;
     float meanF, sumLog2F, peak, rate, gate, eddy, splashRate, surfaceRate;
     uint32_t splashes, surface, stones;
+    int activeUser, activeFalls, activeSurface;   // voices: played (drops / stones), plops, surface ticks
+    float activity;                               // event-rate gate (Free flow / pour / stone)
     float E[ck::ZONES], T[ck::ZONES], B[ck::ZONES];
 };
 
