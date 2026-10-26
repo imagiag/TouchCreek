@@ -47,6 +47,7 @@
 <header class="top">
   <div class="brand"><h1>Creek monitor</h1><span class="src" id="src">waiting: open the emulator in another tab, or Connect the Touch 2</span></div>
   <div class="actions">
+    <button id="emuBtn" title="Open (or switch to) the emulator in its own tab">Emulator</button>
     <button id="reset" title="Forget the worst values and the press history">Reset</button>
     <button id="copy" title="Copy the raw log to the clipboard">Copy log</button>
     <button id="connect" class="primary" title="Read the Touch 2 over USB (monitor firmware)">Connect Touch 2</button>
@@ -91,6 +92,7 @@
 </main>
 <script>
 'use strict';
+window.name = window.name || 'creek-monitor';     // so the emulator's Monitor button switches back to this tab
 const $ = (id) => document.getElementById(id);
 const lines = [], hist = [];
 let worst = 0, vdrops = 0, stressSec = 0, stressWorst = 0, resetSinceBoot = false, source = '';
@@ -227,6 +229,15 @@ async function connect() {
   }
 }
 $('connect').onclick = () => connect().catch((e) => { $('log').textContent = 'Could not connect: ' + e.message; });
+// switch to the other tab without reloading it (a reload would stop the emulator's audio)
+function openTab(url, name) {
+  const w = window.open('', name);
+  if (!w) { window.open(url, name); return; }   // pop-up handling differs: just open it
+  let blank = true;
+  try { blank = !w.location.href || w.location.href === 'about:blank'; } catch (e) { blank = false; }
+  if (blank) w.location.href = url; else w.focus();
+}
+$('emuBtn').onclick = () => openTab('index.html', 'creek-emulator');
 $('reset').onclick = () => { resetSinceBoot = true; worst = 0; vdrops = 0; stressSec = 0; stressWorst = 0; hist.length = 0; acts.length = 0; drawActs(); drawCpu(); };
 $('copy').onclick = () => navigator.clipboard.writeText(lines.join('\n'));
 drawCpu(); drawLayers();

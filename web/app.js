@@ -398,7 +398,16 @@ setInterval(() => {   // knob and switch changes (as the firmware reports them)
   if (sw.mode !== monSw.mode) { if (monSw.mode >= 0) monSend(`CREEKE w 0 ${sw.mode}`); monSw.mode = sw.mode; }
   if (sw.hold !== monSw.hold) { if (monSw.hold >= 0) monSend(`CREEKE w 1 ${sw.hold}`); monSw.hold = sw.hold; }
 }, 50);
-$('monitorBtn').onclick = () => window.open('monitor.html', 'creek-monitor');
+// switch to the other tab without reloading it (a reload would stop the emulator's audio)
+function openTab(url, name) {
+  const w = window.open('', name);
+  if (!w) { window.open(url, name); return; }   // pop-up handling differs: just open it
+  let blank = true;
+  try { blank = !w.location.href || w.location.href === 'about:blank'; } catch (e) { blank = false; }
+  if (blank) w.location.href = url; else w.focus();
+}
+$('monitorBtn').onclick = () => openTab('monitor.html', 'creek-monitor');
+window.name = window.name || 'creek-emulator';   // so the monitor's Emulator button switches back to this tab
 
 // ------------------------------------------------------------------ wiring
 $('power').onclick = () => (running ? stop() : start());
