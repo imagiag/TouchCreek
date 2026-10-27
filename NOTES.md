@@ -4,7 +4,7 @@ Shared log for Claude Code (and Codex, if a website follows, as in TouchPulsar's
 
 ## Layout
 - `web/engine/` — portable JS engine (`creek-engine.js`), constants (`creek-config.js`, the one config file), panel logic (`creek-controls.js`), scenario runner, AudioWorklet wrapper.
-- `web/` — browser audition page (`python3 web/serve.py 8766`, open http://localhost:8766).
+- `web/` — browser audition page (`python3 web/serve.py 8766`, Windows `py -3 web/serve.py 8766`, open http://localhost:8766).
 - `daisy/creek/` — C++ port: `FlowState`, `EventQueue`, `BubbleScheduler`, `BubblePool`, `FlowBed` (noise layers), `SpatialMixer` + `OutputStage`, `CreekEngine`, `Controls`. `config.h` is generated: `node tools/gen-config.js`.
 - `daisy/test/` — `host_test` (acceptance checks), `creek_render` (deterministic offline WAV renders), `compare.js` (C++ vs JS). `make -C daisy/test`, `make -C daisy/test renders`.
 - `scenarios/` — seed + automation for every render (the record the brief asks for).
